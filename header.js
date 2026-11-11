@@ -9,6 +9,21 @@ window.ADMIN_WHITELIST = [
   "darren.lin@twclc.org"
 ];
 
+// 站台切換（僅 Superuser）：Logo 單擊回首頁，雙擊開啟其他站台選單。
+// 三站（DX04、YA、SR）使用同一份 CLC_SITES，只有 CLC_SITE_KEY 不同；新增站台時三站都要加同一筆。
+// 連結一律指向 DX04 底下的網址（同一個網域），在同一個視窗內切換。
+window.CLC_SITE_KEY = 'dx04';
+window.CLC_SITES = [
+  { key: 'dx04', label: 'CLC DX04', url: 'https://clc-dx04.pages.dev/' },
+  { key: 'ya', label: 'CLC YA', url: 'https://clc-dx04.pages.dev/ya/' },
+  { key: 'sr', label: 'CLC SR', url: 'https://clc-dx04.pages.dev/sr/' }
+];
+
+// 將文字放進 innerHTML 前先跳脫。
+window.clcEscapeHtml = function(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+};
+
 window.firebaseConfig = {
   apiKey: "AIzaSyDbLv-XgOD7Q3J_wl81eXOuK9rqNAdzxM8",
   authDomain: "clc-dx04.firebaseapp.com",
@@ -46,6 +61,9 @@ function renderHeaderComponent() {
       #clc-header > div { width: 100% !important; height: 46px !important; min-height: 46px !important; padding: 0 14px !important; box-sizing: border-box !important; display: flex !important; align-items: center !important; justify-content: space-between !important; }
       #clc-header .logo-badge { font-size: 13.5px; height: 34px; line-height: 34px; box-sizing: border-box; padding: 0 12px; border-radius: 9px; font-weight: 800; background: #007E8A; color: white; display: inline-flex; align-items: center; text-decoration: none; letter-spacing: .05em; }
       #clc-header .header-btn { width: 34px; min-width: 34px; height: 34px; border-radius: 9px; font-size: 15px; padding: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+      #clc-header #clcLogoLink { touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+      #clc-header #siteSwitcher { top: 100%; width: 180px; margin-top: 7.5px; padding: 6px 0; border-radius: 11.25px; z-index: 100; }
+      #clc-header #siteSwitcher a { display: block; padding: 9px 15px; font-size: 13.5px; font-weight: 700; }
       #clc-header #adminActiveDot { width: 7px; height: 7px; top: 6px; right: 6px; }
       /* 下拉選單使用與 YA 相同的固定像素尺寸，避免各頁 html font-size 不同造成放大縮小。 */
       #clc-header #adminDropdown { width: 210px; margin-top: 7.5px; padding-top: 7.5px; padding-bottom: 7.5px; border-radius: 11.25px; }
@@ -73,9 +91,17 @@ function renderHeaderComponent() {
   headerContainer.className = "border-b border-slate-200 dark:border-white/10 backdrop-blur-xl bg-white/70 dark:bg-[#090A0F]/70 sticky top-0 z-40";
   headerContainer.innerHTML = `
     <div>
-      <a href="index.html" class="flex items-center" aria-label="CLC DX04 首頁">
-        <div class="logo-badge shadow-sm">CLC DX04</div>
-      </a>
+      <div id="clcLogoWrap" class="relative">
+        <a id="clcLogoLink" href="index.html" onclick="handleLogoClick(event)" class="flex items-center" aria-label="CLC DX04 首頁">
+          <div class="logo-badge shadow-sm">CLC DX04</div>
+        </a>
+        <div id="siteSwitcher" class="hidden absolute left-0 bg-white dark:bg-[#161924] shadow-2xl border border-slate-200 dark:border-white/10 text-left">
+          <div class="px-4 py-1.5 text-[11px] font-bold text-slate-400">切換站台</div>
+          ${window.CLC_SITES.filter(s => s.key !== window.CLC_SITE_KEY).map(s => `
+            <a href="${s.url}" class="text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition">${window.clcEscapeHtml(s.label)}</a>
+          `).join('')}
+        </div>
+      </div>
       <div class="flex items-center gap-1.5">
         <div class="relative">
           <button id="adminLoginBtn" onclick="toggleAdminDropdown()" title="管理員登入 / 狀態" class="header-btn relative bg-slate-200/70 hover:bg-slate-300/70 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-300/60 dark:border-white/10 transition active:scale-95">
@@ -105,6 +131,10 @@ function applyAdminState(active, email, notify = true, viewer = false) {
   const superuser = window.isAdmin && window.ADMIN_WHITELIST.includes(String(email || '').toLowerCase());
   window.currentAdminRole = active ? (viewerOnly ? 'viewer' : (superuser ? 'superuser' : 'admin')) : '';
   window.isSuperuser = superuser;
+  if (!superuser) {
+    const switcher = document.getElementById('siteSwitcher');
+    if (switcher) switcher.classList.add('hidden');
+  }
   const icon = document.getElementById('adminBtnIcon');
   const dot = document.getElementById('adminActiveDot');
   const emailDisp = document.getElementById('adminEmailDisplay');
@@ -172,6 +202,28 @@ window.auth.onAuthStateChanged(user => {
   });
 });
 
+// Logo：一般使用者單擊立即回首頁；Superuser 第一下先等 280ms，
+// 若期間再點一下即視為雙擊並開啟站台選單（不依賴 dblclick 事件，手機雙點也可用）。
+let clcLogoClickTimer = null;
+function handleLogoClick(e) {
+  const switcher = document.getElementById('siteSwitcher');
+  if (!window.isSuperuser || !switcher) return; // 照舊回首頁
+  e.preventDefault();
+  const href = e.currentTarget.getAttribute('href');
+  if (clcLogoClickTimer) {
+    clearTimeout(clcLogoClickTimer);
+    clcLogoClickTimer = null;
+    switcher.classList.toggle('hidden');
+    const admin = document.getElementById('adminDropdown');
+    if (admin) admin.classList.add('hidden');
+    return;
+  }
+  clcLogoClickTimer = setTimeout(() => {
+    clcLogoClickTimer = null;
+    window.location.href = href;
+  }, 280);
+}
+
 function toggleAdminDropdown() {
   if (window.isAdmin || window.isViewer) {
     const dropdown = document.getElementById('adminDropdown');
@@ -215,6 +267,11 @@ document.addEventListener('click', function(e) {
   const dropdown = document.getElementById('adminDropdown');
   if (btn && dropdown && !btn.contains(e.target) && !dropdown.contains(e.target)) {
     dropdown.classList.add('hidden');
+  }
+  const logoWrap = document.getElementById('clcLogoWrap');
+  const switcher = document.getElementById('siteSwitcher');
+  if (logoWrap && switcher && !logoWrap.contains(e.target)) {
+    switcher.classList.add('hidden');
   }
 });
 
