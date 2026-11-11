@@ -10,7 +10,13 @@ window.ADMIN_WHITELIST = [
 ];
 
 window.firebaseConfig = {
-  // 待 Firebase 專案 clc-dx04 建立後填入 Web Config
+  apiKey: "AIzaSyDbLv-XgOD7Q3J_wl81eXOuK9rqNAdzxM8",
+  authDomain: "clc-dx04.firebaseapp.com",
+  projectId: "clc-dx04",
+  storageBucket: "clc-dx04.firebasestorage.app",
+  messagingSenderId: "333844280279",
+  appId: "1:333844280279:web:84e6f122ae00bf010dd192",
+  measurementId: "G-W0HTMJCYXN"
 };
 
 // 初始化 Firebase（保證只初始化一次）
