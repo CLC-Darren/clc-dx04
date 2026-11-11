@@ -1,8 +1,32 @@
 /**
  * CLC DX04 總控台 - 共用 Header (header.js)
  * 外觀與 YA 相同（Logo、深淺模式、尺寸與斷點）。
- * 登入與權限（Superuser／Admin／Viewer）待 DX04 Firebase 專案建立後再接上。
+ * 登入與權限（Superuser／Admin／Viewer）沿用 YA：Superuser 為 ADMIN_WHITELIST，其餘存於 Firestore admin_users/{email}。
  */
+
+window.ADMIN_WHITELIST = [
+  "darren710404@gmail.com",
+  "darren.lin@twclc.org"
+];
+
+window.firebaseConfig = {
+  // 待 Firebase 專案 clc-dx04 建立後填入 Web Config
+};
+
+// 初始化 Firebase（保證只初始化一次）
+if (!firebase.apps.length) {
+  firebase.initializeApp(window.firebaseConfig);
+}
+window.auth = firebase.auth();
+window.db = firebase.firestore();
+window.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+window.isAdmin = false;
+window.currentAdminEmail = "";
+window.currentAdminRole = "";
+window.isSuperuser = false;
+window.isViewer = false;
+window.canViewAdmin = false;
 
 function renderHeaderComponent() {
   const headerContainer = document.getElementById('clc-header');
@@ -16,10 +40,19 @@ function renderHeaderComponent() {
       #clc-header > div { width: 100% !important; height: 46px !important; min-height: 46px !important; padding: 0 14px !important; box-sizing: border-box !important; display: flex !important; align-items: center !important; justify-content: space-between !important; }
       #clc-header .logo-badge { font-size: 13.5px; height: 34px; line-height: 34px; box-sizing: border-box; padding: 0 12px; border-radius: 9px; font-weight: 800; background: #007E8A; color: white; display: inline-flex; align-items: center; text-decoration: none; letter-spacing: .05em; }
       #clc-header .header-btn { width: 34px; min-width: 34px; height: 34px; border-radius: 9px; font-size: 15px; padding: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+      #clc-header #adminActiveDot { width: 7px; height: 7px; top: 6px; right: 6px; }
+      /* 下拉選單使用與 YA 相同的固定像素尺寸，避免各頁 html font-size 不同造成放大縮小。 */
+      #clc-header #adminDropdown { width: 210px; margin-top: 7.5px; padding-top: 7.5px; padding-bottom: 7.5px; border-radius: 11.25px; }
+      #clc-header #adminDropdown > a,
+      #clc-header #adminDropdown > button { padding: 9.375px 15px; font-size: 13.125px; line-height: 18.75px; }
+      #clc-header #adminDropdown #adminEmailDisplay { padding: 7.5px 15px; font-size: 11.25px; line-height: 15px; }
+      #clc-header #adminDropdown > div:not(#adminEmailDisplay) { margin-top: 5.625px; margin-bottom: 5.625px; }
       @media (min-width: 640px) {
         #clc-header > div { height: 48px !important; min-height: 48px !important; padding: 0 20px !important; }
         #clc-header .logo-badge { font-size: 14px; height: 36px; line-height: 36px; padding: 0 14px; border-radius: 10px; }
         #clc-header .header-btn { width: 36px; min-width: 36px; height: 36px; border-radius: 10px; font-size: 16px; }
+        #clc-header #adminDropdown > a,
+        #clc-header #adminDropdown > button { font-size: 15px; }
       }
       @media (min-width: 1024px) {
         #clc-header > div { padding-left: 24px !important; padding-right: 24px !important; }
@@ -38,11 +71,146 @@ function renderHeaderComponent() {
         <div class="logo-badge shadow-sm">CLC DX04</div>
       </a>
       <div class="flex items-center gap-1.5">
+        <div class="relative">
+          <button id="adminLoginBtn" onclick="toggleAdminDropdown()" title="管理員登入 / 狀態" class="header-btn relative bg-slate-200/70 hover:bg-slate-300/70 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-300/60 dark:border-white/10 transition active:scale-95">
+            <span id="adminBtnIcon">🔐</span>
+            <span id="adminActiveDot" class="hidden absolute rounded-full bg-amber-400 animate-pulse"></span>
+          </button>
+          <div id="adminDropdown" class="hidden absolute right-0 bg-white dark:bg-[#161924] shadow-2xl border border-slate-200 dark:border-white/10 z-50 text-left">
+            <div id="adminEmailDisplay" class="font-bold text-slate-400 border-b border-slate-100 dark:border-white/5 truncate">管理員已登入</div>
+            <a href="admin-users.html" class="block font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition">👤 權限管理</a>
+            <div class="border-t border-slate-100 dark:border-white/5"></div>
+            <button onclick="handleAdminLogout()" class="w-full text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 font-bold transition">🚪 登出管理員</button>
+          </div>
+        </div>
         <button onclick="toggleTheme()" aria-label="切換深淺模式" class="header-btn bg-slate-200/70 hover:bg-slate-300/70 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-300/60 dark:border-white/10 transition active:scale-95"><span class="dark:hidden">🌙</span><span class="hidden dark:inline">☀️</span></button>
       </div>
     </div>
   `;
 }
+
+function applyAdminState(active, email, notify = true, viewer = false) {
+  // active = 已授權可進入後台；viewer = 唯讀檢視者（可看後台、不可編輯）
+  const viewerOnly = !!(active && viewer);
+  window.isAdmin = !!active && !viewerOnly;
+  window.isViewer = viewerOnly;
+  window.canViewAdmin = !!active;
+  window.currentAdminEmail = email;
+  const superuser = window.isAdmin && window.ADMIN_WHITELIST.includes(String(email || '').toLowerCase());
+  window.currentAdminRole = active ? (viewerOnly ? 'viewer' : (superuser ? 'superuser' : 'admin')) : '';
+  window.isSuperuser = superuser;
+  const icon = document.getElementById('adminBtnIcon');
+  const dot = document.getElementById('adminActiveDot');
+  const emailDisp = document.getElementById('adminEmailDisplay');
+
+  if (icon && dot) {
+    if (active) {
+      icon.innerText = viewerOnly ? "👁️" : "👑";
+      dot.classList.remove('hidden');
+      if (emailDisp) emailDisp.innerText = email + (viewerOnly ? ' · Viewer（唯讀）' : (superuser ? ' · Superuser' : ' · Admin'));
+    } else {
+      icon.innerText = "🔐";
+      dot.classList.add('hidden');
+      const dropdown = document.getElementById('adminDropdown');
+      if (dropdown) dropdown.classList.add('hidden');
+    }
+  }
+
+  if (notify) {
+    window.dispatchEvent(new CustomEvent('clc-admin-changed', {
+      detail: { isAdmin: window.isAdmin, isViewer: window.isViewer, canView: !!active, email: email }
+    }));
+  }
+}
+
+// 回傳 'admin'（可編輯）、'viewer'（唯讀）或 null（無權限）。
+window.clcGetAdminRole = async function(user) {
+  if (!user || !user.email || !user.emailVerified) return null;
+  const email = user.email.toLowerCase().trim();
+  if (window.ADMIN_WHITELIST.includes(email)) return 'admin';
+  try {
+    const snap = await window.db.collection('admin_users').doc(email).get();
+    if (!snap.exists) return null;
+    const d = snap.data();
+    if (d.active === false || (d.email && d.email !== email)) return null;
+    return (d.role === 'admin' || d.role === 'viewer') ? d.role : null;
+  } catch (err) { console.warn('管理員權限讀取失敗', err); return null; }
+};
+
+let clcAdminPermissionUnsubscribe = null;
+window.auth.onAuthStateChanged(user => {
+  if (clcAdminPermissionUnsubscribe) {
+    clcAdminPermissionUnsubscribe();
+    clcAdminPermissionUnsubscribe = null;
+  }
+  // 驗證過程先關閉操作權限，但不要發出暫時「未授權」事件讓後台誤跳轉。
+  applyAdminState(false, '', false);
+  if (!user || !user.email || !user.emailVerified) {
+    applyAdminState(false, '');
+    return;
+  }
+  const email = user.email.toLowerCase().trim();
+  if (window.ADMIN_WHITELIST.includes(email)) {
+    applyAdminState(true, email);
+    return;
+  }
+  // 動態 Admin 的停用與刪除立即同步到各分頁。
+  clcAdminPermissionUnsubscribe = window.db.collection('admin_users').doc(email).onSnapshot(snap => {
+    if (window.auth.currentUser?.uid !== user.uid) return;
+    const data = snap.exists ? snap.data() : null;
+    const allowed = !!(data && (data.role === 'admin' || data.role === 'viewer') && data.active !== false && (!data.email || data.email === email));
+    applyAdminState(allowed, allowed ? email : '', true, allowed && data.role === 'viewer');
+  }, err => {
+    console.warn('無法驗證管理員權限：', err);
+    if (window.auth.currentUser?.uid === user.uid) applyAdminState(false, '');
+  });
+});
+
+function toggleAdminDropdown() {
+  if (window.isAdmin || window.isViewer) {
+    const dropdown = document.getElementById('adminDropdown');
+    if (dropdown) dropdown.classList.toggle('hidden');
+  } else {
+    triggerAdminLogin();
+  }
+}
+
+async function triggerAdminLogin() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try {
+    const result = await window.auth.signInWithPopup(provider);
+    const email = result.user.email.toLowerCase();
+    const loginRole = await window.clcGetAdminRole(result.user);
+    if (loginRole) {
+      applyAdminState(true, email, true, loginRole === 'viewer');
+      alert(loginRole === 'viewer' ? `歡迎，${result.user.displayName || email}！目前為唯讀檢視權限。` : `歡迎回來，管理員 ${result.user.displayName || email}！`);
+    } else {
+      await window.auth.signOut();
+      applyAdminState(false, "");
+      alert(`帳號【${email}】非授權管理員！`);
+    }
+  } catch (error) {
+    console.error("登入錯誤:", error);
+    if (!['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(error?.code)) {
+      alert('管理員登入未完成，請確認網路連線與瀏覽器是否允許 Google 登入彈出視窗。');
+    }
+  }
+}
+
+async function handleAdminLogout() {
+  if (confirm("確定要登出管理員身分嗎？")) {
+    await window.auth.signOut();
+    applyAdminState(false, "");
+  }
+}
+
+document.addEventListener('click', function(e) {
+  const btn = document.getElementById('adminLoginBtn');
+  const dropdown = document.getElementById('adminDropdown');
+  if (btn && dropdown && !btn.contains(e.target) && !dropdown.contains(e.target)) {
+    dropdown.classList.add('hidden');
+  }
+});
 
 function toggleTheme() {
   const html = document.documentElement;

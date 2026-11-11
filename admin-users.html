@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"><title>CLC DX04 | 權限管理</title><link rel="manifest" href="/manifest.json"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script>
+    // 優先使用曾經手動選擇的主題；第一次使用時跟隨系統設定。
+    (function () {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+      function savedTheme() {
+        const value = localStorage.getItem('theme');
+        return value === 'light' || value === 'dark' ? value : null;
+      }
+      function applyTheme() {
+        const chosen = savedTheme();
+        document.documentElement.classList.toggle('dark', chosen ? chosen === 'dark' : systemTheme.matches);
+      }
+      applyTheme();
+      function onSystemThemeChange() {
+        if (!savedTheme()) applyTheme();
+      }
+      if (typeof systemTheme.addEventListener === 'function') {
+        systemTheme.addEventListener('change', onSystemThemeChange);
+      } else if (typeof systemTheme.addListener === 'function') {
+        systemTheme.addListener(onSystemThemeChange);
+      }
+    })();
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' };</script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet"><style>html{font-size:15px;font-family:"Plus Jakarta Sans","Noto Sans TC",sans-serif}#clc-header{font-family:"Plus Jakarta Sans","Noto Sans TC",sans-serif}body{background:#090a0f;color:#f1f5f9}.field{background:#161924;border:1px solid #334155;border-radius:10px;padding:11px;width:100%}.primary{background:#007e8a;color:white;padding:10px 17px;border-radius:10px;font-weight:700}button:disabled{opacity:.5}html:not(.dark) body{background:#f8fafc;color:#1e293b}html:not(.dark) .field{background:#fff;border-color:#cbd5e1;color:#1e293b}html:not(.dark) .border-slate-700,html:not(.dark) .border-slate-600{border-color:#cbd5e1}html:not(.dark) .text-teal-300{color:#0f766e}html:not(.dark) .text-rose-400{color:#be123c}</style></head>
+<body class="min-h-screen"><header id="clc-header"></header><main class="max-w-3xl mx-auto px-4 py-7 space-y-5">
+<h1 class="text-xl font-extrabold">👤 權限管理</h1><p class="text-sm text-slate-400">新增 DX04 授權管理員。新增者需使用相同 Google Email 登入；此處不會建立 Google 密碼或寄送邀請信。</p>
+<div id="access" class="rounded-xl p-4 border border-slate-700 text-sm">正在驗證管理員身分…</div>
+<section id="mainPanel" class="hidden space-y-5"><div id="viewerNote" class="hidden rounded-xl p-3 border border-sky-500/30 bg-sky-500/10 text-sm text-sky-300">👁️ 目前為唯讀檢視權限：可查看管理員名單，無法新增或修改。</div><form id="addForm" class="rounded-xl border border-slate-700 p-4 space-y-3"><h2 class="font-bold">新增管理員</h2><label class="text-sm block">Google 帳號 Email<input class="field mt-1" id="newEmail" type="email" placeholder="name@example.com" required></label><label class="text-sm block">權限等級<select class="field mt-1" id="newRole"><option value="admin">管理員（可編輯）</option><option value="viewer">檢視者（唯讀，可看後台但不能修改）</option></select></label><button class="primary" type="submit">新增管理員</button></form>
+<section class="rounded-xl border border-slate-700 p-4"><div class="flex items-center justify-between gap-3 mb-3"><h2 class="font-bold">管理員名單</h2><span id="usersCount" class="text-xs text-slate-400"></span></div><p id="usersListStatus" role="status" aria-live="polite" class="text-xs text-slate-400 mb-3"></p><div id="usersList" class="space-y-2 text-sm"></div></section>
+</section></main>
+<script src="header.js"></script><script src="admin-users.js"></script></body></html>

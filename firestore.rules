@@ -1,0 +1,57 @@
+rules_version = '2';
+// CLC DX04｜Firestore 規則（權限模型沿用 YA：Superuser／Admin／Viewer）
+// 只提交 GitHub 不會自動變更 Firebase 線上規則：請到 Firebase Console → Firestore → 規則，貼上本檔內容並發布。
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- 共用函式 ----------
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function bootstrapAdmin() {
+      return signedIn() && myEmail() in ['darren710404@gmail.com', 'darren.lin@twclc.org'];
+    }
+    function adminDoc() {
+      return get(/databases/$(database)/documents/admin_users/$(myEmail())).data;
+    }
+    function hasAdminDoc() {
+      return exists(/databases/$(database)/documents/admin_users/$(myEmail()));
+    }
+    function isAdmin() {
+      return signedIn() && (bootstrapAdmin() ||
+        (hasAdminDoc() && adminDoc().role == 'admin' && adminDoc().active == true));
+    }
+    function isViewer() {
+      return signedIn() && !bootstrapAdmin() &&
+        hasAdminDoc() && adminDoc().role == 'viewer' && adminDoc().active == true;
+    }
+    function isBootstrapId(id) {
+      return id in ['darren710404@gmail.com', 'darren.lin@twclc.org'];
+    }
+
+    // ---------- 管理員名單 ----------
+    match /admin_users/{email} {
+      // 登入時需要讀「自己的」文件來判斷權限；名單列表只有管理員 / 檢視者可讀。
+      allow get: if signedIn() && (myEmail() == email || isAdmin() || isViewer());
+      allow list: if isAdmin() || isViewer();
+
+      // 只有管理員可新增 / 修改；欄位與權限值固定；文件 ID 必須是小寫 Email；初始管理員不另建文件。
+      allow create, update: if isAdmin()
+        && email == email.lower()
+        && !isBootstrapId(email)
+        && request.resource.data.keys().hasOnly(['role', 'active', 'updatedAt', 'email'])
+        && request.resource.data.keys().hasAll(['role', 'active'])
+        && request.resource.data.role in ['admin', 'viewer']
+        && request.resource.data.active is bool;
+
+      // 初始管理員不可刪除。
+      allow delete: if isAdmin() && !isBootstrapId(email);
+    }
+
+    // 其他集合一律關閉，之後有新功能再個別開放。
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
