@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>CLC DX04 | 總控台</title>
+
+  <!-- PWA 設定 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CLC DX04">
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '"Noto Sans TC"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              teal: '#007E8A',
+              tealHover: '#006C77',
+              surface: '#11131B',
+              card: '#161924',
+              border: 'rgba(255, 255, 255, 0.1)',
+              muted: '#8A92A6',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    html { font-size: 16px; }
+    @media (min-width: 1024px) { html { font-size: 19px; } }
+    body {
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+  </style>
+
+  <!-- 深淺主題預載防閃爍（與 YA 相同） -->
+  <script>
+    (function () {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+      function savedTheme() {
+        const value = localStorage.getItem('theme');
+        return value === 'light' || value === 'dark' ? value : null;
+      }
+      function applyTheme() {
+        const chosen = savedTheme();
+        document.documentElement.classList.toggle('dark', chosen ? chosen === 'dark' : systemTheme.matches);
+      }
+      applyTheme();
+      function onSystemThemeChange() {
+        if (!savedTheme()) applyTheme();
+      }
+      if (typeof systemTheme.addEventListener === 'function') {
+        systemTheme.addEventListener('change', onSystemThemeChange);
+      } else if (typeof systemTheme.addListener === 'function') {
+        systemTheme.addListener(onSystemThemeChange);
+      }
+    })();
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-[#090A0F] dark:text-slate-100 min-h-screen flex flex-col justify-between selection:bg-[#007E8A] selection:text-white">
+
+  <header id="clc-header"></header>
+
+  <main class="max-w-4xl w-full mx-auto px-6 py-10 lg:py-16 flex-1 flex flex-col justify-center items-center text-center">
+    <div class="max-w-2xl mx-auto w-full space-y-6 lg:space-y-8">
+
+      <div class="space-y-3 lg:space-y-4">
+        <p class="text-xs lg:text-sm font-bold tracking-[0.3em] text-[#007E8A] dark:text-[#00A3B4] uppercase">
+          CLC Control Panel
+        </p>
+        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
+          總控台
+        </h1>
+        <p class="text-sm lg:text-base text-slate-600 dark:text-[#8A92A6] font-normal leading-relaxed max-w-lg mx-auto">
+          所有分站的統一入口，相關功能將陸續整合。
+        </p>
+      </div>
+
+      <!-- 分站入口：手機 2 欄、電腦 4 欄，最右為虛線預留位置 -->
+      <div id="siteGrid" class="pt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 w-full max-w-[300px] sm:max-w-[700px] mx-auto">
+
+        <a href="https://clc-ya-portal.pages.dev/" class="w-full aspect-square flex flex-col items-center justify-center p-3 rounded-3xl bg-[#007E8A] hover:bg-[#006C77] text-white shadow-lg shadow-[#007E8A]/20 transition-all duration-300 active:scale-95 group">
+          <span class="text-3xl sm:text-4xl mb-2 sm:mb-3 transform group-hover:scale-110 transition">🌱</span>
+          <span class="text-sm lg:text-base font-extrabold tracking-tight whitespace-nowrap">CLC YA</span>
+        </a>
+
+        <a href="https://clc-sr-portal.pages.dev/" class="w-full aspect-square flex flex-col items-center justify-center p-3 rounded-3xl bg-[#007E8A] hover:bg-[#006C77] text-white shadow-lg shadow-[#007E8A]/20 transition-all duration-300 active:scale-95 group">
+          <span class="text-3xl sm:text-4xl mb-2 sm:mb-3 transform group-hover:scale-110 transition">🤝</span>
+          <span class="text-sm lg:text-base font-extrabold tracking-tight whitespace-nowrap">CLC SR</span>
+        </a>
+
+        <div class="w-full aspect-square flex flex-col items-center justify-center p-3 rounded-3xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-[#007E8A] dark:hover:border-teal-500/50 bg-slate-50/50 dark:bg-white/[0.02] text-slate-400 dark:text-slate-500 hover:text-[#007E8A] dark:hover:text-teal-400 transition-all duration-300 cursor-default select-none">
+          <span class="text-4xl sm:text-5xl font-light leading-none">+</span>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="border-t border-slate-200 dark:border-white/10 py-3.5 text-center text-[10px] md:text-xs text-slate-500 dark:text-brand-muted">
+    <p>© 2026 CLC. Powered by Cloudflare &amp; GitHub.</p>
+  </footer>
+
+  <script src="header.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW 失敗', err));
+      });
+    }
+  </script>
+</body>
+</html>
