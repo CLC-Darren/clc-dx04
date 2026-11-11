@@ -237,6 +237,10 @@ async function triggerAdminLogin() {
   const provider = new firebase.auth.GoogleAuthProvider();
   try {
     const result = await window.auth.signInWithPopup(provider);
+    // 保存 Google 身分憑證，供掛在 DX04 底下的分站自動登入（clc-sso.js）。
+    if (window.CLCSSO && result.credential && result.credential.idToken) {
+      window.CLCSSO.saveGoogleIdToken(result.credential.idToken);
+    }
     const email = result.user.email.toLowerCase();
     const loginRole = await window.clcGetAdminRole(result.user);
     if (loginRole) {
@@ -256,7 +260,8 @@ async function triggerAdminLogin() {
 }
 
 async function handleAdminLogout() {
-  if (confirm("確定要登出管理員身分嗎？")) {
+  if (confirm("確定要登出管理員身分嗎？\n（DX04、YA、SR 會一起登出）")) {
+    if (window.CLCSSO) await window.CLCSSO.logoutAll();
     await window.auth.signOut();
     applyAdminState(false, "");
   }

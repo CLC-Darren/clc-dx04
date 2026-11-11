@@ -44,7 +44,7 @@ async function proxy(request, site, url) {
   const upstream = await fetch(upstreamUrl, init);
 
   const location = upstream.headers.get('location');
-  if (!location) return upstream;
+  if (!location) return injectSso(upstream, site.key);
 
   const outHeaders = new Headers(upstream.headers);
   outHeaders.set('location', rewriteLocation(location, upstreamUrl, site.prefix, url.origin));
@@ -53,6 +53,15 @@ async function proxy(request, site, url) {
     statusText: upstream.statusText,
     headers: outHeaders
   });
+}
+
+// 分站的 HTML 頁面自動插入 DX04 單一登入程式（/clc-sso.js），分站程式不用修改。
+function injectSso(res, key) {
+  const type = res.headers.get('content-type') || '';
+  if (res.status !== 200 || type.indexOf('text/html') === -1 || typeof HTMLRewriter === 'undefined') return res;
+  return new HTMLRewriter().on('head', {
+    element(el) { el.append(`<script src="/clc-sso.js" data-clc-site="${key}" defer></script>`, { html: true }); }
+  }).transform(res);
 }
 
 export default {
