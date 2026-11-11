@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>CLC Header 一致性檢查</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #090a0f; color: #e2e8f0; font: 14px/1.5 "Plus Jakarta Sans", "Noto Sans TC", system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  p { color: #94a3b8; margin: 0 0 14px; }
+  button { background: #007e8a; color: #fff; border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 700; font-size: 14px; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  #summary { margin: 16px 0; padding: 12px 14px; border-radius: 10px; border: 1px solid #334155; font-weight: 700; }
+  #summary.pass { border-color: #059669; background: rgba(5,150,105,.12); color: #6ee7b7; }
+  #summary.fail { border-color: #e11d48; background: rgba(225,29,72,.12); color: #fda4af; }
+  .wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { border-bottom: 1px solid #1e293b; padding: 6px 8px; text-align: left; white-space: nowrap; }
+  th { color: #94a3b8; font-weight: 600; position: sticky; top: 0; background: #090a0f; }
+  td.bad { color: #fda4af; font-weight: 700; }
+  td.ok { color: #6ee7b7; }
+  #stage { position: fixed; left: -10000px; top: 0; }
+  #stage iframe { height: 160px; border: 0; display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Header 一致性檢查</h1>
+  <p>在手機、平板、電腦四種寬度下，量測 DX04、YA、SR 各頁的 Header 高度與 Logo 位置、高度、字級、左右邊距，並與 YA 首頁比對。差距超過 0.5px 即標示為不一致。Logo 寬度會因文字不同而不同，不列入比對。</p>
+  <p>新增站台或頁面時，在下方 <code>PAGES</code> 清單加一筆即可。</p>
+  <button id="run">開始檢查</button>
+  <div id="summary" hidden></div>
+  <div class="wrap"><table id="result" hidden>
+    <thead><tr><th>寬度</th><th>頁面</th><th>Header 高</th><th>Logo X</th><th>Logo Y</th><th>Logo 高</th><th>Logo 字級</th><th>右邊距</th><th>結果</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+</main>
+<div id="stage" aria-hidden="true"></div>
+<script>
+  // 第一筆為比對基準（YA 首頁）。
+  const PAGES = [
+    '/ya/', '/ya/venue.html', '/ya/signup.html', '/ya/hymn-lyrics.html',
+    '/ya/admin-users.html', '/ya/admin-hymns.html', '/ya/admin-venues.html',
+    '/sr/', '/sr/hymn-lyrics.html', '/sr/members.html', '/sr/members-admin.html', '/sr/join.html',
+    '/sr/groups.html', '/sr/intakes.html', '/sr/admin-users.html', '/sr/admin-hymns.html',
+    '/', '/admin-users.html'
+  ];
+  const WIDTHS = [375, 768, 1280, 1600];
+  const TOLERANCE = 0.5;
+  const KEYS = ['headerH', 'logoX', 'logoY', 'logoH', 'logoFont', 'rightGap'];
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const round = v => Math.round(v * 10) / 10;
+
+  function loadFrame(path, width) {
+    return new Promise(resolve => {
+      const f = document.createElement('iframe');
+      f.style.width = width + 'px';
+      f.src = path + (path.includes('?') ? '&' : '?') + 'header-check=' + Date.now();
+      f.onload = () => resolve(f);
+      document.getElementById('stage').appendChild(f);
+      setTimeout(() => resolve(f), 20000);
+    });
+  }
+
+  async function measure(frame) {
+    const deadline = Date.now() + 15000;
+    let doc, header, logo;
+    while (Date.now() < deadline) {
+      try {
+        doc = frame.contentDocument;
+        header = doc && doc.getElementById('clc-header');
+        logo = header && (header.querySelector('#clcLogoLink > div') || header.querySelector(':scope > div > a > div'));
+        if (logo && doc.readyState === 'complete') break;
+      } catch (e) { return { error: '無法讀取（不同網域？）' }; }
+      await sleep(200);
+    }
+    if (!logo) return { error: '找不到 Header 或 Logo' };
+    await sleep(400); // 等字型與樣式套用
+    // 分站在 iframe 內會自動隱藏 Header（避免內嵌時出現兩個 Header）；檢查時暫時顯示出來量測。
+    header.style.removeProperty('display');
+    const win = frame.contentWindow;
+    const inner = header.firstElementChild;
+    const right = inner && inner.lastElementChild;
+    const hb = header.getBoundingClientRect();
+    const lb = logo.getBoundingClientRect();
+    const rb = right ? right.getBoundingClientRect() : null;
+    return {
+      headerH: round(hb.height),
+      logoX: round(lb.left - hb.left),
+      logoY: round(lb.top - hb.top),
+      logoH: round(lb.height),
+      logoFont: round(parseFloat(win.getComputedStyle(logo).fontSize)),
+      rightGap: rb ? round(hb.right - rb.right) : null
+    };
+  }
+
+  async function run() {
+    const btn = document.getElementById('run');
+    const tbody = document.querySelector('#result tbody');
+    const summary = document.getElementById('summary');
+    btn.disabled = true;
+    tbody.innerHTML = '';
+    document.getElementById('result').hidden = false;
+    summary.hidden = false; summary.className = ''; summary.textContent = '檢查中…';
+    let failures = 0;
+
+    for (const width of WIDTHS) {
+      const stage = document.getElementById('stage');
+      stage.innerHTML = '';
+      const frames = await Promise.all(PAGES.map(p => loadFrame(p, width)));
+      const results = [];
+      for (const f of frames) results.push(await measure(f));
+      const base = results[0];
+
+      PAGES.forEach((path, i) => {
+        const r = results[i];
+        const tr = document.createElement('tr');
+        const cells = [`${width}px`, path];
+        let ok = !r.error && !base.error;
+        const tds = KEYS.map(k => {
+          if (r.error) return '<td>—</td>';
+          const diff = base[k] == null || r[k] == null ? 0 : Math.abs(r[k] - base[k]);
+          const bad = diff > TOLERANCE;
+          if (bad) ok = false;
+          return `<td class="${bad ? 'bad' : ''}">${r[k] ?? '—'}</td>`;
+        });
+        if (!ok) failures++;
+        tr.innerHTML = cells.map(c => `<td>${c}</td>`).join('') + tds.join('') +
+          `<td class="${ok ? 'ok' : 'bad'}">${r.error ? r.error : (ok ? '一致' : '不一致')}</td>`;
+        tbody.appendChild(tr);
+      });
+      summary.textContent = `檢查中…（已完成 ${width}px）`;
+    }
+
+    document.getElementById('stage').innerHTML = '';
+    summary.className = failures ? 'fail' : 'pass';
+    summary.textContent = failures
+      ? `❌ 有 ${failures} 項與 YA 首頁不一致（紅字為差異欄位）`
+      : `✅ 全部一致：${PAGES.length} 頁 × ${WIDTHS.length} 種寬度`;
+    btn.disabled = false;
+  }
+
+  document.getElementById('run').addEventListener('click', run);
+  if (new URLSearchParams(location.search).has('auto')) run();
+</script>
+</body>
+</html>
