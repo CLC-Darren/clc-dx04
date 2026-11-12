@@ -110,6 +110,14 @@
     .dark .todo-row { border-bottom-color:rgba(255,255,255,.06); }
     .todo-list .todo-row:last-child { border-bottom:0; }
     .todo-row .todo-item { flex:1; min-width:0; cursor:default; }
+    .todo-row { position:relative; touch-action:pan-y; }
+    .todo-row > * { transform:translateX(var(--swipe,0px)); transition:transform .2s; }
+    .todo-row.is-swiping > * { transition:none; }
+    .todo-row.is-swiping, .todo-row.is-removing { background:linear-gradient(90deg,#e11d48 var(--swipe,0px),transparent var(--swipe,0px)); border-radius:10px; }
+    .todo-row.is-swiping::before { content:"刪除"; position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#fff; font-size:.8125rem; font-weight:700; opacity:.6; }
+    .todo-row.will-delete::before { opacity:1; }
+    .todo-row.is-removing { opacity:0; transition:opacity .18s; }
+    @media (hover:none) { .todo-del { display:none; } }
     .todo-ck-hit { display:grid; place-content:center; margin:-11px; padding:11px; cursor:pointer; flex:none; }
     .todo-ck-hit .todo-ck { margin-top:0; }
     .todo-text { cursor:text; border-radius:6px; }
@@ -614,7 +622,46 @@
         del.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
         del.addEventListener('click', () => removeTodo(todo));
         li.append(label, del);
+        enableSwipeDelete(li, todo);
         return li;
+      }
+      // 手機：往右滑過一半寬度就刪除（不顯示 ×，避免誤刪）
+      function enableSwipeDelete(li, todo) {
+        let start = null, dx = 0, active = false;
+        li.addEventListener('pointerdown', e => {
+          if (e.pointerType !== 'touch' || e.target.closest('.todo-edit')) return;
+          start = { x: e.clientX, y: e.clientY }; dx = 0; active = false;
+        });
+        li.addEventListener('pointermove', e => {
+          if (!start) return;
+          const mx = e.clientX - start.x, my = e.clientY - start.y;
+          if (!active) {
+            if (Math.abs(my) > 10 && Math.abs(my) > Math.abs(mx)) { start = null; return; }
+            if (mx > 12 && mx > Math.abs(my)) { active = true; li.classList.add('is-swiping'); try { li.setPointerCapture(e.pointerId); } catch (_) {} }
+            else return;
+          }
+          dx = Math.max(0, mx);
+          li.style.setProperty('--swipe', dx + 'px');
+          li.classList.toggle('will-delete', dx > li.offsetWidth * 0.5);
+        });
+        const end = () => {
+          if (!start) return;
+          start = null;
+          if (!active) return;
+          li.classList.remove('is-swiping');
+          if (dx > li.offsetWidth * 0.5) {
+            li.style.setProperty('--swipe', li.offsetWidth + 'px');
+            li.classList.add('is-removing');
+            setTimeout(() => removeTodo(todo), 180);
+          } else {
+            li.style.setProperty('--swipe', '0px');
+            li.classList.remove('will-delete');
+          }
+        };
+        li.addEventListener('pointerup', end);
+        li.addEventListener('pointercancel', end);
+        // 滑動後放開不要觸發點文字修改
+        li.addEventListener('click', e => { if (active) { e.stopPropagation(); e.preventDefault(); active = false; } }, true);
       }
       function group(title, cls, items, opts) {
         if (!items.length) return;
