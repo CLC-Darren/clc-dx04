@@ -112,7 +112,7 @@
 
     <div class="space-y-1.5">
       <p class="text-xs lg:text-sm font-bold tracking-[0.3em] text-[#007E8A] dark:text-[#00A3B4] uppercase">CLC Control Panel</p>
-      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Good morning DX04</h1>
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Good Morning DX04</h1>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-[1.45fr_1fr] gap-6 items-stretch">
@@ -172,7 +172,7 @@
         <!-- 時間、日期、天氣 -->
         <section aria-label="時間與天氣" class="flex-1 rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-5">
           <div>
-            <p id="clockTime" class="text-5xl sm:text-6xl font-extrabold tracking-tight tabular-nums text-slate-900 dark:text-white">--:--</p>
+            <p class="flex items-baseline gap-1 font-extrabold tracking-tight tabular-nums text-slate-900 dark:text-white"><span id="clockTime" class="text-5xl sm:text-6xl">--:--</span><span id="clockSec" class="text-2xl sm:text-3xl text-slate-400 dark:text-brand-muted">:--</span></p>
             <p id="clockDate" class="mt-1 text-base text-slate-500 dark:text-brand-muted">&nbsp;</p>
           </div>
           <div class="border-t border-slate-100 dark:border-white/[0.06] pt-5 flex items-center gap-4">
@@ -192,20 +192,35 @@
   </footer>
 
   <script>
-    // 時鐘與日期（台北時間）
+    // 時鐘與日期（台北時間）：以 Cloudflare 伺服器時間校正，不受本機時鐘誤差影響
     (function () {
       const timeEl = document.getElementById('clockTime');
+      const secEl = document.getElementById('clockSec');
       const dateEl = document.getElementById('clockDate');
       const tz = 'Asia/Taipei';
-      const fmtTime = new Intl.DateTimeFormat('zh-TW', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+      const fmtTime = new Intl.DateTimeFormat('zh-TW', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
       const fmtDate = new Intl.DateTimeFormat('zh-TW', { timeZone: tz, year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+      let offset = 0; // 伺服器時間 − 本機時間（毫秒）
+      async function syncTime() {
+        try {
+          const t0 = Date.now();
+          const res = await fetch('/favicon.svg?t=' + t0, { method: 'HEAD', cache: 'no-store' });
+          const t1 = Date.now();
+          const server = Date.parse(res.headers.get('date'));
+          if (!isNaN(server)) offset = server + 500 - (t0 + t1) / 2; // Date 只到秒，補半秒
+        } catch (_) { /* 連不到時沿用本機時間 */ }
+      }
       function tick() {
-        const now = new Date();
-        timeEl.textContent = fmtTime.format(now);
+        const now = new Date(Date.now() + offset);
+        const parts = Object.fromEntries(fmtTime.formatToParts(now).map(p => [p.type, p.value]));
+        timeEl.textContent = parts.hour + ':' + parts.minute;
+        secEl.textContent = ':' + parts.second;
         dateEl.textContent = fmtDate.format(now);
+        setTimeout(tick, 1000 - (now.getTime() % 1000) + 5);
       }
       tick();
-      setInterval(tick, 1000);
+      syncTime();
+      setInterval(syncTime, 10 * 60 * 1000);
     })();
 
     // 天氣：Open-Meteo（免金鑰），位置為板橋，每 30 分鐘更新
@@ -253,7 +268,8 @@
         } catch (err) {
           console.warn('天氣讀取失敗', err);
           setIcon('cloud');
-          document.getElementById('wxDesc').textContent = '天氣暫時無法讀取';
+          document.getElementById('wxDesc').textContent = '天氣暫時無法讀取，稍後重試';
+          setTimeout(load, 2 * 60 * 1000);
         }
       }
       load();
