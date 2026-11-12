@@ -56,6 +56,28 @@
       -webkit-tap-highlight-color: transparent;
       transition: background-color 0.3s ease, color 0.3s ease;
     }
+    /* 待辦勾選圈與 App 格子 */
+    .todo-item { display:flex; align-items:flex-start; gap:14px; min-height:44px; padding:8px 4px; cursor:pointer; }
+    .todo-text { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+    .todo-title { font-size:1rem; color:#0f172a; }
+    .dark .todo-title { color:#fff; }
+    .todo-meta { font-size:0.8125rem; color:#64748b; }
+    .dark .todo-meta { color:#8A92A6; }
+    .todo-ck { appearance:none; -webkit-appearance:none; flex:none; width:22px; height:22px; margin-top:1px; border-radius:50%; border:2px solid #94a3b8; display:grid; place-content:center; cursor:pointer; background:transparent; transition:all .15s; }
+    .dark .todo-ck { border-color:#4B5263; }
+    .todo-ck.p1, .dark .todo-ck.p1 { border-color:#FB923C; }
+    .todo-ck:checked, .dark .todo-ck:checked { background:#007E8A; border-color:#007E8A; }
+    .todo-ck:checked::after { content:""; width:5px; height:10px; border:solid #fff; border-width:0 2px 2px 0; transform:translateY(-1px) rotate(45deg); }
+    .todo-ck:focus-visible { outline:2px solid #00A3B4; outline-offset:2px; }
+    .todo-item:has(.todo-ck:checked) .todo-title { text-decoration:line-through; opacity:.5; }
+    .app-tile { aspect-ratio:1; display:block; border-radius:22%; transition:transform .2s; }
+    .app-tile:hover { transform:scale(1.05); }
+    .app-tile:active { transform:scale(.95); }
+    .app-tile:focus-visible { outline:2px solid #00A3B4; outline-offset:3px; }
+    .app-logo, .app-fallback { display:block; width:100%; height:100%; border-radius:22%; object-fit:cover; }
+    .app-fallback { display:grid; place-content:center; background:#007E8A; color:#fff; font-weight:800; font-size:1.5rem; }
+    .app-slot { aspect-ratio:1; border-radius:22%; border:2px dashed #cbd5e1; color:#94a3b8; display:grid; place-content:center; font-size:1.75rem; font-weight:300; user-select:none; }
+    .dark .app-slot { border-color:#334155; color:#475569; }
   </style>
 
   <!-- 深淺主題預載防閃爍（與 YA 相同） -->
@@ -86,40 +108,82 @@
 
   <header id="clc-header"></header>
 
-  <main class="max-w-4xl w-full mx-auto px-6 py-10 lg:py-16 flex-1 flex flex-col justify-center items-center text-center">
-    <div class="max-w-2xl mx-auto w-full space-y-6 lg:space-y-8">
+  <main class="max-w-6xl w-full mx-auto px-5 sm:px-8 py-8 lg:py-12 flex-1 flex flex-col gap-6 lg:gap-8">
 
-      <div class="space-y-3 lg:space-y-4">
-        <p class="text-xs lg:text-sm font-bold tracking-[0.3em] text-[#007E8A] dark:text-[#00A3B4] uppercase">
-          CLC Control Panel
-        </p>
-        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
-          總控台
-        </h1>
-        <p class="text-sm lg:text-base text-slate-600 dark:text-[#8A92A6] font-normal leading-relaxed max-w-lg mx-auto">
-          所有分站的統一入口，相關功能將陸續整合。
-        </p>
-      </div>
+    <div class="space-y-1.5">
+      <p class="text-xs lg:text-sm font-bold tracking-[0.3em] text-[#007E8A] dark:text-[#00A3B4] uppercase">CLC Control Panel</p>
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Good morning DX04</h1>
+    </div>
 
-      <!-- 分站入口：手機 2 欄、電腦 4 欄，最右為虛線預留位置 -->
-      <div id="siteGrid" class="pt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 w-full max-w-[300px] sm:max-w-[700px] mx-auto">
+    <div class="grid grid-cols-1 lg:grid-cols-[1.45fr_1fr] gap-6 items-stretch">
 
-        <a href="https://clc-ya-portal.pages.dev/" class="w-full aspect-square flex flex-col items-center justify-center p-3 rounded-3xl bg-[#007E8A] hover:bg-[#006C77] text-white shadow-lg shadow-[#007E8A]/20 transition-all duration-300 active:scale-95 group">
-          <span class="text-3xl sm:text-4xl mb-2 sm:mb-3 transform group-hover:scale-110 transition">🌱</span>
-          <span class="text-sm lg:text-base font-extrabold tracking-tight whitespace-nowrap">CLC YA</span>
-        </a>
-
-        <a href="https://clc-sr-portal.pages.dev/" class="w-full aspect-square flex flex-col items-center justify-center p-3 rounded-3xl bg-[#007E8A] hover:bg-[#006C77] text-white shadow-lg shadow-[#007E8A]/20 transition-all duration-300 active:scale-95 group">
-          <span class="text-3xl sm:text-4xl mb-2 sm:mb-3 transform group-hover:scale-110 transition">🤝</span>
-          <span class="text-sm lg:text-base font-extrabold tracking-tight whitespace-nowrap">CLC SR</span>
-        </a>
-
-        <div class="w-full aspect-square flex flex-col items-center justify-center p-3 rounded-3xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-[#007E8A] dark:hover:border-teal-500/50 bg-slate-50/50 dark:bg-white/[0.02] text-slate-400 dark:text-slate-500 hover:text-[#007E8A] dark:hover:text-teal-400 transition-all duration-300 cursor-default select-none">
-          <span class="text-4xl sm:text-5xl font-light leading-none">+</span>
+      <!-- 今日待辦（目前為靜態範例，之後接資料） -->
+      <section aria-labelledby="todoTitle" class="rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-3">
+          <h2 id="todoTitle" class="text-xl font-extrabold text-slate-900 dark:text-white">今日待辦</h2>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-brand-muted"><span id="todoOpenCount">4</span> 項未完成 · <span class="text-orange-600 dark:text-orange-400">1 項逾期</span></p>
         </div>
 
-      </div>
+        <form id="todoAddForm" class="flex items-center gap-3 h-12 px-4 rounded-2xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 focus-within:border-[#007E8A]">
+          <svg class="w-4 h-4 shrink-0 text-[#007E8A] dark:text-[#00A3B4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <label for="todoAddInput" class="sr-only">新增待辦</label>
+          <input id="todoAddInput" type="text" autocomplete="off" placeholder="新增待辦… 例如「明天 9 點 回覆 SR 新朋友 #SR」" class="flex-1 min-w-0 bg-transparent outline-none text-[15px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500">
+        </form>
 
+        <h3 class="pt-1 text-xs font-bold tracking-wider text-orange-600 dark:text-orange-400">逾期</h3>
+        <ul class="todo-list">
+          <li><label class="todo-item"><input type="checkbox" class="todo-ck p1"><span class="todo-text"><span class="todo-title">線上 Firestore 規則發布（SR）</span><span class="todo-meta text-orange-600 dark:text-orange-400">昨天 · 個人</span></span></label></li>
+        </ul>
+
+        <h3 class="pt-1 text-xs font-bold tracking-wider text-slate-500 dark:text-brand-muted">今天</h3>
+        <ul id="todoToday" class="todo-list divide-y divide-slate-100 dark:divide-white/[0.06]">
+          <li><label class="todo-item"><input type="checkbox" class="todo-ck"><span class="todo-text"><span class="todo-title">確認週日場地登記</span><span class="todo-meta">10:00 · <span class="text-[#007E8A] dark:text-[#00A3B4]">CLC YA</span></span></span></label></li>
+          <li><label class="todo-item"><input type="checkbox" class="todo-ck"><span class="todo-text"><span class="todo-title">跟進本週新朋友名單</span><span class="todo-meta">14:00 · <span class="text-violet-600 dark:text-violet-400">CLC SR</span> · 子項目 1/3</span></span></label></li>
+          <li><label class="todo-item"><input type="checkbox" class="todo-ck"><span class="todo-text"><span class="todo-title">聖誕季通知信測試</span><span class="todo-meta">晚上 · 個人</span></span></label></li>
+        </ul>
+
+        <div class="mt-auto pt-2 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
+          <span class="text-sm text-slate-500 dark:text-brand-muted py-3">已完成 <span id="todoDoneCount">2</span> 項</span>
+          <span class="text-sm text-slate-400 dark:text-slate-500">完整清單（之後加入）</span>
+        </div>
+      </section>
+
+      <div class="flex flex-col gap-6">
+        <!-- App 入口：4 欄 × 2 排，共 8 格 -->
+        <section aria-labelledby="appsTitle" class="space-y-3">
+          <h2 id="appsTitle" class="text-sm font-bold text-slate-500 dark:text-brand-muted">分站入口</h2>
+          <div id="siteGrid" class="grid grid-cols-4 gap-3">
+            <!-- 連結與左上角 Logo 站台選單相同（同一份 CLC_SITES、同一個視窗開啟） -->
+            <a href="https://clc-dx04.pages.dev/ya/" data-site="ya" class="app-tile" title="CLC YA" aria-label="CLC YA">
+              <img src="/ya/apple-touch-icon.png" alt="" class="app-logo" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'app-fallback',textContent:'YA'}))">
+            </a>
+            <a href="https://clc-dx04.pages.dev/sr/" data-site="sr" class="app-tile" title="CLC SR" aria-label="CLC SR">
+              <img src="/sr/apple-touch-icon.png" alt="" class="app-logo" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'app-fallback',textContent:'SR'}))">
+            </a>
+            <div class="app-slot" aria-hidden="true">+</div>
+            <div class="app-slot" aria-hidden="true">+</div>
+            <div class="app-slot" aria-hidden="true">+</div>
+            <div class="app-slot" aria-hidden="true">+</div>
+            <div class="app-slot" aria-hidden="true">+</div>
+            <div class="app-slot" aria-hidden="true">+</div>
+          </div>
+        </section>
+
+        <!-- 時間、日期、天氣 -->
+        <section aria-label="時間與天氣" class="flex-1 rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-5">
+          <div>
+            <p id="clockTime" class="text-5xl sm:text-6xl font-extrabold tracking-tight tabular-nums text-slate-900 dark:text-white">--:--</p>
+            <p id="clockDate" class="mt-1 text-base text-slate-500 dark:text-brand-muted">&nbsp;</p>
+          </div>
+          <div class="border-t border-slate-100 dark:border-white/[0.06] pt-5 flex items-center gap-4">
+            <div id="wxIcon" class="w-14 h-14 shrink-0 text-[#007E8A] dark:text-[#00A3B4]"></div>
+            <div class="min-w-0 flex-1">
+              <p class="flex items-baseline gap-2"><span id="wxTemp" class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">--°</span><span id="wxDesc" class="text-base text-slate-600 dark:text-slate-300">讀取天氣中…</span></p>
+              <p id="wxMeta" class="mt-1 text-sm text-slate-500 dark:text-brand-muted">板橋</p>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   </main>
 
@@ -127,8 +191,114 @@
     <p>© 2026 CLC. Powered by Cloudflare &amp; GitHub.</p>
   </footer>
 
+  <script>
+    // 時鐘與日期（台北時間）
+    (function () {
+      const timeEl = document.getElementById('clockTime');
+      const dateEl = document.getElementById('clockDate');
+      const tz = 'Asia/Taipei';
+      const fmtTime = new Intl.DateTimeFormat('zh-TW', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+      const fmtDate = new Intl.DateTimeFormat('zh-TW', { timeZone: tz, year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+      function tick() {
+        const now = new Date();
+        timeEl.textContent = fmtTime.format(now);
+        dateEl.textContent = fmtDate.format(now);
+      }
+      tick();
+      setInterval(tick, 1000);
+    })();
+
+    // 天氣：Open-Meteo（免金鑰），位置為板橋，每 30 分鐘更新
+    (function () {
+      const LAT = 25.0143, LON = 121.4672, PLACE = '板橋';
+      const icons = {
+        sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+        partly: '<path d="M8 3v1.5M3.5 8H2M4.8 4.8l1 1M12.5 5.5A4 4 0 0 0 5 8.5"/><path d="M8 20h9a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.6 1.5A3.3 3.3 0 0 0 8 20z"/>',
+        cloud: '<path d="M7 19h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.6 1.7A3.7 3.7 0 0 0 7 19z"/>',
+        fog: '<path d="M7 14h10a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.6 1.5A3.3 3.3 0 0 0 7 14zM4 18h16M7 21h10"/>',
+        rain: '<path d="M7 15h10a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.6 1.5A3.3 3.3 0 0 0 7 15zM8 18l-1 3M12 18l-1 3M16 18l-1 3"/>',
+        storm: '<path d="M7 14h10a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.6 1.5A3.3 3.3 0 0 0 7 14zM12 15l-2 4h4l-2 4"/>'
+      };
+      function describe(code) {
+        if (code === 0) return ['晴', 'sun'];
+        if (code <= 2) return ['晴時多雲', 'partly'];
+        if (code === 3) return ['陰', 'cloud'];
+        if (code <= 48) return ['有霧', 'fog'];
+        if (code <= 57) return ['毛毛雨', 'rain'];
+        if (code <= 67) return ['雨', 'rain'];
+        if (code <= 77) return ['雪', 'cloud'];
+        if (code <= 82) return ['陣雨', 'rain'];
+        return ['雷雨', 'storm'];
+      }
+      function setIcon(name) {
+        document.getElementById('wxIcon').innerHTML =
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full" aria-hidden="true">' + icons[name] + '</svg>';
+      }
+      async function load() {
+        const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + LAT + '&longitude=' + LON +
+          '&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m' +
+          '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&timezone=Asia%2FTaipei';
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(res.status);
+          const d = await res.json();
+          const c = d.current, day = d.daily;
+          const [text, icon] = describe(c.weather_code);
+          setIcon(icon);
+          document.getElementById('wxTemp').textContent = Math.round(c.temperature_2m) + '°';
+          document.getElementById('wxDesc').textContent = text;
+          document.getElementById('wxMeta').textContent =
+            PLACE + ' · 高 ' + Math.round(day.temperature_2m_max[0]) + '° 低 ' + Math.round(day.temperature_2m_min[0]) +
+            '° · 降雨 ' + (day.precipitation_probability_max[0] ?? 0) + '% · 濕度 ' + c.relative_humidity_2m + '%';
+        } catch (err) {
+          console.warn('天氣讀取失敗', err);
+          setIcon('cloud');
+          document.getElementById('wxDesc').textContent = '天氣暫時無法讀取';
+        }
+      }
+      load();
+      setInterval(load, 30 * 60 * 1000);
+    })();
+
+    // 待辦（暫時只在畫面上，重新整理會恢復）
+    (function () {
+      const openEl = document.getElementById('todoOpenCount');
+      const doneEl = document.getElementById('todoDoneCount');
+      const baseDone = 2;
+      function recount() {
+        const all = document.querySelectorAll('.todo-ck');
+        const checked = document.querySelectorAll('.todo-ck:checked').length;
+        openEl.textContent = all.length - checked;
+        doneEl.textContent = baseDone + checked;
+      }
+      document.addEventListener('change', e => { if (e.target.classList.contains('todo-ck')) recount(); });
+      document.getElementById('todoAddForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const input = document.getElementById('todoAddInput');
+        const text = input.value.trim();
+        if (!text) return;
+        const li = document.createElement('li');
+        const label = document.createElement('label'); label.className = 'todo-item';
+        const ck = document.createElement('input'); ck.type = 'checkbox'; ck.className = 'todo-ck';
+        const wrap = document.createElement('span'); wrap.className = 'todo-text';
+        const title = document.createElement('span'); title.className = 'todo-title'; title.textContent = text;
+        const meta = document.createElement('span'); meta.className = 'todo-meta'; meta.textContent = '今天 · 個人';
+        wrap.append(title, meta); label.append(ck, wrap); li.append(label);
+        document.getElementById('todoToday').append(li);
+        input.value = '';
+        recount();
+      });
+    })();
+  </script>
   <script src="clc-sso.js"></script>
   <script src="header.js"></script>
+  <script>
+    // 分站入口網址一律取自 header.js 的 CLC_SITES，和 Logo 站台選單完全一致。
+    document.querySelectorAll('#siteGrid a[data-site]').forEach(a => {
+      const site = (window.CLC_SITES || []).find(s => s.key === a.dataset.site);
+      if (site) a.href = site.url;
+    });
+  </script>
   <script>
     // PWA 安裝（與 YA 首頁相同做法）
     const pwaDisplayMode = window.matchMedia('(display-mode: standalone)');
