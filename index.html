@@ -69,7 +69,6 @@
     .todo-ck:checked, .dark .todo-ck:checked { background:#007E8A; border-color:#007E8A; }
     .todo-ck:checked::after { content:""; width:5px; height:10px; border:solid #fff; border-width:0 2px 2px 0; transform:translateY(-1px) rotate(45deg); }
     .todo-ck:focus-visible { outline:2px solid #00A3B4; outline-offset:2px; }
-    .todo-item:has(.todo-ck:checked) .todo-title { text-decoration:line-through; opacity:.5; }
     .app-tile { aspect-ratio:1; display:block; border-radius:22%; transition:transform .2s; }
     .app-tile:hover { transform:scale(1.05); }
     .app-tile:active { transform:scale(.95); }
@@ -105,6 +104,47 @@
     .dark .app-input { background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.1); }
     .app-input:focus { border-color:#007E8A; }
     .app-input[readonly] { opacity:.6; }
+    /* 待辦列：勾選、刪除、群組、語音 */
+    .todo-list { margin:0; padding:0; list-style:none; }
+    .todo-row { display:flex; align-items:flex-start; gap:4px; border-bottom:1px solid #f1f5f9; }
+    .dark .todo-row { border-bottom-color:rgba(255,255,255,.06); }
+    .todo-list .todo-row:last-child { border-bottom:0; }
+    .todo-row .todo-item { flex:1; min-width:0; }
+    .todo-title { overflow-wrap:anywhere; }
+    .todo-row:has(.todo-ck:checked) .todo-title { text-decoration:line-through; opacity:.5; }
+    .todo-meta.is-overdue { color:#ea580c; }
+    .dark .todo-meta.is-overdue { color:#fb923c; }
+    .todo-tag { color:#007E8A; }
+    .dark .todo-tag { color:#00A3B4; }
+    .todo-del { flex:none; width:44px; height:44px; display:grid; place-content:center; border:0; background:none; color:#94a3b8; border-radius:12px; cursor:pointer; opacity:.55; }
+    .todo-del:hover, .todo-del:focus-visible { opacity:1; color:#e11d48; background:rgba(225,29,72,.08); }
+    @media (hover:hover) { .todo-del { opacity:0; } .todo-row:hover .todo-del, .todo-del:focus-visible { opacity:1; } }
+    .todo-group { margin:6px 0 0; font-size:.75rem; font-weight:700; letter-spacing:.05em; color:#64748b; }
+    .dark .todo-group { color:#8A92A6; }
+    .todo-group.is-overdue { color:#ea580c; }
+    .dark .todo-group.is-overdue { color:#fb923c; }
+    .todo-empty { padding:14px 4px; font-size:.875rem; color:#64748b; }
+    .dark .todo-empty { color:#8A92A6; }
+    .todo-chevron { transition:transform .2s; }
+    #todoDoneToggle.is-open .todo-chevron { transform:rotate(180deg); }
+    .todo-mic { flex:none; width:40px; height:40px; display:grid; place-content:center; border:0; border-radius:12px; background:none; color:#64748b; cursor:pointer; }
+    .dark .todo-mic { color:#8A92A6; }
+    .todo-mic:hover { color:#007E8A; }
+    .todo-mic.is-listening { color:#fff; background:#e11d48; animation:micPulse 1.2s ease-in-out infinite; }
+    @keyframes micPulse { 0%,100% { box-shadow:0 0 0 0 rgba(225,29,72,.45); } 50% { box-shadow:0 0 0 8px rgba(225,29,72,0); } }
+    #todoAddInput:disabled { cursor:not-allowed; }
+    /* 分站編輯模式（iPhone 式：晃動＋「−」） */
+    .app-cell { position:relative; aspect-ratio:1; }
+    .app-cell .app-tile { width:100%; height:100%; }
+    #siteGrid.is-editing .app-tile { animation:appJiggle .32s ease-in-out infinite; animation-delay:var(--jiggle-delay,0s); }
+    @keyframes appJiggle { 0%,100% { transform:rotate(-2deg); } 50% { transform:rotate(2deg); } }
+    @media (prefers-reduced-motion: reduce) { #siteGrid.is-editing .app-tile { animation:none; } }
+    .app-remove { position:absolute; top:-10px; left:-10px; width:36px; height:36px; display:grid; place-content:center; border:0; background:none; padding:0; cursor:pointer; z-index:2; }
+    .app-remove span { width:22px; height:22px; border-radius:50%; background:#475569; box-shadow:0 1px 4px rgba(0,0,0,.35); display:grid; place-content:center; }
+    .app-remove span::after { content:""; width:10px; height:2px; border-radius:2px; background:#fff; }
+    .app-remove:hover span, .app-remove:focus-visible span { background:#e11d48; }
+    .app-preview { width:52px; height:52px; flex:none; }
+    .app-preview .app-logo, .app-preview .app-fallback { width:100%; height:100%; }
   </style>
 
   <!-- 深淺主題預載防閃爍（與 YA 相同） -->
@@ -161,68 +201,89 @@
         </div>
       </section>
 
-      <!-- 今日待辦（目前為靜態範例，之後接資料） -->
+      <!-- 今日待辦：存在 Firestore dx04_todos（僅 Superuser 可讀寫）；可文字或語音新增、勾選完成、刪除 -->
       <section data-widget="todo" aria-labelledby="todoTitle" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-3">
         <button type="button" class="drag-handle lg:hidden" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
         <div class="flex items-center justify-between gap-3">
           <h2 id="todoTitle" class="text-xl font-extrabold text-slate-900 dark:text-white">今日待辦</h2>
-          <p class="text-xs sm:text-sm text-slate-500 dark:text-brand-muted"><span id="todoOpenCount">4</span> 項未完成 · <span class="text-orange-600 dark:text-orange-400">1 項逾期</span></p>
+          <p id="todoSummary" class="text-xs sm:text-sm text-slate-500 dark:text-brand-muted"></p>
         </div>
 
-        <form id="todoAddForm" class="flex items-center gap-3 h-12 px-4 rounded-2xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 focus-within:border-[#007E8A]">
+        <form id="todoAddForm" class="flex items-center gap-2 h-12 pl-4 pr-1.5 rounded-2xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 focus-within:border-[#007E8A]">
           <svg class="w-4 h-4 shrink-0 text-[#007E8A] dark:text-[#00A3B4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
           <label for="todoAddInput" class="sr-only">新增待辦</label>
-          <input id="todoAddInput" type="text" autocomplete="off" placeholder="新增待辦… 例如「明天 9 點 回覆 SR 新朋友 #SR」" class="flex-1 min-w-0 bg-transparent outline-none text-[15px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500">
+          <input id="todoAddInput" type="text" autocomplete="off" enterkeyhint="done" maxlength="200" placeholder="新增待辦… 例如「明天下午3點 回覆新朋友 #SR」" class="flex-1 min-w-0 bg-transparent outline-none text-[15px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500">
+          <button type="button" id="todoMicBtn" class="todo-mic hidden" aria-label="語音輸入" title="語音輸入">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          </button>
         </form>
+        <p id="todoStatus" class="hidden text-sm text-slate-500 dark:text-brand-muted"></p>
 
-        <h3 class="pt-1 text-xs font-bold tracking-wider text-orange-600 dark:text-orange-400">逾期</h3>
-        <ul class="todo-list">
-          <li><label class="todo-item"><input type="checkbox" class="todo-ck p1"><span class="todo-text"><span class="todo-title">線上 Firestore 規則發布（SR）</span><span class="todo-meta text-orange-600 dark:text-orange-400">昨天 · 個人</span></span></label></li>
-        </ul>
+        <div id="todoBody" class="flex flex-col gap-1"></div>
 
-        <h3 class="pt-1 text-xs font-bold tracking-wider text-slate-500 dark:text-brand-muted">今天</h3>
-        <ul id="todoToday" class="todo-list divide-y divide-slate-100 dark:divide-white/[0.06]">
-          <li><label class="todo-item"><input type="checkbox" class="todo-ck"><span class="todo-text"><span class="todo-title">確認週日場地登記</span><span class="todo-meta">10:00 · <span class="text-[#007E8A] dark:text-[#00A3B4]">CLC YA</span></span></span></label></li>
-          <li><label class="todo-item"><input type="checkbox" class="todo-ck"><span class="todo-text"><span class="todo-title">跟進本週新朋友名單</span><span class="todo-meta">14:00 · <span class="text-violet-600 dark:text-violet-400">CLC SR</span> · 子項目 1/3</span></span></label></li>
-          <li><label class="todo-item"><input type="checkbox" class="todo-ck"><span class="todo-text"><span class="todo-title">聖誕季通知信測試</span><span class="todo-meta">晚上 · 個人</span></span></label></li>
-        </ul>
-
-        <div class="mt-auto pt-2 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
-          <span class="text-sm text-slate-500 dark:text-brand-muted py-3">已完成 <span id="todoDoneCount">2</span> 項</span>
-          <span class="text-sm text-slate-400 dark:text-slate-500">完整清單（之後加入）</span>
+        <div class="mt-auto pt-2 border-t border-slate-100 dark:border-white/[0.06]">
+          <button type="button" id="todoDoneToggle" class="w-full h-11 flex items-center justify-between text-sm text-slate-500 dark:text-brand-muted" aria-expanded="false" aria-controls="todoDoneList">
+            <span>今天已完成 <span id="todoDoneCount">0</span> 項</span>
+            <svg class="todo-chevron w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <ul id="todoDoneList" class="hidden"></ul>
         </div>
       </section>
 
       <!-- App 入口：4 欄 × 2 排，共 8 格 -->
       <section data-widget="apps" aria-labelledby="appsTitle" class="dash-widget relative space-y-3">
         <button type="button" class="drag-handle lg:hidden" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
-        <h2 id="appsTitle" class="text-sm font-bold text-slate-500 dark:text-brand-muted">分站入口</h2>
-        <!-- 分站清單存在 Firestore dx04_settings/apps；管理員長按「＋」新增、長按 Logo 編輯或移除 -->
+        <div class="flex items-center justify-between gap-3 min-h-[28px]">
+          <h2 id="appsTitle" class="text-sm font-bold text-slate-500 dark:text-brand-muted">分站入口</h2>
+          <button type="button" id="appsDoneBtn" class="hidden h-9 px-4 rounded-full text-sm font-bold bg-[#007E8A] hover:bg-[#006C77] text-white">完成</button>
+        </div>
+        <!-- 分站清單存在 Firestore dx04_settings/apps；管理員長按進入編輯模式：「−」移除、「＋」新增、點 Logo 編輯 -->
         <div id="siteGrid" class="grid grid-cols-4 gap-3"></div>
-        <p id="appsAdminHint" class="hidden text-xs text-slate-400 dark:text-slate-500">管理員：長按「＋」新增，長按 Logo 編輯或移除。</p>
+        <p id="appsAdminHint" class="hidden text-xs text-slate-400 dark:text-slate-500">管理員：長按任一格進入編輯模式。</p>
       </section>
     </div>
   </main>
 
-  <!-- 分站新增／編輯（僅管理員） -->
+  <!-- 分站新增：只要貼網址（僅管理員） -->
+  <dialog id="appAddDialog" class="app-dialog rounded-3xl p-0 w-[min(92vw,420px)] bg-white dark:bg-[#161924] text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-white/10">
+    <form id="appAddForm" class="p-6 flex flex-col gap-4">
+      <h2 class="text-xl font-extrabold text-slate-900 dark:text-white">新增分站</h2>
+      <label class="flex flex-col gap-1.5 text-sm font-bold text-slate-600 dark:text-slate-300">網址
+        <input id="appAddUrl" required autocomplete="off" inputmode="url" enterkeyhint="go" class="app-input" placeholder="https://…">
+      </label>
+      <p class="text-xs text-slate-500 dark:text-brand-muted -mt-2">名稱和 Logo 會自動從網站抓取，之後可在編輯模式點 Logo 修改。</p>
+      <p id="appAddError" class="hidden text-sm text-rose-600 dark:text-rose-400"></p>
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button type="button" id="appAddCancelBtn" class="h-11 px-4 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5">取消</button>
+        <button type="submit" id="appAddSaveBtn" class="h-11 px-5 rounded-xl font-bold bg-[#007E8A] hover:bg-[#006C77] text-white disabled:opacity-60">新增</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 分站編輯：名稱、網址、Logo（僅管理員，編輯模式下點 Logo） -->
   <dialog id="appDialog" class="app-dialog rounded-3xl p-0 w-[min(92vw,420px)] bg-white dark:bg-[#161924] text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-white/10">
     <form id="appForm" class="p-6 flex flex-col gap-4">
-      <h2 id="appDialogTitle" class="text-xl font-extrabold text-slate-900 dark:text-white">新增分站</h2>
+      <div class="flex items-center gap-4">
+        <div id="appIconPreview" class="app-preview"></div>
+        <h2 class="text-xl font-extrabold text-slate-900 dark:text-white">編輯分站</h2>
+      </div>
       <label class="flex flex-col gap-1.5 text-sm font-bold text-slate-600 dark:text-slate-300">名稱
-        <input id="appName" required maxlength="30" autocomplete="off" class="app-input" placeholder="例如：CLC Christmas">
+        <input id="appName" required maxlength="30" autocomplete="off" class="app-input">
       </label>
       <label class="flex flex-col gap-1.5 text-sm font-bold text-slate-600 dark:text-slate-300">網址
-        <input id="appUrl" required autocomplete="off" inputmode="url" class="app-input" placeholder="https://…">
+        <input id="appUrl" required autocomplete="off" inputmode="url" class="app-input">
       </label>
-      <label class="flex flex-col gap-1.5 text-sm font-bold text-slate-600 dark:text-slate-300">Logo 圖片網址（選填）
-        <input id="appIcon" autocomplete="off" inputmode="url" class="app-input" placeholder="留白：自動抓該網站的 apple-touch-icon">
-      </label>
+      <div class="flex flex-col gap-1.5">
+        <label for="appIcon" class="text-sm font-bold text-slate-600 dark:text-slate-300">Logo 圖片網址</label>
+        <div class="flex gap-2">
+          <input id="appIcon" autocomplete="off" inputmode="url" class="app-input flex-1 min-w-0">
+          <button type="button" id="appRefetchBtn" class="h-11 px-3 rounded-xl text-sm font-bold text-[#007E8A] dark:text-[#00A3B4] border border-slate-200 dark:border-white/10 whitespace-nowrap">重新抓取</button>
+        </div>
+      </div>
       <p id="appFormError" class="hidden text-sm text-rose-600 dark:text-rose-400"></p>
-      <div class="flex items-center gap-2 pt-1">
-        <button type="button" id="appDeleteBtn" class="hidden h-11 px-4 rounded-xl font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10">移除</button>
-        <span class="flex-1"></span>
+      <div class="flex items-center justify-end gap-2 pt-1">
         <button type="button" id="appCancelBtn" class="h-11 px-4 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5">取消</button>
-        <button type="submit" id="appSaveBtn" class="h-11 px-5 rounded-xl font-bold bg-[#007E8A] hover:bg-[#006C77] text-white">儲存</button>
+        <button type="submit" id="appSaveBtn" class="h-11 px-5 rounded-xl font-bold bg-[#007E8A] hover:bg-[#006C77] text-white disabled:opacity-60">儲存</button>
       </div>
     </form>
   </dialog>
@@ -398,45 +459,321 @@
       setInterval(load, 30 * 60 * 1000);
     })();
 
-    // 待辦（暫時只在畫面上，重新整理會恢復）
+    // 今日待辦：Firestore dx04_todos（僅 Superuser）。文字或語音輸入，會自動辨識日期、時間與 #標籤。
     (function () {
-      const openEl = document.getElementById('todoOpenCount');
-      const doneEl = document.getElementById('todoDoneCount');
-      const baseDone = 2;
-      function recount() {
-        const all = document.querySelectorAll('.todo-ck');
-        const checked = document.querySelectorAll('.todo-ck:checked').length;
-        openEl.textContent = all.length - checked;
-        doneEl.textContent = baseDone + checked;
+      const TZ = 'Asia/Taipei';
+      const body = document.getElementById('todoBody');
+      const form = document.getElementById('todoAddForm');
+      const input = document.getElementById('todoAddInput');
+      const statusEl = document.getElementById('todoStatus');
+      const summary = document.getElementById('todoSummary');
+      const doneToggle = document.getElementById('todoDoneToggle');
+      const doneList = document.getElementById('todoDoneList');
+      const doneCount = document.getElementById('todoDoneCount');
+      let todos = [], unsub = null, showDone = false;
+
+      // ---------- 日期工具（一律以台北日期計算） ----------
+      const fmtYmd = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+      const ymd = d => fmtYmd.format(d);
+      const today = () => ymd(new Date());
+      function addDays(dateStr, n) {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d + n));
+        return dt.toISOString().slice(0, 10);
       }
-      document.addEventListener('change', e => { if (e.target.classList.contains('todo-ck')) recount(); });
-      document.getElementById('todoAddForm').addEventListener('submit', e => {
-        e.preventDefault();
-        const input = document.getElementById('todoAddInput');
-        const text = input.value.trim();
-        if (!text) return;
+      function weekday(dateStr) { const [y, m, d] = dateStr.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)).getUTCDay(); }
+      function dueLabel(due) {
+        if (!due) return '';
+        const t = today();
+        if (due === t) return '今天';
+        if (due === addDays(t, 1)) return '明天';
+        if (due === addDays(t, -1)) return '昨天';
+        if (due === addDays(t, 2)) return '後天';
+        const [, m, d] = due.split('-').map(Number);
+        return m + '/' + d + '（' + '日一二三四五六'[weekday(due)] + '）';
+      }
+
+      // ---------- 自然語言解析 ----------
+      const CN = { 零: 0, 〇: 0, 一: 1, 二: 2, 兩: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+      function cnNum(s) {
+        if (/^\d+$/.test(s)) return Number(s);
+        if (s === '十') return 10;
+        let m = s.match(/^([一二兩两三四五六七八九])?十([一二三四五六七八九])?$/);
+        if (m) return (m[1] ? CN[m[1]] : 1) * 10 + (m[2] ? CN[m[2]] : 0);
+        if (s.length === 1 && s in CN) return CN[s];
+        return NaN;
+      }
+      const NUM = '(\\d{1,2}|[零〇一二兩两三四五六七八九十]{1,3})';
+      const TAGS = { ya: 'CLC YA', sr: 'CLC SR', dx: 'CLC DX04', dx04: 'CLC DX04', 聖誕: 'Christmas', christmas: 'Christmas' };
+      function parse(text) {
+        let t = ' ' + text.trim() + ' ';
+        let due = '', time = '', tag = '';
+        const cut = re => { const m = t.match(re); if (m) t = t.replace(m[0], ' '); return m; };
+
+        let m = cut(/[#＃]([^\s#＃]{1,20})/);
+        if (m) tag = TAGS[m[1].toLowerCase()] || m[1];
+
+        const base = today();
+        if ((m = cut(/大[後后]天/))) due = addDays(base, 3);
+        else if ((m = cut(/[後后]天/))) due = addDays(base, 2);
+        else if ((m = cut(/明[天日早晚]?/))) due = addDays(base, 1);
+        else if ((m = cut(/今[天日早晚]|今晚/))) due = base;
+        else if ((m = cut(/(下{1,2})?(?:週|周|星期|禮拜|礼拜)([一二三四五六日天])/))) {
+          const want = '日一二三四五六'.indexOf(m[2] === '天' ? '日' : m[2]);
+          const diff = (want - weekday(base) + 7) % 7;
+          due = addDays(base, m[1] ? nextWeek(base, want, m[1].length) : diff);
+        } else if ((m = cut(new RegExp('(?:(\\d{4})[/年-])?(\\d{1,2})\\s*[/月]\\s*(\\d{1,2})\\s*[日號号]?')))) {
+          const y0 = Number(base.slice(0, 4));
+          let y = m[1] ? Number(m[1]) : y0;
+          const mm = String(Number(m[2])).padStart(2, '0'), dd = String(Number(m[3])).padStart(2, '0');
+          let cand = y + '-' + mm + '-' + dd;
+          if (!m[1] && cand < addDays(base, -60)) cand = (y + 1) + '-' + mm + '-' + dd;
+          if (Number(mm) >= 1 && Number(mm) <= 12 && Number(dd) >= 1 && Number(dd) <= 31) due = cand;
+        }
+
+        // 時間：15:30、下午3點半、晚上七點十五分
+        if ((m = cut(/(\d{1,2})[:：](\d{2})/))) {
+          time = String(Math.min(23, Number(m[1]))).padStart(2, '0') + ':' + m[2];
+        } else if ((m = cut(new RegExp('(早上|上午|中午|下午|傍晚|晚上|凌晨)?\\s*' + NUM + '\\s*[點点時时](?:\\s*(半|' + NUM + '\\s*分?))?')))) {
+          let h = cnNum(m[2]);
+          let min = m[3] === '半' ? 30 : (m[4] ? cnNum(m[4]) : 0);
+          if (!isNaN(h) && h <= 24 && !isNaN(min) && min < 60) {
+            if (/下午|傍晚|晚上/.test(m[1] || '') && h < 12) h += 12;
+            if (m[1] === '中午' && h < 6) h += 12;
+            time = String(h % 24).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+          }
+        }
+        if (time && !due) due = base;
+
+        let title = t.replace(/\s+/g, ' ').trim();
+        if (!title) title = text.trim();
+        return { title, due, time, tag };
+      }
+      function nextWeek(base, want, level) {
+        // 「下週X」：下一個週一開始的那一週裡的 X；「下下週」再加一週。週日視為一週最後一天。
+        const wd = weekday(base) || 7;
+        const toNextMonday = 8 - wd;
+        const offset = (want === 0 ? 6 : want - 1);
+        return toNextMonday + offset + 7 * (level - 1);
+      }
+
+      // ---------- 畫面 ----------
+      function setStatus(msg) { statusEl.textContent = msg || ''; statusEl.classList.toggle('hidden', !msg); }
+      function canUse() { return !!window.isSuperuser && !!window.db; }
+
+      function row(todo, opts) {
         const li = document.createElement('li');
-        const label = document.createElement('label'); label.className = 'todo-item';
-        const ck = document.createElement('input'); ck.type = 'checkbox'; ck.className = 'todo-ck';
-        const wrap = document.createElement('span'); wrap.className = 'todo-text';
-        const title = document.createElement('span'); title.className = 'todo-title'; title.textContent = text;
-        const meta = document.createElement('span'); meta.className = 'todo-meta'; meta.textContent = '今天 · 個人';
-        wrap.append(title, meta); label.append(ck, wrap); li.append(label);
-        document.getElementById('todoToday').append(li);
-        input.value = '';
-        recount();
+        li.className = 'todo-row';
+        const label = document.createElement('label');
+        label.className = 'todo-item';
+        const ck = document.createElement('input');
+        ck.type = 'checkbox';
+        ck.className = 'todo-ck' + (opts.overdue ? ' p1' : '');
+        ck.checked = !!todo.done;
+        ck.setAttribute('aria-label', (todo.done ? '取消完成：' : '完成：') + todo.title);
+        ck.addEventListener('change', () => toggleDone(todo, ck.checked));
+        const text = document.createElement('span');
+        text.className = 'todo-text';
+        const title = document.createElement('span');
+        title.className = 'todo-title';
+        title.textContent = todo.title;
+        text.append(title);
+        const metaParts = [];
+        if (todo.due && (opts.showDate || todo.due !== today())) metaParts.push(dueLabel(todo.due));
+        if (todo.time) metaParts.push(todo.time);
+        if (metaParts.length || todo.tag) {
+          const meta = document.createElement('span');
+          meta.className = 'todo-meta' + (opts.overdue ? ' is-overdue' : '');
+          meta.textContent = metaParts.join(' ');
+          if (todo.tag) {
+            const tag = document.createElement('span');
+            tag.className = 'todo-tag';
+            tag.textContent = (metaParts.length ? ' · ' : '') + todo.tag;
+            meta.append(tag);
+          }
+          text.append(meta);
+        }
+        label.append(ck, text);
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'todo-del';
+        del.setAttribute('aria-label', '刪除：' + todo.title);
+        del.title = '刪除';
+        del.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+        del.addEventListener('click', () => removeTodo(todo));
+        li.append(label, del);
+        return li;
+      }
+      function group(title, cls, items, opts) {
+        if (!items.length) return;
+        const h = document.createElement('h3');
+        h.className = 'todo-group ' + cls;
+        h.textContent = title;
+        const ul = document.createElement('ul');
+        ul.className = 'todo-list';
+        items.forEach(t => ul.append(row(t, opts)));
+        body.append(h, ul);
+      }
+      const byTime = (a, b) => (a.due || '9999').localeCompare(b.due || '9999') || (a.time || '99').localeCompare(b.time || '99') || (a.created - b.created);
+
+      function render() {
+        body.replaceChildren();
+        doneList.replaceChildren();
+        if (!window.isSuperuser) {
+          summary.textContent = '';
+          input.disabled = true;
+          input.placeholder = '以 Superuser 登入後可新增待辦';
+          doneCount.textContent = '0';
+          const p = document.createElement('p');
+          p.className = 'todo-empty';
+          p.textContent = '這是個人待辦，登入後顯示。';
+          body.append(p);
+          return;
+        }
+        input.disabled = false;
+        input.placeholder = '新增待辦… 例如「明天下午3點 回覆新朋友 #SR」';
+        const t = today();
+        const open = todos.filter(x => !x.done);
+        const overdue = open.filter(x => x.due && x.due < t).sort(byTime);
+        const now = open.filter(x => !x.due || x.due === t).sort(byTime);
+        const later = open.filter(x => x.due && x.due > t).sort(byTime);
+        group('逾期', 'is-overdue', overdue, { overdue: true, showDate: true });
+        group('今天', '', now, {});
+        group('之後', '', later, { showDate: true });
+        if (!open.length) {
+          const p = document.createElement('p');
+          p.className = 'todo-empty';
+          p.textContent = todos.length ? '今天的事都完成了。' : '還沒有待辦，從上面輸入或按麥克風說一句。';
+          body.append(p);
+        }
+        const weekAgo = Date.now() - 7 * 864e5;
+        const done = todos.filter(x => x.done && (x.doneMs || 0) >= weekAgo).sort((a, b) => (b.doneMs || 0) - (a.doneMs || 0));
+        const doneToday = done.filter(x => x.doneMs && ymd(new Date(x.doneMs)) === t).length;
+        doneCount.textContent = doneToday;
+        done.forEach(x => doneList.append(row(x, { showDate: true })));
+        doneList.classList.toggle('hidden', !showDone || !done.length);
+        summary.textContent = open.length + ' 項未完成' + (overdue.length ? ' · ' : '');
+        if (overdue.length) {
+          const s = document.createElement('span');
+          s.className = 'text-orange-600 dark:text-orange-400';
+          s.textContent = overdue.length + ' 項逾期';
+          summary.append(s);
+        }
+      }
+      doneToggle.addEventListener('click', () => {
+        showDone = !showDone;
+        doneToggle.setAttribute('aria-expanded', String(showDone));
+        doneToggle.classList.toggle('is-open', showDone);
+        render();
       });
+      // 跨過午夜時重新分組
+      let lastDay = today();
+      setInterval(() => { if (today() !== lastDay) { lastDay = today(); render(); } }, 60000);
+
+      // ---------- 資料 ----------
+      function errText(err) {
+        return err && err.code === 'permission-denied'
+          ? '權限不足：請確認已用 Superuser 登入，並已發布最新的 firestore.rules。'
+          : '連線失敗，請稍後再試。';
+      }
+      const col = () => window.db.collection('dx04_todos');
+      function subscribe() {
+        if (unsub) { unsub(); unsub = null; }
+        todos = [];
+        if (!canUse()) { render(); return; }
+        unsub = col().limit(500).onSnapshot(snap => {
+          todos = snap.docs.map(d => {
+            const x = d.data();
+            return {
+              id: d.id, title: String(x.title || ''), due: x.due || '', time: x.time || '', tag: x.tag || '',
+              done: !!x.done,
+              doneMs: x.doneAt && x.doneAt.toMillis ? x.doneAt.toMillis() : (x.done ? Date.now() : 0),
+              created: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.now()
+            };
+          }).filter(x => x.title);
+          setStatus('');
+          render();
+        }, err => { console.warn('待辦讀取失敗', err); setStatus(errText(err)); render(); });
+      }
+      async function addTodo(text) {
+        const p = parse(text);
+        const FV = firebase.firestore.FieldValue;
+        await col().add({
+          title: p.title.slice(0, 200), due: p.due, time: p.time, tag: p.tag.slice(0, 20),
+          done: false, doneAt: null, createdAt: FV.serverTimestamp(), updatedAt: FV.serverTimestamp()
+        });
+      }
+      function toggleDone(todo, done) {
+        const FV = firebase.firestore.FieldValue;
+        col().doc(todo.id).update({ done, doneAt: done ? FV.serverTimestamp() : null, updatedAt: FV.serverTimestamp() })
+          .catch(err => { console.warn('待辦更新失敗', err); setStatus(errText(err)); render(); });
+      }
+      function removeTodo(todo) {
+        col().doc(todo.id).delete().catch(err => { console.warn('待辦刪除失敗', err); setStatus(errText(err)); });
+      }
+      form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const text = input.value.trim();
+        if (!text || !canUse()) return;
+        input.value = '';
+        try { await addTodo(text); }
+        catch (err) { console.warn('待辦新增失敗', err); input.value = text; setStatus(errText(err)); }
+      });
+
+      // ---------- 語音輸入（Chrome、Edge、Safari；不支援的瀏覽器不顯示麥克風） ----------
+      const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const mic = document.getElementById('todoMicBtn');
+      if (Rec) {
+        mic.classList.remove('hidden');
+        let rec = null, before = '';
+        mic.addEventListener('click', () => {
+          if (!canUse()) return;
+          if (rec) { rec.stop(); return; }
+          rec = new Rec();
+          rec.lang = 'zh-TW';
+          rec.interimResults = true;
+          rec.continuous = false;
+          before = input.value.trim();
+          let finalText = '';
+          rec.onstart = () => { mic.classList.add('is-listening'); mic.setAttribute('aria-label', '停止語音輸入'); setStatus('請說…（說完會自動加入）'); };
+          rec.onresult = ev => {
+            let interim = '';
+            finalText = '';
+            for (const r of ev.results) { if (r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript; }
+            input.value = (before ? before + ' ' : '') + (finalText || interim);
+          };
+          rec.onerror = ev => {
+            setStatus(ev.error === 'not-allowed' || ev.error === 'service-not-allowed'
+              ? '麥克風權限被拒絕，請到瀏覽器設定允許此網站使用麥克風。'
+              : (ev.error === 'no-speech' ? '沒有聽到聲音，再按一次麥克風試試。' : '語音輸入失敗，請再試一次。'));
+          };
+          rec.onend = () => {
+            mic.classList.remove('is-listening');
+            mic.setAttribute('aria-label', '語音輸入');
+            rec = null;
+            if (finalText.trim()) { setStatus(''); form.requestSubmit(); }
+          };
+          try { rec.start(); } catch (err) { rec = null; setStatus('語音輸入無法啟動。'); }
+        });
+      }
+
+      window.clcTodoParse = parse; // 方便除錯
+      render();
+      window.addEventListener('clc-admin-changed', subscribe);
+      if (window.isSuperuser) subscribe();
     })();
   </script>
   <script src="clc-sso.js"></script>
   <script src="header.js"></script>
   <script>
     // 分站入口：清單存在 Firestore dx04_settings/apps（所有裝置共用），本機另存一份快取讓畫面先出來。
-    // 管理員（admin／superuser）：長按「＋」新增；長按 Logo 編輯或移除。YA、SR 也一樣可以移除。
+    // 管理員：長按任一格進入「編輯模式」（像 iPhone 主畫面）→ 按「−」移除、按「＋」貼網址新增、點 Logo 改名稱或圖示。
+    // 名稱與 Logo 由 /api/site-info 自動抓（和手機「加入主畫面」相同來源）。
     // 開啟方式：YA、SR 用 CLC_SITES 網址（和左上角 Logo 站台選單相同）；其他網站在 DX04 Header 底下的 app.html 內開啟。
     (function () {
       const grid = document.getElementById('siteGrid');
       const hint = document.getElementById('appsAdminHint');
+      const doneBtn = document.getElementById('appsDoneBtn');
       const CACHE_KEY = 'clc_dx04_apps';
       const MIN_SLOTS = 8, MAX_APPS = 40, LONG_PRESS_MS = 550;
       const DEFAULT_APPS = [
@@ -444,6 +781,7 @@
         { id: 'sr', site: 'sr', name: 'CLC SR', url: 'https://clc-dx04.pages.dev/sr/', icon: '/sr/apple-touch-icon.png' }
       ];
       let apps = DEFAULT_APPS;
+      let editing = false;
       try {
         const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
         if (Array.isArray(cached)) apps = cached;
@@ -456,6 +794,13 @@
         if (!v) return '';
         if (v.startsWith('/') && !v.startsWith('//')) return v;
         try { const u = new URL(v); return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : ''; } catch (_) { return ''; }
+      }
+      function normalizeInputUrl(value) {
+        let v = String(value || '').trim();
+        if (!v) return '';
+        if (!/^https?:\/\//i.test(v) && /^[\w-]+(\.[\w-]+)+(:\d+)?(\/.*)?$/i.test(v)) v = 'https://' + v;
+        const u = safeUrl(v);
+        return u && !u.startsWith('/') ? u : '';
       }
       function isSameSite(url) {
         try {
@@ -474,36 +819,51 @@
         const n = String(name || '').replace(/^CLC\s+/i, '').trim();
         return (n.slice(0, 2) || '?').toUpperCase();
       }
-      function fallback(app) {
-        const span = document.createElement('span');
-        span.className = 'app-fallback';
-        span.textContent = initials(app.name);
-        return span;
+      function logo(app) {
+        const icon = safeUrl(app.icon);
+        const fallback = () => {
+          const span = document.createElement('span');
+          span.className = 'app-fallback';
+          span.textContent = initials(app.name);
+          return span;
+        };
+        if (!icon) return fallback();
+        const img = document.createElement('img');
+        img.className = 'app-logo';
+        img.alt = '';
+        img.src = icon;
+        img.addEventListener('error', () => img.replaceWith(fallback()), { once: true });
+        return img;
       }
 
       function render() {
         const admin = isAdmin();
+        if (!admin) editing = false;
+        grid.classList.toggle('is-editing', editing);
         grid.replaceChildren();
-        apps.forEach(app => {
+        apps.forEach((app, i) => {
+          const cell = document.createElement('div');
+          cell.className = 'app-cell';
+          cell.style.setProperty('--jiggle-delay', (-(i % 3) * 0.11) + 's');
           const a = document.createElement('a');
           a.className = 'app-tile';
           a.draggable = false;
           a.href = hrefFor(app);
           a.title = app.name;
-          a.setAttribute('aria-label', app.name);
+          a.setAttribute('aria-label', editing ? '編輯 ' + app.name : app.name);
           a.dataset.appId = app.id;
-          const icon = safeUrl(app.icon);
-          if (icon) {
-            const img = document.createElement('img');
-            img.className = 'app-logo';
-            img.alt = '';
-            img.src = icon;
-            img.addEventListener('error', () => img.replaceWith(fallback(app)), { once: true });
-            a.append(img);
-          } else {
-            a.append(fallback(app));
+          a.append(logo(app));
+          cell.append(a);
+          if (editing) {
+            const rm = document.createElement('button');
+            rm.type = 'button';
+            rm.className = 'app-remove';
+            rm.dataset.removeId = app.id;
+            rm.setAttribute('aria-label', '移除 ' + app.name);
+            rm.innerHTML = '<span aria-hidden="true"></span>';
+            cell.append(rm);
           }
-          grid.append(a);
+          grid.append(cell);
         });
         const total = Math.max(MIN_SLOTS, Math.ceil((apps.length + (admin && apps.length < MAX_APPS ? 1 : 0)) / 4) * 4);
         for (let i = apps.length; i < total; i++) {
@@ -512,8 +872,8 @@
             b.type = 'button';
             b.className = 'app-slot is-admin';
             b.textContent = '+';
-            b.title = '長按新增分站';
-            b.setAttribute('aria-label', '新增分站（長按或按 Enter）');
+            b.title = '新增分站';
+            b.setAttribute('aria-label', '新增分站');
             b.dataset.add = '1';
             grid.append(b);
           } else {
@@ -524,14 +884,28 @@
             grid.append(d);
           }
         }
-        hint.classList.toggle('hidden', !admin);
+        hint.classList.toggle('hidden', !admin || editing);
+        doneBtn.classList.toggle('hidden', !editing);
       }
+      function setEditing(on) {
+        if (on && !isAdmin()) return;
+        if (editing === on) return;
+        editing = on;
+        if (on && navigator.vibrate) navigator.vibrate(15);
+        render();
+      }
+      doneBtn.addEventListener('click', () => setEditing(false));
+      document.addEventListener('keydown', e => { if (e.key === 'Escape' && editing && !document.querySelector('dialog[open]')) setEditing(false); });
+      // 點分站區以外的地方結束編輯（和 iPhone 一樣）
+      document.addEventListener('pointerdown', e => {
+        if (editing && !e.target.closest('#siteGrid, #appsDoneBtn, dialog')) setEditing(false);
+      });
 
-      // ---------- 長按 ----------
+      // ---------- 長按進入編輯模式 ----------
       let press = null, suppressClick = false;
       grid.addEventListener('pointerdown', e => {
-        if (!isAdmin() || (e.pointerType === 'mouse' && e.button !== 0)) return;
-        const target = e.target.closest('.app-tile, .app-slot.is-admin');
+        if (!isAdmin() || editing || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        const target = e.target.closest('.app-cell, .app-slot.is-admin');
         if (!target) return;
         target.classList.add('app-pressing');
         press = {
@@ -539,9 +913,8 @@
           timer: setTimeout(() => {
             target.classList.remove('app-pressing');
             suppressClick = true;
-            if (navigator.vibrate) navigator.vibrate(15);
-            openDialog(target.dataset.appId || null);
             press = null;
+            setEditing(true);
           }, LONG_PRESS_MS)
         };
       });
@@ -555,44 +928,20 @@
         if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) cancelPress();
       });
       ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => grid.addEventListener(t, cancelPress));
+      // 長按放開後的那一下點擊不算（若瀏覽器沒送出點擊，短時間後自動恢復）
+      document.addEventListener('pointerup', () => { if (suppressClick) setTimeout(() => { suppressClick = false; }, 350); });
       grid.addEventListener('click', e => {
         if (suppressClick) { e.preventDefault(); e.stopPropagation(); suppressClick = false; return; }
-        const add = e.target.closest('.app-slot.is-admin');
-        // 鍵盤按 Enter／空白鍵（沒有指標位置）時直接開新增
-        if (add && e.detail === 0) openDialog(null);
+        const rm = e.target.closest('.app-remove');
+        if (rm) { e.preventDefault(); removeApp(rm.dataset.removeId); return; }
+        if (e.target.closest('.app-slot.is-admin')) { e.preventDefault(); openAdd(); return; }
+        const cell = e.target.closest('.app-cell');
+        const tile = cell && cell.querySelector('.app-tile');
+        if (tile && editing) { e.preventDefault(); openEdit(tile.dataset.appId); }
       }, true);
       grid.addEventListener('contextmenu', e => { if (isAdmin() && e.target.closest('.app-tile, .app-slot')) e.preventDefault(); });
 
-      // ---------- 新增／編輯視窗 ----------
-      const dialog = document.getElementById('appDialog');
-      const form = document.getElementById('appForm');
-      const fName = document.getElementById('appName');
-      const fUrl = document.getElementById('appUrl');
-      const fIcon = document.getElementById('appIcon');
-      const errEl = document.getElementById('appFormError');
-      const delBtn = document.getElementById('appDeleteBtn');
-      const saveBtn = document.getElementById('appSaveBtn');
-      let editingId = null;
-      function showError(msg) { errEl.textContent = msg; errEl.classList.toggle('hidden', !msg); }
-      function openDialog(id) {
-        if (!isAdmin()) return;
-        editingId = id;
-        const app = id ? apps.find(a => a.id === id) : null;
-        document.getElementById('appDialogTitle').textContent = app ? '編輯分站' : '新增分站';
-        fName.value = app ? app.name : '';
-        fUrl.value = app ? (app.site ? hrefFor(app) : app.url) : '';
-        fIcon.value = app ? (app.icon || '') : '';
-        fUrl.readOnly = !!(app && app.site);
-        fUrl.title = fUrl.readOnly ? 'YA、SR 的網址跟著 header.js 的 CLC_SITES' : '';
-        delBtn.classList.toggle('hidden', !app);
-        showError('');
-        saveBtn.disabled = false;
-        dialog.showModal();
-        fName.focus();
-      }
-      document.getElementById('appCancelBtn').addEventListener('click', () => dialog.close());
-      dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
-
+      // ---------- 儲存 ----------
       async function persist(next) {
         if (!window.db || !window.firebase) throw new Error('資料庫尚未載入');
         await window.db.collection('dx04_settings').doc('apps').set({
@@ -609,40 +958,129 @@
           ? '權限不足：請確認已用管理員登入，並已到 Firebase Console 發布最新的 firestore.rules。'
           : '儲存失敗，請稍後再試。';
       }
+      async function removeApp(id) {
+        const app = apps.find(a => a.id === id);
+        if (!app || !confirm('從總控台移除「' + app.name + '」？')) return;
+        try { await persist(apps.filter(a => a.id !== id)); }
+        catch (err) { console.warn('分站移除失敗', err); alert(errorText(err)); }
+      }
+      async function siteInfo(url) {
+        try {
+          const res = await fetch('/api/site-info?url=' + encodeURIComponent(url));
+          const data = await res.json();
+          if (data && data.ok) return data;
+        } catch (_) {}
+        // 讀不到時：名稱用網域，Logo 用 Google 圖示服務
+        let host = '';
+        try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (_) {}
+        return { url, name: host || url, icon: host ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host) + '&sz=128' : '' };
+      }
+
+      // ---------- 新增（只要貼網址） ----------
+      const addDialog = document.getElementById('appAddDialog');
+      const addForm = document.getElementById('appAddForm');
+      const addUrl = document.getElementById('appAddUrl');
+      const addErr = document.getElementById('appAddError');
+      const addBtn = document.getElementById('appAddSaveBtn');
+      function showAddError(msg) { addErr.textContent = msg; addErr.classList.toggle('hidden', !msg); }
+      function openAdd() {
+        if (!isAdmin()) return;
+        addUrl.value = '';
+        showAddError('');
+        addBtn.disabled = false;
+        addBtn.textContent = '新增';
+        addDialog.showModal();
+        addUrl.focus();
+      }
+      document.getElementById('appAddCancelBtn').addEventListener('click', () => addDialog.close());
+      addDialog.addEventListener('click', e => { if (e.target === addDialog) addDialog.close(); });
+      addForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        const url = normalizeInputUrl(addUrl.value);
+        if (!url) return showAddError('網址格式不正確，例如 https://example.com');
+        if (apps.length >= MAX_APPS) return showAddError('最多 ' + MAX_APPS + ' 個分站。');
+        addBtn.disabled = true;
+        addBtn.textContent = '讀取中…';
+        showAddError('');
+        const info = await siteInfo(url);
+        const item = {
+          id: 'app_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+          name: String(info.name || '').slice(0, 30) || url,
+          url: safeUrl(info.url) || url,
+          icon: safeUrl(info.icon) || ''
+        };
+        try {
+          await persist(apps.concat(item));
+          addDialog.close();
+        } catch (err) {
+          console.warn('分站新增失敗', err);
+          showAddError(errorText(err));
+          addBtn.disabled = false;
+          addBtn.textContent = '新增';
+        }
+      });
+
+      // ---------- 編輯（編輯模式下點 Logo）：改名稱、換圖示 ----------
+      const dialog = document.getElementById('appDialog');
+      const form = document.getElementById('appForm');
+      const fName = document.getElementById('appName');
+      const fUrl = document.getElementById('appUrl');
+      const fIcon = document.getElementById('appIcon');
+      const preview = document.getElementById('appIconPreview');
+      const errEl = document.getElementById('appFormError');
+      const saveBtn = document.getElementById('appSaveBtn');
+      const refetchBtn = document.getElementById('appRefetchBtn');
+      let editingId = null;
+      function showError(msg) { errEl.textContent = msg; errEl.classList.toggle('hidden', !msg); }
+      function updatePreview() { preview.replaceChildren(logo({ name: fName.value, icon: fIcon.value })); }
+      function openEdit(id) {
+        const app = apps.find(a => a.id === id);
+        if (!app || !isAdmin()) return;
+        editingId = id;
+        fName.value = app.name;
+        fUrl.value = app.site ? hrefFor(app) : app.url;
+        fUrl.readOnly = !!app.site;
+        fUrl.title = app.site ? 'YA、SR 的網址跟著 header.js 的 CLC_SITES' : '';
+        fIcon.value = app.icon || '';
+        updatePreview();
+        showError('');
+        saveBtn.disabled = false;
+        dialog.showModal();
+      }
+      fIcon.addEventListener('input', updatePreview);
+      fName.addEventListener('input', updatePreview);
+      refetchBtn.addEventListener('click', async () => {
+        const url = fUrl.readOnly ? new URL(fUrl.value, location.href).href : normalizeInputUrl(fUrl.value);
+        if (!url) return showError('網址格式不正確。');
+        refetchBtn.disabled = true;
+        refetchBtn.textContent = '讀取中…';
+        const info = await siteInfo(url);
+        if (info.icon) fIcon.value = info.icon;
+        if (info.name && !fUrl.readOnly) fName.value = String(info.name).slice(0, 30);
+        updatePreview();
+        refetchBtn.disabled = false;
+        refetchBtn.textContent = '重新抓取';
+      });
+      document.getElementById('appCancelBtn').addEventListener('click', () => dialog.close());
+      dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
       form.addEventListener('submit', async e => {
         e.preventDefault();
-        const name = fName.value.trim();
-        const old = editingId ? apps.find(a => a.id === editingId) : null;
-        let url = (old && old.site) ? old.url : safeUrl(fUrl.value);
-        if (!url && /^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(fUrl.value.trim())) url = safeUrl('https://' + fUrl.value.trim());
+        const old = apps.find(a => a.id === editingId);
+        if (!old) return dialog.close();
+        const name = fName.value.trim().slice(0, 30);
+        const url = old.site ? old.url : normalizeInputUrl(fUrl.value);
+        const icon = safeUrl(fIcon.value);
         if (!name) return showError('請輸入名稱。');
-        if (!url) return showError('網址格式不正確（需以 https:// 開頭）。');
-        let icon = safeUrl(fIcon.value);
-        if (fIcon.value.trim() && !icon) return showError('Logo 圖片網址格式不正確。');
-        if (!icon && !old) {
-          try { icon = new URL(url, location.href).origin + '/apple-touch-icon.png'; } catch (_) {}
-        }
-        const item = Object.assign({}, old || { id: 'app_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) }, { name, url, icon });
-        const next = old ? apps.map(a => a.id === old.id ? item : a) : apps.concat(item).slice(0, MAX_APPS);
+        if (!url) return showError('網址格式不正確。');
+        if (fIcon.value.trim() && !icon) return showError('圖示網址格式不正確。');
         saveBtn.disabled = true;
         try {
-          await persist(next);
+          await persist(apps.map(a => a.id === old.id ? Object.assign({}, old, { name, url, icon }) : a));
           dialog.close();
         } catch (err) {
           console.warn('分站儲存失敗', err);
           showError(errorText(err));
           saveBtn.disabled = false;
-        }
-      });
-      delBtn.addEventListener('click', async () => {
-        const app = apps.find(a => a.id === editingId);
-        if (!app || !confirm('確定從總控台移除「' + app.name + '」？')) return;
-        try {
-          await persist(apps.filter(a => a.id !== app.id));
-          dialog.close();
-        } catch (err) {
-          console.warn('分站移除失敗', err);
-          showError(errorText(err));
         }
       });
 

@@ -59,6 +59,17 @@ service cloud.firestore {
         && request.resource.data.items.size() <= 40;
     }
 
+    // todos：首頁「今日待辦」，個人用，只有 Superuser 可讀寫。
+    match /dx04_todos/{todoId} {
+      allow read, delete: if bootstrapAdmin();
+      allow create, update: if bootstrapAdmin()
+        && request.resource.data.keys().hasOnly(['title', 'due', 'time', 'tag', 'done', 'doneAt', 'createdAt', 'updatedAt'])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.done is bool;
+    }
+
     // 其他集合一律關閉，之後有新功能再個別開放。
     match /{document=**} {
       allow read, write: if false;

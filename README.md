@@ -78,7 +78,8 @@
 | Collection | 內容 |
 |---|---|
 | `admin_users/{email}` | 管理員名單（admin／viewer） |
-| `dx04_settings/apps` | 首頁「分站入口」清單（`items`：名稱、網址、Logo）。管理員在首頁長按「＋」新增、長按 Logo 編輯／移除；YA、SR 以外的網站在 `app.html`（DX04 Header 底下）開啟 |
+| `dx04_settings/apps` | 首頁「分站入口」清單（`items`：名稱、網址、Logo）。管理員長按任一格進入編輯模式：「−」移除、「＋」貼網址新增（名稱與 Logo 由 `_worker.js` 的 `/api/site-info` 自動抓）、點 Logo 編輯；YA、SR 以外的網站在 `app.html`（DX04 Header 底下）開啟 |
+| `dx04_todos/{id}` | 首頁「今日待辦」（`title`、`due` 日期、`time`、`tag`、`done`）。僅 Superuser 可讀寫；可打字或語音新增，會自動辨識「明天下午3點」「下週三」「#SR」等 |
 
 ## 5. CLC YA 重要資料（Firestore `clc-ya-portal`）
 
