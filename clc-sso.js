@@ -16,6 +16,7 @@
   const DB_NAME = 'firebaseLocalStorageDb';
   const STORE = 'firebaseLocalStorage';
   const FB = 'https://www.gstatic.com/firebasejs/10.8.0/';
+  const DX04_API_KEY = 'AIzaSyDbLv-XgOD7Q3J_wl81eXOuK9rqNAdzxM8'; // 判斷 DX04 是否已登入（公開值）
   const script = document.currentScript;
   const siteKey = script && script.dataset ? (script.dataset.clcSite || '') : '';
 
@@ -96,13 +97,27 @@
     catch (_) { auth = authMod.getAuth(app); }
     try {
       await authMod.signInWithCredential(auth, authMod.GoogleAuthProvider.credential(tok.t));
-      return true;
+      return '';
     } catch (e) {
       console.warn('[CLC SSO] 自動登入失敗：', e && (e.code || e.message));
-      return false;
+      return (e && (e.code || e.message)) || 'unknown';
     } finally {
       if (!existing) { try { await appMod.deleteApp(app); } catch (_) {} }
     }
+  }
+
+  // 畫面下方的簡短提示，點一下或 10 秒後消失。
+  function notice(text) {
+    const show = () => {
+      const el = document.createElement('div');
+      el.setAttribute('role', 'status');
+      el.textContent = text;
+      el.style.cssText = 'position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:2147483000;max-width:min(92vw,420px);box-sizing:border-box;padding:12px 16px;border-radius:12px;background:#161924;color:#f1f5f9;border:1px solid rgba(255,255,255,.15);box-shadow:0 12px 40px rgba(0,0,0,.45);font:13.5px/1.6 Arial,"Microsoft JhengHei",sans-serif;cursor:pointer;';
+      el.addEventListener('click', () => el.remove());
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 10000);
+    };
+    if (document.body) show(); else document.addEventListener('DOMContentLoaded', show);
   }
 
   async function runSite() {
@@ -117,9 +132,17 @@
     if (!config || !config.apiKey) return;
 
     let had = await hasAuthUser(config.apiKey);
-    if (!had) {
+    if (!had && await hasAuthUser(DX04_API_KEY)) {
+      // 只在 DX04 已登入時才嘗試自動登入或提示，不打擾一般訪客。
+      const name = site.name || '本站';
       const tok = readToken();
-      if (tok && await signInSite(config, tok)) had = true;
+      if (!tok) {
+        notice(`DX04 的登入憑證已過期（超過 1 小時），無法自動登入 ${name}。請按右上角 🔐 登入一次，或回 DX04 登出後重新登入。`);
+      } else {
+        const err = await signInSite(config, tok);
+        if (!err) had = true;
+        else notice(`自動登入 ${name} 失敗，請按右上角 🔐 登入。（${err}）`);
+      }
     }
     // 分站登出（登入狀態被移除）→ 所有站一起登出。
     setInterval(async () => {
