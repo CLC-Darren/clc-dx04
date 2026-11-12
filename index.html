@@ -138,6 +138,15 @@
     let pwaInstallHelp = null;
     let pwaInstallPreviousFocus = null;
     let pwaInstallHelpRequest = 0;
+    // 已安裝記號：從 App 開啟或安裝完成時記下，之後在一般分頁也隱藏「安裝」。
+    // Chrome 再次提示可安裝（beforeinstallprompt）代表已解除安裝，會清除記號。
+    const PWA_INSTALLED_KEY = 'clc_dx04_installed';
+    let pwaKnownInstalled = false;
+    try { pwaKnownInstalled = localStorage.getItem(PWA_INSTALLED_KEY) === '1'; } catch (_) {}
+    function setPwaKnownInstalled(value) {
+      pwaKnownInstalled = value;
+      try { value ? localStorage.setItem(PWA_INSTALLED_KEY, '1') : localStorage.removeItem(PWA_INSTALLED_KEY); } catch (_) {}
+    }
 
     function isPwaStandalone() {
       return pwaDisplayMode.matches || window.navigator.standalone === true;
@@ -146,7 +155,8 @@
     function checkPwaInstalledState() {
       const btn = document.getElementById('installAppBtn');
       if (!btn) return;
-      const installed = isPwaStandalone() || pwaInstalledInSession;
+      if (isPwaStandalone() && !pwaKnownInstalled) setPwaKnownInstalled(true);
+      const installed = isPwaStandalone() || pwaInstalledInSession || pwaKnownInstalled;
       btn.hidden = installed;
       btn.classList.toggle('hidden', installed);
       btn.style.display = installed ? 'none' : '';
@@ -165,6 +175,7 @@
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
+      if (pwaKnownInstalled) setPwaKnownInstalled(false);
       const btn = document.getElementById('installAppBtn');
       if (btn) {
         btn.classList.add('bg-[#007E8A]/15', 'border-[#007E8A]/50', 'text-[#007E8A]', 'dark:text-teal-300');
@@ -174,6 +185,7 @@
 
     window.addEventListener('appinstalled', () => {
       pwaInstalledInSession = true;
+      setPwaKnownInstalled(true);
       deferredPrompt = null;
       checkPwaInstalledState();
     });
@@ -351,6 +363,15 @@
       pwaDisplayMode.addEventListener('change', checkPwaInstalledState);
     } else if (typeof pwaDisplayMode.addListener === 'function') {
       pwaDisplayMode.addListener(checkPwaInstalledState);
+    }
+    document.addEventListener('DOMContentLoaded', checkPwaInstalledState);
+    // 支援的瀏覽器（Chrome／Edge）直接詢問系統是否已安裝，只查一次。
+    if (!isPwaStandalone() && typeof navigator.getInstalledRelatedApps === 'function') {
+      navigator.getInstalledRelatedApps().then(apps => {
+        // 只採用「已安裝」的結果；部分平台不支援偵測會回傳空清單，不據此判定未安裝。
+        if (Array.isArray(apps) && apps.length > 0) setPwaKnownInstalled(true);
+        checkPwaInstalledState();
+      }).catch(() => {});
     }
   </script>
 </body>
