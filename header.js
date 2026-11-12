@@ -72,6 +72,8 @@ function renderHeaderComponent() {
       #clc-header #clcLogoLink { touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
       #clc-header #siteSwitcher { top: 100%; width: 180px; margin-top: 7.5px; padding: 6px 0; border-radius: 11.25px; z-index: 100; }
       #clc-header #siteSwitcher a { display: block; padding: 9px 15px; font-size: 13.5px; font-weight: 700; }
+      #clc-header #clcLoginPrompt { top: 100%; width: 210px; margin-top: 7.5px; padding: 12px 14px; border-radius: 11.25px; z-index: 100; font-size: 12.5px; line-height: 1.5; }
+      #clc-header #clcLoginPrompt button { margin-top: 9px; width: 100%; height: 34px; border-radius: 9px; background: #007E8A; color: #fff; font-size: 13.5px; font-weight: 700; }
       #clc-header #installAppBtn { height: 34px; box-sizing: border-box; font-size: 12px; padding: 0 10px; border-radius: 9px; }
       #clc-header #adminActiveDot { width: 7px; height: 7px; top: 6px; right: 6px; }
       /* 下拉選單使用與 YA 相同的固定像素尺寸，避免各頁 html font-size 不同造成放大縮小。 */
@@ -113,6 +115,10 @@ function renderHeaderComponent() {
           ${window.CLC_SITES.filter(s => s.key !== window.CLC_SITE_KEY).map(s => `
             <a href="${s.url}" class="text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition">${window.clcEscapeHtml(s.label)}</a>
           `).join('')}
+        </div>
+        <div id="clcLoginPrompt" class="hidden absolute left-0 bg-white dark:bg-[#161924] shadow-2xl border border-slate-200 dark:border-white/10 text-left text-slate-600 dark:text-slate-300">
+          <div>登入管理員帳號後，才能切換站台。</div>
+          <button type="button" onclick="clcLoginFromPrompt()">🔐 登入</button>
         </div>
       </div>
       <div class="flex items-center gap-1.5">
@@ -230,10 +236,11 @@ function clcShowSiteSwitcher(toggle) {
   if (admin) admin.classList.add('hidden');
 }
 function handleLogoClick(e) {
+  // 長按已開啟選單或登入提示，放開時不再回首頁。
+  if (clcLogoLongPressed) { e.preventDefault(); clcLogoLongPressed = false; return; }
   const switcher = document.getElementById('siteSwitcher');
   if (!window.isSuperuser || !switcher) return; // 照舊回首頁
   e.preventDefault();
-  if (clcLogoLongPressed) { clcLogoLongPressed = false; return; } // 長按已開啟選單，放開時不再回首頁
   const href = e.currentTarget.getAttribute('href');
   if (clcLogoClickTimer) {
     clearTimeout(clcLogoClickTimer);
@@ -247,12 +254,20 @@ function handleLogoClick(e) {
   }, 350);
 }
 // 長按 Logo（手機）也開啟站台選單，僅 Superuser。
+// 尚未登入時長按，改為顯示登入提示（手機只允許使用者親手按下按鈕時開啟 Google 登入視窗）。
+function clcLoginFromPrompt() {
+  const prompt = document.getElementById('clcLoginPrompt');
+  if (prompt) prompt.classList.add('hidden');
+  triggerAdminLogin();
+}
 function clcCancelLogoPress() {
   if (clcLogoPressTimer) { clearTimeout(clcLogoPressTimer); clcLogoPressTimer = null; }
 }
 document.addEventListener('pointerdown', function(e) {
   const link = e.target.closest && e.target.closest('#clcLogoLink');
-  if (!link || !window.isSuperuser) return;
+  if (!link) return;
+  const signedOut = !(window.auth && window.auth.currentUser);
+  if (!window.isSuperuser && !signedOut) return; // 已登入但非 Superuser：維持原本行為
   clcLogoLongPressed = false;
   clcCancelLogoPress();
   clcLogoPressStart = { x: e.clientX, y: e.clientY };
@@ -260,7 +275,9 @@ document.addEventListener('pointerdown', function(e) {
     clcLogoPressTimer = null;
     clcLogoLongPressed = true;
     if (clcLogoClickTimer) { clearTimeout(clcLogoClickTimer); clcLogoClickTimer = null; }
-    clcShowSiteSwitcher(false);
+    if (window.isSuperuser) { clcShowSiteSwitcher(false); return; }
+    const prompt = document.getElementById('clcLoginPrompt');
+    if (prompt) prompt.classList.remove('hidden');
   }, 450);
 });
 document.addEventListener('pointermove', function(e) {
@@ -327,6 +344,10 @@ document.addEventListener('click', function(e) {
   const switcher = document.getElementById('siteSwitcher');
   if (logoWrap && switcher && !logoWrap.contains(e.target)) {
     switcher.classList.add('hidden');
+  }
+  const loginPrompt = document.getElementById('clcLoginPrompt');
+  if (logoWrap && loginPrompt && !logoWrap.contains(e.target)) {
+    loginPrompt.classList.add('hidden');
   }
 });
 
