@@ -349,8 +349,10 @@ async function handleTranscribe(request, env) {
   });
 
   // 主力模型遇尖峰滿載時自動切換備援模型重試
-  const models = ['gemini-3.8-flash', 'gemini-3.8-flash-lite'];
+  // 3.8 Flash-Lite 沒有一般版（只有 TTS 版），備援改用 3.5 Flash-Lite 與 2.5 Flash
+  const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
   let lastError = '連線 Gemini 服務失敗，請稍後再試';
+  const errors = [];
 
   for (let i = 0; i < models.length; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, 400));
@@ -375,6 +377,7 @@ async function handleTranscribe(request, env) {
       if (!geminiRes.ok) {
         const msg = (data && data.error && data.error.message) || ('HTTP ' + geminiRes.status);
         lastError = 'Gemini 辨識失敗：' + msg;
+        errors.push(models[i] + '：' + msg.slice(0, 120));
         if (geminiRes.status === 404 || geminiRes.status === 429 || geminiRes.status === 503 || /high demand|overloaded|try again|not found/i.test(msg)) {
           continue;
         }
@@ -384,14 +387,16 @@ async function handleTranscribe(request, env) {
       const parts = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
       const text = parts.filter(p => !p.thought).map(p => p.text || '').join('').replace(/[\r\n]+/g, ' ').trim();
       const reason = data && data.candidates && data.candidates[0] && data.candidates[0].finishReason;
-      if (!text && reason && reason !== 'STOP') { lastError = 'Gemini 沒有回傳內容（' + reason + '）'; continue; }
+      if (!text && reason && reason !== 'STOP') { lastError = 'Gemini 沒有回傳內容（' + reason + '）'; errors.push(models[i] + '：' + reason); continue; }
       return json({ ok: true, text, model: models[i] });
     } catch (err) {
       lastError = err && err.name === 'AbortError' ? 'Gemini 回應逾時（' + models[i] + '），請再試一次' : '連線 Gemini 服務失敗，請稍後再試';
+      errors.push(models[i] + '：' + (err && err.name === 'AbortError' ? '逾時' : '連線失敗'));
     }
   }
 
-  return json({ ok: false, error: lastError }, 502);
+  // 全部失敗時，把每個模型的原因都列出來，方便判斷
+  return json({ ok: false, error: errors.length ? 'Gemini 辨識失敗｜' + errors.join('｜') : lastError }, 502);
 }
 
 export default {
