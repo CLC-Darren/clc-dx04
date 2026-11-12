@@ -912,11 +912,18 @@
             setStatus('AI 判讀中…');
             try {
               const audio = await blobToBase64(blob);
-              const res = await fetch('/api/transcribe', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ audio, mimeType })
-              });
+              // 最多等 50 秒，逾時就顯示錯誤，不會一直卡住
+              const ctrl = new AbortController();
+              const timer = setTimeout(() => ctrl.abort(), 50000);
+              let res;
+              try {
+                res = await fetch('/api/transcribe', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ audio, mimeType }),
+                  signal: ctrl.signal
+                });
+              } finally { clearTimeout(timer); }
               const data = await res.json().catch(() => ({}));
               if (!res.ok || !data.ok) {
                 setStatus((data && data.error) || '語音辨識失敗，請稍後再試。');
@@ -931,7 +938,7 @@
               setStatus('');
               form.requestSubmit();
             } catch (err) {
-              setStatus('連線失敗，無法進行語音辨識。');
+              setStatus(err && err.name === 'AbortError' ? 'AI 判讀逾時，請再試一次。' : '連線失敗，無法進行語音辨識。');
             } finally {
               busy = false;
               mic.disabled = false;

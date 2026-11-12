@@ -343,7 +343,8 @@ async function handleTranscribe(request, env) {
     }],
     generationConfig: {
       temperature: 0.1,
-      maxOutputTokens: 200
+      // Gemini 3 系列會先「思考」再回答，思考也算在輸出額度裡；額度太小會只剩空白回應
+      maxOutputTokens: 2048
     }
   });
 
@@ -354,30 +355,39 @@ async function handleTranscribe(request, env) {
   for (let i = 0; i < models.length; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, 400));
     try {
-      const geminiRes = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/' + models[i] + ':generateContent?key=' + encodeURIComponent(apiKey),
-        {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: reqBody
-        }
-      );
+      // 每個模型最多等 20 秒，避免畫面一直停在「AI 判讀中」
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 20000);
+      let geminiRes;
+      try {
+        geminiRes = await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/models/' + models[i] + ':generateContent',
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+            body: reqBody,
+            signal: ctrl.signal
+          }
+        );
+      } finally { clearTimeout(timer); }
 
       const data = await geminiRes.json();
       if (!geminiRes.ok) {
         const msg = (data && data.error && data.error.message) || ('HTTP ' + geminiRes.status);
         lastError = 'Gemini 辨識失敗：' + msg;
-        if (geminiRes.status === 429 || geminiRes.status === 503 || /high demand|overloaded|try again/i.test(msg)) {
+        if (geminiRes.status === 404 || geminiRes.status === 429 || geminiRes.status === 503 || /high demand|overloaded|try again|not found/i.test(msg)) {
           continue;
         }
         return json({ ok: false, error: lastError }, 502);
       }
 
       const parts = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
-      const text = parts.map(p => p.text || '').join('').replace(/[\r\n]+/g, ' ').trim();
-      return json({ ok: true, text });
+      const text = parts.filter(p => !p.thought).map(p => p.text || '').join('').replace(/[\r\n]+/g, ' ').trim();
+      const reason = data && data.candidates && data.candidates[0] && data.candidates[0].finishReason;
+      if (!text && reason && reason !== 'STOP') { lastError = 'Gemini 沒有回傳內容（' + reason + '）'; continue; }
+      return json({ ok: true, text, model: models[i] });
     } catch (err) {
-      lastError = '連線 Gemini 服務失敗，請稍後再試';
+      lastError = err && err.name === 'AbortError' ? 'Gemini 回應逾時（' + models[i] + '），請再試一次' : '連線 Gemini 服務失敗，請稍後再試';
     }
   }
 
