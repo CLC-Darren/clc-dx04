@@ -1,3 +1,11 @@
+// 全站字型：英文 Arial、中文微軟正黑體。粗體一律用 Arial Bold（Windows 會把 800／900 字重換成很粗的 Arial Black）。
+(function () {
+  if (document.getElementById('clcFontFace')) return;
+  const css = '@font-face{font-family:"CLC Arial";src:local("Arial"),local("ArialMT");font-weight:100 549;font-style:normal}@font-face{font-family:"CLC Arial";src:local("Arial Bold"),local("Arial-BoldMT");font-weight:550 1000;font-style:normal}';
+  window.CLC_FONT_FACE_CSS = css;
+  const st = document.createElement('style'); st.id = 'clcFontFace'; st.textContent = css;
+  (document.head || document.documentElement).appendChild(st);
+})();
 /**
  * CLC DX04 總控台 - 共用 Header (header.js)
  * 外觀與 YA 相同（Logo、深淺模式、尺寸與斷點）。
