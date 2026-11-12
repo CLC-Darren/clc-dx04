@@ -69,7 +69,7 @@ function renderHeaderComponent() {
       #clc-header > div { width: 100% !important; height: 46px !important; min-height: 46px !important; padding: 0 14px !important; box-sizing: border-box !important; display: flex !important; align-items: center !important; justify-content: space-between !important; }
       #clc-header .logo-badge { font-size: 13.5px; height: 34px; line-height: 34px; box-sizing: border-box; padding: 0 12px; border-radius: 9px; font-weight: 800; background: #007E8A; color: white; display: inline-flex; align-items: center; text-decoration: none; letter-spacing: .05em; }
       #clc-header .header-btn { width: 34px; min-width: 34px; height: 34px; border-radius: 9px; font-size: 15px; padding: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
-      #clc-header #clcLogoLink { touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+      #clc-header #clcLogoLink { touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
       #clc-header #siteSwitcher { top: 100%; width: 180px; margin-top: 7.5px; padding: 6px 0; border-radius: 11.25px; z-index: 100; }
       #clc-header #siteSwitcher a { display: block; padding: 9px 15px; font-size: 13.5px; font-weight: 700; }
       #clc-header #installAppBtn { height: 34px; box-sizing: border-box; font-size: 12px; padding: 0 10px; border-radius: 9px; }
@@ -219,24 +219,60 @@ window.auth.onAuthStateChanged(user => {
 // Logo：一般使用者單擊立即回首頁；Superuser 第一下先等 280ms，
 // 若期間再點一下即視為雙擊並開啟站台選單（不依賴 dblclick 事件，手機雙點也可用）。
 let clcLogoClickTimer = null;
+let clcLogoPressTimer = null;
+let clcLogoLongPressed = false;
+let clcLogoPressStart = null;
+function clcShowSiteSwitcher(toggle) {
+  const switcher = document.getElementById('siteSwitcher');
+  if (!switcher) return;
+  if (toggle) switcher.classList.toggle('hidden'); else switcher.classList.remove('hidden');
+  const admin = document.getElementById('adminDropdown');
+  if (admin) admin.classList.add('hidden');
+}
 function handleLogoClick(e) {
   const switcher = document.getElementById('siteSwitcher');
   if (!window.isSuperuser || !switcher) return; // 照舊回首頁
   e.preventDefault();
+  if (clcLogoLongPressed) { clcLogoLongPressed = false; return; } // 長按已開啟選單，放開時不再回首頁
   const href = e.currentTarget.getAttribute('href');
   if (clcLogoClickTimer) {
     clearTimeout(clcLogoClickTimer);
     clcLogoClickTimer = null;
-    switcher.classList.toggle('hidden');
-    const admin = document.getElementById('adminDropdown');
-    if (admin) admin.classList.add('hidden');
+    clcShowSiteSwitcher(true);
     return;
   }
   clcLogoClickTimer = setTimeout(() => {
     clcLogoClickTimer = null;
     window.location.href = href;
-  }, 280);
+  }, 350);
 }
+// 長按 Logo（手機）也開啟站台選單，僅 Superuser。
+function clcCancelLogoPress() {
+  if (clcLogoPressTimer) { clearTimeout(clcLogoPressTimer); clcLogoPressTimer = null; }
+}
+document.addEventListener('pointerdown', function(e) {
+  const link = e.target.closest && e.target.closest('#clcLogoLink');
+  if (!link || !window.isSuperuser) return;
+  clcLogoLongPressed = false;
+  clcCancelLogoPress();
+  clcLogoPressStart = { x: e.clientX, y: e.clientY };
+  clcLogoPressTimer = setTimeout(() => {
+    clcLogoPressTimer = null;
+    clcLogoLongPressed = true;
+    if (clcLogoClickTimer) { clearTimeout(clcLogoClickTimer); clcLogoClickTimer = null; }
+    clcShowSiteSwitcher(false);
+  }, 450);
+});
+document.addEventListener('pointermove', function(e) {
+  if (clcLogoPressTimer && clcLogoPressStart &&
+      Math.abs(e.clientX - clcLogoPressStart.x) + Math.abs(e.clientY - clcLogoPressStart.y) > 10) clcCancelLogoPress();
+});
+document.addEventListener('pointerup', clcCancelLogoPress);
+document.addEventListener('pointercancel', clcCancelLogoPress);
+document.addEventListener('contextmenu', function(e) {
+  // 長按時不要跳出系統的連結選單。
+  if ((clcLogoPressTimer || clcLogoLongPressed) && e.target.closest && e.target.closest('#clcLogoLink')) e.preventDefault();
+});
 
 function toggleAdminDropdown() {
   if (window.isAdmin || window.isViewer) {
