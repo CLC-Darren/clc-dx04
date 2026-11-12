@@ -117,7 +117,6 @@
     .todo-row.is-swiping::before { content:"刪除"; position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#fff; font-size:.8125rem; font-weight:700; opacity:.6; }
     .todo-row.will-delete::before { opacity:1; }
     .todo-row.is-removing { opacity:0; transition:opacity .18s; }
-    @media (hover:none), (pointer:coarse), (max-width:1023px) { .todo-del { display:none; } }
     .todo-ck-hit { display:grid; place-content:center; margin:-11px; padding:11px; cursor:pointer; flex:none; }
     .todo-ck-hit .todo-ck { margin-top:0; }
     .todo-text { cursor:text; border-radius:6px; }
@@ -132,6 +131,8 @@
     .todo-del { flex:none; width:44px; height:44px; display:grid; place-content:center; border:0; background:none; color:#94a3b8; border-radius:12px; cursor:pointer; opacity:.55; }
     .todo-del:hover, .todo-del:focus-visible { opacity:1; color:#e11d48; background:rgba(225,29,72,.08); }
     @media (hover:hover) { .todo-del { opacity:0; } .todo-row:hover .todo-del, .todo-del:focus-visible { opacity:1; } }
+    /* 手機、平板：不顯示 ×，只能往右滑刪除（放在 .todo-del 之後，才不會被蓋掉） */
+    @media (hover:none), (pointer:coarse), (max-width:1023px) { .todo-row .todo-del { display:none !important; } }
     .todo-group { margin:6px 0 0; font-size:.75rem; font-weight:700; letter-spacing:.05em; color:#64748b; }
     .dark .todo-group { color:#8A92A6; }
     .todo-group.is-overdue { color:#ea580c; }
