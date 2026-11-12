@@ -831,7 +831,7 @@
         catch (err) { console.warn('待辦新增失敗', err); input.value = text; setStatus(errText(err)); }
       });
 
-      // ---------- 語音輸入（MediaRecorder 錄音 + Gemini AI 判讀，支援 Brave、Chrome、Edge、Safari） ----------
+      // ---------- 語音輸入：預設用瀏覽器內建語音辨識（快）；不支援或失敗（Brave、Firefox 等）時自動改用錄音 + Gemini AI 判讀 ----------
       const mic = document.getElementById('todoMicBtn');
       if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function' && typeof MediaRecorder !== 'undefined') {
         mic.classList.remove('hidden');
@@ -858,14 +858,58 @@
           });
         }
 
-        mic.addEventListener('click', async () => {
-          if (!canUse() || busy) return;
-          // 正在錄音中：再按一次停止並送出給 Gemini 判讀
-          if (recorder && recorder.state === 'recording') {
-            recorder.stop();
-            return;
-          }
+        // 內建語音辨識：Chrome、Edge、Safari 有；失敗過一次（例如 Brave 的 network）就記在本機，之後直接用 AI
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const SPEECH_BROKEN_KEY = 'clc_dx04_speech_broken';
+        let speech = null;
+        function speechUsable() {
+          if (!SpeechRec) return false;
+          try { return localStorage.getItem(SPEECH_BROKEN_KEY) !== '1'; } catch (_) { return true; }
+        }
+        function markSpeechBroken() { try { localStorage.setItem(SPEECH_BROKEN_KEY, '1'); } catch (_) {} }
+        function startWebSpeech() {
+          const rec = new SpeechRec();
+          speech = rec;
+          rec.lang = 'zh-TW';
+          rec.interimResults = true;
+          rec.continuous = false;
+          before = input.value.trim();
+          let finalText = '', fallback = false;
+          rec.onstart = () => { mic.classList.add('is-listening'); mic.setAttribute('aria-label', '停止語音輸入'); setStatus('請說…（說完會自動加入）'); };
+          rec.onresult = ev => {
+            let interim = '';
+            finalText = '';
+            for (const r of ev.results) { if (r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript; }
+            input.value = (before ? before + ' ' : '') + (finalText || interim);
+          };
+          rec.onerror = ev => {
+            const e = ev.error;
+            if (e === 'no-speech' || e === 'aborted') { setStatus(e === 'no-speech' ? '沒有聽到聲音，再按一次麥克風試試。' : ''); return; }
+            // 麥克風被拒：AI 模式也需要麥克風，所以不切換
+            if (e === 'not-allowed' || e === 'audio-capture') { setStatus(e === 'audio-capture' ? '找不到麥克風，或麥克風被其他程式占用。' : '麥克風權限被拒絕，請到瀏覽器設定允許此網站使用麥克風。'); return; }
+            // network、service-not-allowed、language-not-supported 等：這個瀏覽器用不了內建辨識，改用 AI
+            markSpeechBroken();
+            fallback = true;
+          };
+          rec.onend = () => {
+            speech = null;
+            mic.classList.remove('is-listening');
+            mic.setAttribute('aria-label', '語音輸入');
+            if (fallback) { input.value = before; setStatus('這個瀏覽器的內建語音辨識無法使用，改用 AI 辨識…'); startAiRecording(); return; }
+            if (finalText.trim()) { setStatus(''); form.requestSubmit(); }
+          };
+          try { rec.start(); } catch (_) { speech = null; markSpeechBroken(); startAiRecording(); }
+        }
 
+        mic.addEventListener('click', () => {
+          if (!canUse() || busy) return;
+          // 正在錄音或聆聽中：再按一次停止
+          if (recorder && recorder.state === 'recording') { recorder.stop(); return; }
+          if (speech) { speech.stop(); return; }
+          if (speechUsable()) startWebSpeech(); else startAiRecording();
+        });
+
+        async function startAiRecording() {
           before = input.value.trim();
           chunks = [];
           try {
@@ -895,7 +939,7 @@
           recorder.onstart = () => {
             mic.classList.add('is-listening');
             mic.setAttribute('aria-label', '停止錄音並辨識');
-            setStatus('錄音中… 說完請再按一次麥克風');
+            setStatus('AI 錄音中… 說完請再按一次麥克風');
             // 最長錄音 30 秒自動停止
             stopTimer = setTimeout(() => { if (recorder && recorder.state === 'recording') recorder.stop(); }, 30000);
           };
@@ -951,7 +995,7 @@
             cleanupMic();
             setStatus('語音輸入無法啟動。');
           }
-        });
+        }
       }
 
       window.clcTodoParse = parse; // 方便除錯
