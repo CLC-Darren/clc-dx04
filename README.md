@@ -6,7 +6,7 @@
 > 🔒 本 repository 目前是 **公開（public）**。這裡只記錄「用哪個平台、哪個帳號、設定項目的名稱」，
 > **絕對不要把密碼、Token、API Key、金鑰的「值」寫進來。** 建議到 GitHub → Settings → 把本 repo 改為 Private。
 
-最後更新：2026-11-11
+最後更新：2026-11-12
 
 ---
 
@@ -17,7 +17,7 @@
 | **GitHub**（帳號／組織 `CLC-Darren`） | `darren.lin@twclc.org`（教會 Workspace） | 所有網站的原始碼 |
 | **Cloudflare**（Pages 網站託管） | `darren.lin@twclc.org`（教會 Workspace） | 所有網站的託管、`_worker.js` 後端、環境變數 |
 | **Firebase**（登入＋Firestore 資料庫） | `darren710404@gmail.com`（個人 Gmail） | 各站資料庫、Google 登入 |
-| **Google Apps Script**（YA 寄信） | `darren710404@gmail.com`（個人 Gmail） | YA 測試信、每日 09:00 審核摘要 |
+| **Google Apps Script**（CLC 寄信中心） | `darren710404@gmail.com`（個人 Gmail） | 所有站的寄信：YA 測試信、每日／每週摘要；SR 新朋友通知 |
 | Resend（Christmas 寄信） | 依 Christmas 站設定 | CLC Christmas 通知信 |
 
 **為什麼 Firebase／Apps Script 用個人帳號：** Darren 沒有 `twclc.org` 網域的管理員權限，教會 Workspace 可能限制建立 Google Cloud／Firebase 專案、授權外部 App 或 Apps Script 連外，自己無法解除。
@@ -95,12 +95,17 @@
 
 ---
 
-## 6. YA 寄信（Google Apps Script）
+## 6. CLC 寄信中心（Google Apps Script，所有站共用一份）
 
-- 程式碼存在 YA repo：`docs/apps-script/Code.gs`、`appsscript.json`。
-- 安裝在 **`darren710404@gmail.com`** 的 Apps Script：貼上程式 → 執行 `setup()` 授權 → 自動建立觸發條件（每 5 分鐘處理測試信、每天 09:00 寄審核摘要）。`checkSetup()` 可只檢查不寄信。
-- 寄件人即該 Gmail（顯示名稱「CLC YA」）；個人 Gmail 每日寄送上限約 100 位收件人。
-- 只能保留**一份**在執行的寄信 Apps Script，否則會重複寄信。
+- 程式碼存在本 repo：`docs/apps-script/Code.gs`、`appsscript.json`（YA、SR 原本各自的程式已合併到這裡）。
+- 安裝在 **`darren710404@gmail.com`** 的 Apps Script（所有站的 Firebase 專案都在這個帳號）：貼上程式 → 執行 `setup()` 授權 → 自動建立排程。
+- 排程：每 5 分鐘（YA 測試信、SR 新朋友通知）、每天 09:00（YA 審核摘要）、每週二 09:00（YA 使用者排版修改建議）。
+- 網頁應用程式：部署 → 網頁應用程式（執行身分「我」、存取權「任何人」），給信裡「直接存為預設」使用；連結有簽章，點開後要再按一次確認。
+- **各站的寄信規則都在各站網站後台設定**（存在各站 Firestore），例如 YA 權限管理的「接收每日審核摘要」、歌詞管理的「收集使用者的排版修改建議」、SR 名單後台的小組通知信箱。程式不用改。
+- 新增站台的寄信功能：在 `SITES` 加一筆、寫 `站代號_功能` 函式，排進 `every5min`／`daily0900`／`weeklyTue0900`。
+- 寄件人即該 Gmail；個人 Gmail 每日寄送上限約 100 位收件人（所有程式合計）。
+- 只能保留**一份**在執行的寄信程式，否則會重複寄信（舊的 YA、SR 寄信專案要刪除觸發條件）。
+- 寄信狀況檢查：Apps Script →「執行項目」看每次執行紀錄；Firestore `mail_jobs`（YA 測試信）`status` 為 pending＝還沒被處理、failed＝失敗（看 error）、sent＝已寄出。
 
 ---
 
@@ -108,7 +113,7 @@
 
 - [ ] GitHub 曾對 `clc-sr-portal`、`2026clc-christmas` 發出「Possible valid secrets detected」警告：檢查是哪個檔案、撤銷外洩的金鑰並換新。
 - [ ] 公開的 repo（`clc-dx04`、`clc-sr-portal`）考慮改為 Private。
-- [ ] 確認哪個帳號底下有舊的寄信 Apps Script，安裝新版後刪除舊的觸發條件，觀察一兩天後再刪舊專案。
+- [ ] 安裝「CLC 寄信中心」（DX04 `docs/apps-script`），並刪除舊的 YA、SR 寄信 Apps Script 觸發條件，觀察一兩天後再刪舊專案。
 - [ ] DX04 自己的 Firebase 專案 `clc-dx04` 是未來統一登入（SSO）的中心；SSO 排在 DX04 登入、轉送、路徑、切換選單、Header 統一之後。
 - 開發原則：每次修改用最小改動；發現其他問題先討論再修。
 
