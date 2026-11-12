@@ -117,7 +117,7 @@
     .todo-row.is-swiping::before { content:"刪除"; position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#fff; font-size:.8125rem; font-weight:700; opacity:.6; }
     .todo-row.will-delete::before { opacity:1; }
     .todo-row.is-removing { opacity:0; transition:opacity .18s; }
-    @media (hover:none) { .todo-del { display:none; } }
+    @media (hover:none), (pointer:coarse), (max-width:1023px) { .todo-del { display:none; } }
     .todo-ck-hit { display:grid; place-content:center; margin:-11px; padding:11px; cursor:pointer; flex:none; }
     .todo-ck-hit .todo-ck { margin-top:0; }
     .todo-text { cursor:text; border-radius:6px; }
