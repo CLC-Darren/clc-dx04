@@ -831,44 +831,119 @@
         catch (err) { console.warn('待辦新增失敗', err); input.value = text; setStatus(errText(err)); }
       });
 
-      // ---------- 語音輸入（Chrome、Edge、Safari；不支援的瀏覽器不顯示麥克風） ----------
-      const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      // ---------- 語音輸入（MediaRecorder 錄音 + Gemini AI 判讀，支援 Brave、Chrome、Edge、Safari） ----------
       const mic = document.getElementById('todoMicBtn');
-      if (Rec) {
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function' && typeof MediaRecorder !== 'undefined') {
         mic.classList.remove('hidden');
-        let rec = null, before = '';
-        mic.addEventListener('click', () => {
-          if (!canUse()) return;
-          if (rec) { rec.stop(); return; }
-          rec = new Rec();
-          rec.lang = 'zh-TW';
-          rec.interimResults = true;
-          rec.continuous = false;
+        let recorder = null, stream = null, chunks = [], before = '', stopTimer = null, busy = false;
+
+        function cleanupMic() {
+          if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
+          if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+          recorder = null;
+          mic.classList.remove('is-listening');
+          mic.setAttribute('aria-label', '語音輸入');
+        }
+
+        function blobToBase64(blob) {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const res = String(reader.result || '');
+              const idx = res.indexOf(',');
+              resolve(idx >= 0 ? res.slice(idx + 1) : '');
+            };
+            reader.onerror = () => reject(new Error('讀取音訊失敗'));
+            reader.readAsDataURL(blob);
+          });
+        }
+
+        mic.addEventListener('click', async () => {
+          if (!canUse() || busy) return;
+          // 正在錄音中：再按一次停止並送出給 Gemini 判讀
+          if (recorder && recorder.state === 'recording') {
+            recorder.stop();
+            return;
+          }
+
           before = input.value.trim();
-          let finalText = '';
-          rec.onstart = () => { mic.classList.add('is-listening'); mic.setAttribute('aria-label', '停止語音輸入'); setStatus('請說…（說完會自動加入）'); };
-          rec.onresult = ev => {
-            let interim = '';
-            finalText = '';
-            for (const r of ev.results) { if (r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript; }
-            input.value = (before ? before + ' ' : '') + (finalText || interim);
-          };
-          rec.onerror = ev => {
-            setStatus(ev.error === 'not-allowed' || ev.error === 'service-not-allowed'
+          chunks = [];
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          } catch (err) {
+            cleanupMic();
+            const name = err && err.name;
+            setStatus(name === 'NotAllowedError' || name === 'PermissionDeniedError'
               ? '麥克風權限被拒絕，請到瀏覽器設定允許此網站使用麥克風。'
-              : ev.error === 'no-speech' ? '沒有聽到聲音，再按一次麥克風試試。'
-              : ev.error === 'audio-capture' ? '找不到麥克風，或麥克風被其他程式占用。（audio-capture）'
-              : ev.error === 'network' ? '語音辨識連不到 Google 伺服器，可能是網路擋住或瀏覽器不支援。（network）'
-              : ev.error === 'language-not-supported' ? '瀏覽器不支援中文語音辨識。（language-not-supported）'
-              : '語音輸入失敗：' + (ev.error || '未知原因'));
+              : name === 'NotFoundError' || name === 'DevicesNotFoundError'
+              ? '找不到麥克風，或麥克風被其他程式占用。'
+              : '無法開啟麥克風：' + (name || '未知原因'));
+            return;
+          }
+
+          const mimeCandidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+          const chosenMime = mimeCandidates.find(m => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || '';
+          try {
+            recorder = chosenMime ? new MediaRecorder(stream, { mimeType: chosenMime }) : new MediaRecorder(stream);
+          } catch (_) {
+            cleanupMic();
+            setStatus('此瀏覽器不支援錄音格式。');
+            return;
+          }
+
+          recorder.ondataavailable = ev => { if (ev.data && ev.data.size > 0) chunks.push(ev.data); };
+          recorder.onstart = () => {
+            mic.classList.add('is-listening');
+            mic.setAttribute('aria-label', '停止錄音並辨識');
+            setStatus('錄音中… 說完請再按一次麥克風');
+            // 最長錄音 30 秒自動停止
+            stopTimer = setTimeout(() => { if (recorder && recorder.state === 'recording') recorder.stop(); }, 30000);
           };
-          rec.onend = () => {
-            mic.classList.remove('is-listening');
-            mic.setAttribute('aria-label', '語音輸入');
-            rec = null;
-            if (finalText.trim()) { setStatus(''); form.requestSubmit(); }
+          recorder.onstop = async () => {
+            const mimeType = (recorder && recorder.mimeType) || chosenMime || 'audio/webm';
+            cleanupMic();
+            if (!chunks.length) { setStatus('沒有錄到聲音，再按一次麥克風試試。'); return; }
+            const blob = new Blob(chunks, { type: mimeType });
+            chunks = [];
+            if (blob.size < 800) { setStatus('錄音時間太短，沒有聽到聲音。'); return; }
+
+            busy = true;
+            mic.disabled = true;
+            setStatus('AI 判讀中…');
+            try {
+              const audio = await blobToBase64(blob);
+              const res = await fetch('/api/transcribe', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ audio, mimeType })
+              });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok || !data.ok) {
+                setStatus((data && data.error) || '語音辨識失敗，請稍後再試。');
+                return;
+              }
+              const text = String(data.text || '').trim();
+              if (!text) {
+                setStatus('沒有聽到清楚的內容，再按一次麥克風試試。');
+                return;
+              }
+              input.value = (before ? before + ' ' : '') + text;
+              setStatus('');
+              form.requestSubmit();
+            } catch (err) {
+              setStatus('連線失敗，無法進行語音辨識。');
+            } finally {
+              busy = false;
+              mic.disabled = false;
+            }
           };
-          try { rec.start(); } catch (err) { rec = null; setStatus('語音輸入無法啟動。'); }
+
+          try {
+            recorder.start();
+          } catch (_) {
+            cleanupMic();
+            setStatus('語音輸入無法啟動。');
+          }
         });
       }
 

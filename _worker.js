@@ -300,11 +300,81 @@ async function handleSiteInfo(request, ctx) {
   }
 }
 
+
+/* ---------- /api/transcribe：使用 Gemini API 將語音轉為待辦文字（支援 Brave、Chrome、Safari） ---------- */
+async function handleTranscribe(request, env) {
+  const json = (body, status = 200) => new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }
+  });
+  if (request.method !== 'POST') return json({ ok: false, error: 'method' }, 405);
+
+  const apiKey = env.GEMINI_API_KEY;
+  if (!apiKey) return json({ ok: false, error: '尚未在 Cloudflare 設定 GEMINI_API_KEY 環境變數' }, 500);
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch (_) {
+    return json({ ok: false, error: '無效的請求格式' }, 400);
+  }
+
+  const audioBase64 = String(payload && payload.audio || '').trim();
+  const rawMime = String(payload && payload.mimeType || 'audio/webm').split(';')[0].trim();
+  if (!audioBase64) return json({ ok: false, error: '沒有收到音訊資料' }, 400);
+  if (audioBase64.length > 10 * 1024 * 1024) return json({ ok: false, error: '錄音時間過長' }, 413);
+
+  const prompt = [
+    '你是一個繁體中文語音待辦事項轉寫助手。請仔細聽取這段語音，並輸出最適合直接填入「今日待辦」輸入框的單行繁體中文文字。',
+    '規則：',
+    '1. 一律使用台灣慣用的繁體中文。',
+    '2. 自動去除「嗯、啊、那個、就是」等語氣詞、口頭禪與停頓贅字。',
+    '3. 若說話者中途自我更正（例如「明天下午三點，不對，改四點開會」），只保留最終修正後的內容。',
+    '4. 保留日期、時間（如「明天下午3點」、「下週二」）與標籤（若提到 YA、SR、DX04、聖誕，可保留為 #YA、#SR、#DX04、#聖誕），方便系統自動解析。',
+    '5. 只輸出整理後的待辦內容本身，不要加引號、不要加前綴說明、不要換行。若完全聽不到語音內容，請回傳空字串。'
+  ].join('\n');
+
+  try {
+    const geminiRes = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey),
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inlineData: { mimeType: rawMime || 'audio/webm', data: audioBase64 } },
+              { text: prompt }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 200
+          }
+        })
+      }
+    );
+
+    const data = await geminiRes.json();
+    if (!geminiRes.ok) {
+      const msg = (data && data.error && data.error.message) || ('HTTP ' + geminiRes.status);
+      return json({ ok: false, error: 'Gemini 辨識失敗：' + msg }, 502);
+    }
+
+    const parts = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+    const text = parts.map(p => p.text || '').join('').replace(/[\r\n]+/g, ' ').trim();
+    return json({ ok: true, text });
+  } catch (err) {
+    return json({ ok: false, error: '連線 Gemini 服務失敗，請稍後再試' }, 502);
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     if (url.pathname === '/api/site-info') return handleSiteInfo(request, ctx);
+    if (url.pathname === '/api/transcribe') return handleTranscribe(request, env);
     const site = matchSite(url.pathname);
 
     if (site) {
