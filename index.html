@@ -78,6 +78,23 @@
     .app-fallback { display:grid; place-content:center; background:#007E8A; color:#fff; font-weight:800; font-size:1.5rem; }
     .app-slot { aspect-ratio:1; border-radius:22%; border:2px dashed #cbd5e1; color:#94a3b8; display:grid; place-content:center; font-size:1.75rem; font-weight:300; user-select:none; }
     .dark .app-slot { border-color:#334155; color:#475569; }
+    /* 首頁區塊：電腦固定位置；手機依 DOM 順序，可拖曳 */
+    @media (min-width: 1024px) {
+      #dashGrid > [data-widget="todo"] { grid-column: 1; grid-row: 1 / span 2; }
+      #dashGrid > [data-widget="apps"] { grid-column: 2; grid-row: 1; }
+      #dashGrid > [data-widget="clock"] { grid-column: 2; grid-row: 2; }
+    }
+    .dash-widget { position:relative; }
+    .drag-handle { position:absolute; top:0; left:50%; transform:translateX(-50%); width:56px; height:22px; display:flex; align-items:center; justify-content:center; background:none; border:0; padding:0; cursor:grab; touch-action:none; z-index:2; }
+    .drag-handle span { width:36px; height:5px; border-radius:9999px; background:#cbd5e1; }
+    .dark .drag-handle span { background:#334155; }
+    .drag-handle:focus-visible { outline:2px solid #00A3B4; border-radius:8px; }
+    .dash-widget.is-dragging { z-index:30; box-shadow:0 18px 40px rgba(0,0,0,.35); transition:none; }
+    .dash-widget.is-dragging .drag-handle { cursor:grabbing; }
+    .dash-widget.is-dragging .drag-handle span { background:#007E8A; }
+    .dash-widget.is-dragging[data-widget="apps"] { background:#fff; border-radius:24px; }
+    .dark .dash-widget.is-dragging[data-widget="apps"] { background:#161924; }
+    body.dash-dragging { user-select:none; -webkit-user-select:none; }
   </style>
 
   <!-- 深淺主題預載防閃爍（與 YA 相同） -->
@@ -115,10 +132,28 @@
       <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Good Morning DX04</h1>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-[1.45fr_1fr] gap-6 items-stretch">
+    <!-- 手機：單欄，可拖曳排序（順序存在本機）；電腦：左待辦、右上分站、右下時間天氣 -->
+    <div id="dashGrid" class="flex flex-col gap-6 lg:grid lg:grid-cols-[1.45fr_1fr] lg:grid-rows-[auto_1fr] lg:items-stretch">
+
+      <!-- 時間、日期、天氣 -->
+      <section data-widget="clock" aria-label="時間與天氣" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-5">
+        <button type="button" class="drag-handle lg:hidden" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
+        <div>
+          <p class="flex items-baseline gap-1 font-extrabold tracking-tight tabular-nums text-slate-900 dark:text-white"><span id="clockTime" class="text-5xl sm:text-6xl">--:--</span><span id="clockSec" class="text-2xl sm:text-3xl text-slate-400 dark:text-brand-muted">:--</span></p>
+          <p id="clockDate" class="mt-1 text-base text-slate-500 dark:text-brand-muted">&nbsp;</p>
+        </div>
+        <div class="border-t border-slate-100 dark:border-white/[0.06] pt-5 flex items-center gap-4">
+          <div id="wxIcon" class="w-14 h-14 shrink-0 text-[#007E8A] dark:text-[#00A3B4]"></div>
+          <div class="min-w-0 flex-1">
+            <p class="flex items-baseline gap-2"><span id="wxTemp" class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">--°</span><span id="wxDesc" class="text-base text-slate-600 dark:text-slate-300">讀取天氣中…</span></p>
+            <p id="wxMeta" class="mt-1 text-sm text-slate-500 dark:text-brand-muted">板橋</p>
+          </div>
+        </div>
+      </section>
 
       <!-- 今日待辦（目前為靜態範例，之後接資料） -->
-      <section aria-labelledby="todoTitle" class="rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-3">
+      <section data-widget="todo" aria-labelledby="todoTitle" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-3">
+        <button type="button" class="drag-handle lg:hidden" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
         <div class="flex items-center justify-between gap-3">
           <h2 id="todoTitle" class="text-xl font-extrabold text-slate-900 dark:text-white">今日待辦</h2>
           <p class="text-xs sm:text-sm text-slate-500 dark:text-brand-muted"><span id="todoOpenCount">4</span> 項未完成 · <span class="text-orange-600 dark:text-orange-400">1 項逾期</span></p>
@@ -148,42 +183,26 @@
         </div>
       </section>
 
-      <div class="flex flex-col gap-6">
-        <!-- App 入口：4 欄 × 2 排，共 8 格 -->
-        <section aria-labelledby="appsTitle" class="space-y-3">
-          <h2 id="appsTitle" class="text-sm font-bold text-slate-500 dark:text-brand-muted">分站入口</h2>
-          <div id="siteGrid" class="grid grid-cols-4 gap-3">
-            <!-- 連結與左上角 Logo 站台選單相同（同一份 CLC_SITES、同一個視窗開啟） -->
-            <a href="https://clc-dx04.pages.dev/ya/" data-site="ya" class="app-tile" title="CLC YA" aria-label="CLC YA">
-              <img src="/ya/apple-touch-icon.png" alt="" class="app-logo" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'app-fallback',textContent:'YA'}))">
-            </a>
-            <a href="https://clc-dx04.pages.dev/sr/" data-site="sr" class="app-tile" title="CLC SR" aria-label="CLC SR">
-              <img src="/sr/apple-touch-icon.png" alt="" class="app-logo" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'app-fallback',textContent:'SR'}))">
-            </a>
-            <div class="app-slot" aria-hidden="true">+</div>
-            <div class="app-slot" aria-hidden="true">+</div>
-            <div class="app-slot" aria-hidden="true">+</div>
-            <div class="app-slot" aria-hidden="true">+</div>
-            <div class="app-slot" aria-hidden="true">+</div>
-            <div class="app-slot" aria-hidden="true">+</div>
-          </div>
-        </section>
-
-        <!-- 時間、日期、天氣 -->
-        <section aria-label="時間與天氣" class="flex-1 rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-5">
-          <div>
-            <p class="flex items-baseline gap-1 font-extrabold tracking-tight tabular-nums text-slate-900 dark:text-white"><span id="clockTime" class="text-5xl sm:text-6xl">--:--</span><span id="clockSec" class="text-2xl sm:text-3xl text-slate-400 dark:text-brand-muted">:--</span></p>
-            <p id="clockDate" class="mt-1 text-base text-slate-500 dark:text-brand-muted">&nbsp;</p>
-          </div>
-          <div class="border-t border-slate-100 dark:border-white/[0.06] pt-5 flex items-center gap-4">
-            <div id="wxIcon" class="w-14 h-14 shrink-0 text-[#007E8A] dark:text-[#00A3B4]"></div>
-            <div class="min-w-0 flex-1">
-              <p class="flex items-baseline gap-2"><span id="wxTemp" class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">--°</span><span id="wxDesc" class="text-base text-slate-600 dark:text-slate-300">讀取天氣中…</span></p>
-              <p id="wxMeta" class="mt-1 text-sm text-slate-500 dark:text-brand-muted">板橋</p>
-            </div>
-          </div>
-        </section>
-      </div>
+      <!-- App 入口：4 欄 × 2 排，共 8 格 -->
+      <section data-widget="apps" aria-labelledby="appsTitle" class="dash-widget relative space-y-3">
+        <button type="button" class="drag-handle lg:hidden" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
+        <h2 id="appsTitle" class="text-sm font-bold text-slate-500 dark:text-brand-muted">分站入口</h2>
+        <div id="siteGrid" class="grid grid-cols-4 gap-3">
+          <!-- 連結與左上角 Logo 站台選單相同（同一份 CLC_SITES、同一個視窗開啟） -->
+          <a href="https://clc-dx04.pages.dev/ya/" data-site="ya" class="app-tile" title="CLC YA" aria-label="CLC YA">
+            <img src="/ya/apple-touch-icon.png" alt="" class="app-logo" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'app-fallback',textContent:'YA'}))">
+          </a>
+          <a href="https://clc-dx04.pages.dev/sr/" data-site="sr" class="app-tile" title="CLC SR" aria-label="CLC SR">
+            <img src="/sr/apple-touch-icon.png" alt="" class="app-logo" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'app-fallback',textContent:'SR'}))">
+          </a>
+          <div class="app-slot" aria-hidden="true">+</div>
+          <div class="app-slot" aria-hidden="true">+</div>
+          <div class="app-slot" aria-hidden="true">+</div>
+          <div class="app-slot" aria-hidden="true">+</div>
+          <div class="app-slot" aria-hidden="true">+</div>
+          <div class="app-slot" aria-hidden="true">+</div>
+        </div>
+      </section>
     </div>
   </main>
 
@@ -192,6 +211,88 @@
   </footer>
 
   <script>
+    // 手機版區塊拖曳排序（Pointer 事件，觸控與滑鼠皆可），順序存在 localStorage
+    (function () {
+      const grid = document.getElementById('dashGrid');
+      const KEY = 'clc_dx04_widget_order';
+      const widgets = () => Array.from(grid.querySelectorAll(':scope > [data-widget]'));
+      try {
+        const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+        if (Array.isArray(saved)) saved.forEach(k => { const el = grid.querySelector(':scope > [data-widget="' + k + '"]'); if (el) grid.appendChild(el); });
+      } catch (_) {}
+      function save() {
+        try { localStorage.setItem(KEY, JSON.stringify(widgets().map(w => w.dataset.widget))); } catch (_) {}
+      }
+      let drag = null;
+      // 以「頁面座標」計算位移，捲動時區塊仍跟著手指
+      function update() {
+        if (!drag) return;
+        const el = drag.el;
+        const pageY = drag.clientY + window.scrollY;
+        const dy = () => pageY - drag.startPageY + drag.base;
+        el.style.transform = 'translateY(' + dy() + 'px)';
+        const list = widgets();
+        const i = list.indexOf(el);
+        const prev = list[i - 1], next = list[i + 1];
+        const naturalTop = el.getBoundingClientRect().top - dy();
+        let moved = false;
+        if (next) { const r = next.getBoundingClientRect(); if (drag.clientY > r.top + r.height / 2) { grid.insertBefore(next, el); moved = true; } }
+        if (!moved && prev) { const r = prev.getBoundingClientRect(); if (drag.clientY < r.top + r.height / 2) { grid.insertBefore(el, prev); moved = true; } }
+        if (moved) {
+          el.style.transform = '';
+          drag.base += naturalTop - el.getBoundingClientRect().top;
+          el.style.transform = 'translateY(' + dy() + 'px)';
+        }
+      }
+      function autoScroll() {
+        if (!drag) return;
+        const edge = 70, y = drag.clientY;
+        let v = 0;
+        if (y < edge) v = -Math.ceil((edge - y) / 5);
+        else if (y > window.innerHeight - edge) v = Math.ceil((y - (window.innerHeight - edge)) / 5);
+        if (v) { window.scrollBy(0, v); update(); }
+        drag.raf = requestAnimationFrame(autoScroll);
+      }
+      grid.addEventListener('pointerdown', e => {
+        const handle = e.target.closest('.drag-handle');
+        if (!handle || window.matchMedia('(min-width: 1024px)').matches) return;
+        e.preventDefault();
+        const el = handle.closest('[data-widget]');
+        drag = { el, id: e.pointerId, clientY: e.clientY, startPageY: e.clientY + window.scrollY, base: 0, raf: 0 };
+        handle.setPointerCapture(e.pointerId);
+        el.classList.add('is-dragging');
+        document.body.classList.add('dash-dragging');
+        drag.raf = requestAnimationFrame(autoScroll);
+      });
+      grid.addEventListener('pointermove', e => {
+        if (!drag || e.pointerId !== drag.id) return;
+        drag.clientY = e.clientY;
+        update();
+      });
+      function end(e) {
+        if (!drag || e.pointerId !== drag.id) return;
+        cancelAnimationFrame(drag.raf);
+        drag.el.classList.remove('is-dragging');
+        drag.el.style.transform = '';
+        document.body.classList.remove('dash-dragging');
+        drag = null;
+        save();
+      }
+      grid.addEventListener('pointerup', end);
+      grid.addEventListener('pointercancel', end);
+      // 鍵盤：焦點在拖曳把手時，上下鍵移動
+      grid.addEventListener('keydown', e => {
+        const handle = e.target.closest('.drag-handle');
+        if (!handle || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+        e.preventDefault();
+        const el = handle.closest('[data-widget]');
+        if (e.key === 'ArrowUp' && el.previousElementSibling) grid.insertBefore(el, el.previousElementSibling);
+        if (e.key === 'ArrowDown' && el.nextElementSibling) grid.insertBefore(el.nextElementSibling, el);
+        handle.focus();
+        save();
+      });
+    })();
+
     // 時鐘與日期（台北時間）：以 Cloudflare 伺服器時間校正，不受本機時鐘誤差影響
     (function () {
       const timeEl = document.getElementById('clockTime');
