@@ -109,7 +109,12 @@
     .todo-row { display:flex; align-items:flex-start; gap:4px; border-bottom:1px solid #f1f5f9; }
     .dark .todo-row { border-bottom-color:rgba(255,255,255,.06); }
     .todo-list .todo-row:last-child { border-bottom:0; }
-    .todo-row .todo-item { flex:1; min-width:0; }
+    .todo-row .todo-item { flex:1; min-width:0; cursor:default; }
+    .todo-ck-hit { display:grid; place-content:center; margin:-11px; padding:11px; cursor:pointer; flex:none; }
+    .todo-ck-hit .todo-ck { margin-top:0; }
+    .todo-text { cursor:text; border-radius:6px; }
+    .todo-text:focus-visible { outline:2px solid #00A3B4; outline-offset:2px; }
+    .todo-edit { flex:1; min-width:0; height:36px; margin:-4px 0; padding:0 10px; border-radius:10px; border:1px solid #007E8A; background:transparent; color:inherit; font:inherit; font-size:1rem; outline:none; }
     .todo-title { overflow-wrap:anywhere; }
     .todo-row:has(.todo-ck:checked) .todo-title { text-decoration:line-through; opacity:.5; }
     .todo-meta.is-overdue { color:#ea580c; }
@@ -210,7 +215,6 @@
         </div>
 
         <form id="todoAddForm" class="flex items-center gap-2 h-12 pl-4 pr-1.5 rounded-2xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 focus-within:border-[#007E8A]">
-          <svg class="w-4 h-4 shrink-0 text-[#007E8A] dark:text-[#00A3B4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
           <label for="todoAddInput" class="sr-only">新增待辦</label>
           <input id="todoAddInput" type="text" autocomplete="off" enterkeyhint="done" maxlength="200" placeholder="新增待辦… 例如「明天下午3點 回覆新朋友 #SR」" class="flex-1 min-w-0 bg-transparent outline-none text-[15px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500">
           <button type="button" id="todoMicBtn" class="todo-mic hidden" aria-label="語音輸入" title="語音輸入">
@@ -564,16 +568,24 @@
       function row(todo, opts) {
         const li = document.createElement('li');
         li.className = 'todo-row';
-        const label = document.createElement('label');
+        const label = document.createElement('div');
         label.className = 'todo-item';
+        const hit = document.createElement('label');
+        hit.className = 'todo-ck-hit';
         const ck = document.createElement('input');
         ck.type = 'checkbox';
         ck.className = 'todo-ck' + (opts.overdue ? ' p1' : '');
         ck.checked = !!todo.done;
         ck.setAttribute('aria-label', (todo.done ? '取消完成：' : '完成：') + todo.title);
         ck.addEventListener('change', () => toggleDone(todo, ck.checked));
+        hit.append(ck);
         const text = document.createElement('span');
         text.className = 'todo-text';
+        text.tabIndex = 0;
+        text.setAttribute('role', 'button');
+        text.setAttribute('aria-label', '修改：' + todo.title);
+        text.addEventListener('click', () => startEdit(todo, text));
+        text.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); startEdit(todo, text); } });
         const title = document.createElement('span');
         title.className = 'todo-title';
         title.textContent = todo.title;
@@ -593,7 +605,7 @@
           }
           text.append(meta);
         }
-        label.append(ck, text);
+        label.append(hit, text);
         const del = document.createElement('button');
         del.type = 'button';
         del.className = 'todo-del';
@@ -711,6 +723,57 @@
       function removeTodo(todo) {
         col().doc(todo.id).delete().catch(err => { console.warn('待辦刪除失敗', err); setStatus(errText(err)); });
       }
+      // ---------- 修改：點文字變成輸入框，Enter／離開存檔，Esc 取消，清空等於刪除 ----------
+      const TAG_SHORT = { 'CLC YA': 'YA', 'CLC SR': 'SR', 'CLC DX04': 'DX04', 'Christmas': '聖誕' };
+      function rawText(todo) {
+        const parts = [todo.title];
+        if (todo.due) { const [, m, d] = todo.due.split('-').map(Number); parts.push(m + '/' + d); }
+        if (todo.time) parts.push(todo.time);
+        if (todo.tag) parts.push('#' + (TAG_SHORT[todo.tag] || todo.tag.replace(/\s+/g, '')));
+        return parts.join(' ');
+      }
+      function startEdit(todo, textEl) {
+        const box = document.createElement('input');
+        box.type = 'text';
+        box.className = 'todo-edit';
+        box.maxLength = 220;
+        box.value = rawText(todo);
+        box.setAttribute('aria-label', '修改待辦');
+        textEl.replaceWith(box);
+        box.focus();
+        let finished = false;
+        const finish = async save => {
+          if (finished) return;
+          finished = true;
+          const v = box.value.trim();
+          if (!save || v === rawText(todo)) { render(); return; }
+          try {
+            if (!v) await col().doc(todo.id).delete();
+            else {
+              const p = parse(v);
+              await col().doc(todo.id).update({ title: p.title.slice(0, 200), due: p.due, time: p.time, tag: p.tag.slice(0, 20), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            }
+          } catch (err) { console.warn('待辦修改失敗', err); setStatus(errText(err)); render(); }
+        };
+        box.addEventListener('keydown', e => {
+          if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); finish(true); }
+          else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        box.addEventListener('blur', () => finish(true));
+      }
+
+      // ---------- 一次貼上多行：每行一項 ----------
+      input.addEventListener('paste', async e => {
+        const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+        if (!/[\r\n]/.test(text.trim())) return;
+        e.preventDefault();
+        if (!canUse()) return;
+        const lines = text.split(/\r?\n/).map(l => l.replace(/^\s*(?:[-*•・·]|\d+[.)、])\s*/, '').trim()).filter(Boolean).slice(0, 50);
+        setStatus('新增 ' + lines.length + ' 項…');
+        try { for (const line of lines) await addTodo(line); setStatus(''); }
+        catch (err) { console.warn('待辦新增失敗', err); setStatus(errText(err)); }
+      });
+
       form.addEventListener('submit', async e => {
         e.preventDefault();
         const text = input.value.trim();
@@ -745,7 +808,11 @@
           rec.onerror = ev => {
             setStatus(ev.error === 'not-allowed' || ev.error === 'service-not-allowed'
               ? '麥克風權限被拒絕，請到瀏覽器設定允許此網站使用麥克風。'
-              : (ev.error === 'no-speech' ? '沒有聽到聲音，再按一次麥克風試試。' : '語音輸入失敗，請再試一次。'));
+              : ev.error === 'no-speech' ? '沒有聽到聲音，再按一次麥克風試試。'
+              : ev.error === 'audio-capture' ? '找不到麥克風，或麥克風被其他程式占用。（audio-capture）'
+              : ev.error === 'network' ? '語音辨識連不到 Google 伺服器，可能是網路擋住或瀏覽器不支援。（network）'
+              : ev.error === 'language-not-supported' ? '瀏覽器不支援中文語音辨識。（language-not-supported）'
+              : '語音輸入失敗：' + (ev.error || '未知原因'));
           };
           rec.onend = () => {
             mic.classList.remove('is-listening');
