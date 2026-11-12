@@ -808,13 +808,40 @@
           return u.origin === location.origin || u.hostname === 'clc-dx04.pages.dev';
         } catch (_) { return false; }
       }
-      function hrefFor(app) {
-        const site = app.site && (window.CLC_SITES || []).find(s => s.key === app.site);
-        if (site) return site.url;
+      // 外部網站是否允許內嵌：新增時存在 app.embeddable；舊資料由 /api/site-info 補查，結果存在本機。
+      const EMBED_KEY = 'clc_dx04_embed';
+      let embedMap = {};
+      try { embedMap = JSON.parse(localStorage.getItem(EMBED_KEY) || '{}') || {}; } catch (_) {}
+      const embedChecking = new Set();
+      function embeddableOf(app) {
+        if (typeof app.embeddable === 'boolean') return app.embeddable;
         const url = safeUrl(app.url);
-        if (!url) return '#';
-        return isSameSite(url) ? url : '/app.html?id=' + encodeURIComponent(app.id);
+        return url in embedMap ? embedMap[url] : null;
       }
+      function checkEmbeds() {
+        apps.forEach(app => {
+          const url = safeUrl(app.url);
+          if (app.site || !url || isSameSite(url) || embeddableOf(app) !== null || embedChecking.has(url)) return;
+          embedChecking.add(url);
+          fetch('/api/site-info?url=' + encodeURIComponent(url)).then(r => r.json()).then(info => {
+            embedMap[url] = !!(info && info.ok && info.embeddable);
+            try { localStorage.setItem(EMBED_KEY, JSON.stringify(embedMap)); } catch (_) {}
+            render();
+          }).catch(() => {});
+        });
+      }
+      // 回傳 { href, newTab }：YA、SR 照 CLC_SITES；本站網址直接開；允許內嵌的外部網站開在 DX04 Header 底下；
+      // 不允許內嵌（或還不確定時讀不到）的外部網站直接開新分頁。
+      function linkFor(app) {
+        const site = app.site && (window.CLC_SITES || []).find(s => s.key === app.site);
+        if (site) return { href: site.url, newTab: false };
+        const url = safeUrl(app.url);
+        if (!url) return { href: '#', newTab: false };
+        if (isSameSite(url)) return { href: url, newTab: false };
+        if (embeddableOf(app) === false) return { href: url, newTab: true };
+        return { href: '/app.html?id=' + encodeURIComponent(app.id), newTab: false };
+      }
+      function hrefFor(app) { return linkFor(app).href; }
       function initials(name) {
         const n = String(name || '').replace(/^CLC\s+/i, '').trim();
         return (n.slice(0, 2) || '?').toUpperCase();
@@ -848,7 +875,9 @@
           const a = document.createElement('a');
           a.className = 'app-tile';
           a.draggable = false;
-          a.href = hrefFor(app);
+          const link = linkFor(app);
+          a.href = link.href;
+          if (link.newTab) { a.target = '_blank'; a.rel = 'noopener'; }
           a.title = app.name;
           a.setAttribute('aria-label', editing ? '編輯 ' + app.name : app.name);
           a.dataset.appId = app.id;
@@ -973,7 +1002,7 @@
         // 讀不到時：名稱用網域，Logo 用 Google 圖示服務
         let host = '';
         try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (_) {}
-        return { url, name: host || url, icon: host ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host) + '&sz=128' : '' };
+        return { url, name: host || url, icon: host ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host) + '&sz=128' : '', embeddable: false };
       }
 
       // ---------- 新增（只要貼網址） ----------
@@ -1007,7 +1036,8 @@
           id: 'app_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
           name: String(info.name || '').slice(0, 30) || url,
           url: safeUrl(info.url) || url,
-          icon: safeUrl(info.icon) || ''
+          icon: safeUrl(info.icon) || '',
+          embeddable: info.embeddable === true
         };
         try {
           await persist(apps.concat(item));
@@ -1030,13 +1060,14 @@
       const errEl = document.getElementById('appFormError');
       const saveBtn = document.getElementById('appSaveBtn');
       const refetchBtn = document.getElementById('appRefetchBtn');
-      let editingId = null;
+      let editingId = null, refetchedEmbeddable = null;
       function showError(msg) { errEl.textContent = msg; errEl.classList.toggle('hidden', !msg); }
       function updatePreview() { preview.replaceChildren(logo({ name: fName.value, icon: fIcon.value })); }
       function openEdit(id) {
         const app = apps.find(a => a.id === id);
         if (!app || !isAdmin()) return;
         editingId = id;
+        refetchedEmbeddable = null;
         fName.value = app.name;
         fUrl.value = app.site ? hrefFor(app) : app.url;
         fUrl.readOnly = !!app.site;
@@ -1055,6 +1086,7 @@
         refetchBtn.disabled = true;
         refetchBtn.textContent = '讀取中…';
         const info = await siteInfo(url);
+        refetchedEmbeddable = typeof info.embeddable === 'boolean' ? info.embeddable : null;
         if (info.icon) fIcon.value = info.icon;
         if (info.name && !fUrl.readOnly) fName.value = String(info.name).slice(0, 30);
         updatePreview();
@@ -1075,7 +1107,10 @@
         if (fIcon.value.trim() && !icon) return showError('圖示網址格式不正確。');
         saveBtn.disabled = true;
         try {
-          await persist(apps.map(a => a.id === old.id ? Object.assign({}, old, { name, url, icon }) : a));
+          const patch = { name, url, icon };
+          if (refetchedEmbeddable !== null && !old.site) patch.embeddable = refetchedEmbeddable;
+          else if (url !== old.url) delete old.embeddable;
+          await persist(apps.map(a => a.id === old.id ? Object.assign({}, old, patch) : a));
           dialog.close();
         } catch (err) {
           console.warn('分站儲存失敗', err);
@@ -1086,6 +1121,7 @@
 
       // ---------- 讀取 ----------
       render();
+      checkEmbeds();
       window.addEventListener('clc-admin-changed', render);
       try {
         window.db.collection('dx04_settings').doc('apps').onSnapshot(snap => {
@@ -1093,6 +1129,7 @@
           apps = items.filter(a => a && a.id && a.name);
           try { localStorage.setItem(CACHE_KEY, JSON.stringify(apps)); } catch (_) {}
           render();
+          checkEmbeds();
         }, err => console.warn('分站清單讀取失敗（沿用快取或預設）', err));
       } catch (err) {
         console.warn('分站清單無法連線資料庫', err);

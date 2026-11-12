@@ -68,6 +68,7 @@ function injectSso(res, key) {
 /* ---------- /api/site-info：讀取任一網站的名稱與 App 圖示（總控台「分站入口」新增時使用） ----------
   瀏覽器因 CORS 不能直接讀別的網站，所以由這裡代讀。順序和手機「加入主畫面」相同：
   manifest 圖示 → apple-touch-icon → 其他 icon → 網站根目錄常見檔名 → Google 圖示服務。
+  另回傳 embeddable：對方網站是否允許被 DX04 內嵌（不允許的網站在總控台會直接開新分頁）。
   只接受 http(s) 公開網址；讀取有大小與時間上限；結果快取 1 天。 */
 const SITE_INFO_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 CLC-DX04';
 
@@ -173,6 +174,44 @@ function siteInfoCleanName(s) {
   return n.slice(0, 30);
 }
 
+// 判斷網站是否允許被 DX04 內嵌（iframe）：看 CSP frame-ancestors，沒有的話看 X-Frame-Options。
+function siteInfoSourceMatches(src, origin) {
+  const s = src.trim().replace(/^'|'$/g, '').toLowerCase();
+  if (!s) return false;
+  if (s === '*') return true;
+  const o = new URL(origin);
+  if (/^[a-z][a-z0-9+.-]*:$/.test(s)) return s === o.protocol;
+  const m = s.match(/^(?:([a-z][a-z0-9+.-]*):\/\/)?(\*\.)?([^/:]+)(?::(\d+|\*))?/);
+  if (!m) return false;
+  if (m[1] && m[1] + ':' !== o.protocol) return false;
+  if (!m[1] && o.protocol !== 'https:' && o.protocol !== 'http:') return false;
+  const host = o.hostname.toLowerCase();
+  if (m[2]) return host.endsWith('.' + m[3]);
+  return host === m[3];
+}
+function siteInfoEmbeddable(headers, pageOrigin, ancestorOrigin) {
+  const csp = headers.get('content-security-policy') || '';
+  let governed = false, allowed = true;
+  csp.split(',').forEach(policy => {
+    const dir = policy.split(';').map(d => d.trim()).find(d => /^frame-ancestors(\s|$)/i.test(d));
+    if (!dir) return;
+    governed = true;
+    const sources = dir.split(/\s+/).slice(1);
+    const ok = sources.some(src => {
+      const v = src.toLowerCase();
+      if (v === "'none'") return false;
+      if (v === "'self'") return pageOrigin === ancestorOrigin;
+      return siteInfoSourceMatches(src, ancestorOrigin);
+    });
+    if (!ok) allowed = false;
+  });
+  if (governed) return allowed;
+  const xfo = (headers.get('x-frame-options') || '').trim().toLowerCase();
+  if (!xfo) return true;
+  if (xfo === 'sameorigin') return pageOrigin === ancestorOrigin;
+  return false;
+}
+
 async function siteInfoIsImage(url) {
   try {
     const res = await siteInfoFetch(url, 5000, 'image/avif,image/webp,image/png,image/svg+xml,image/*;q=0.8');
@@ -183,13 +222,14 @@ async function siteInfoIsImage(url) {
   } catch (_) { return false; }
 }
 
-async function siteInfo(target) {
+async function siteInfo(target, ancestorOrigin) {
   const page = await siteInfoFetch(target.href, 8000, 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5');
   const finalUrl = page.url || target.href;
   const final = new URL(finalUrl);
   const type = (page.headers.get('content-type') || '').toLowerCase();
   const html = page.ok && (type.includes('html') || !type) ? await siteInfoText(page, 600000) : '';
   const info = siteInfoParseHtml(html, finalUrl);
+  const embeddable = page.ok ? siteInfoEmbeddable(page.headers, final.origin, ancestorOrigin) : false;
 
   let manifest = null;
   const manifestUrl = info.manifest || '';
@@ -232,7 +272,7 @@ async function siteInfo(target) {
     m['application-name'] || m['apple-mobile-web-app-title'] || m['og:site_name'] ||
     info.title || final.hostname.replace(/^www\./, '')
   );
-  return { ok: true, url: finalUrl, name, icon };
+  return { ok: true, url: finalUrl, name, icon, embeddable };
 }
 
 async function handleSiteInfo(request, ctx) {
@@ -249,14 +289,14 @@ async function handleSiteInfo(request, ctx) {
   target.hash = '';
 
   const cache = typeof caches !== 'undefined' ? caches.default : null;
-  const cacheKey = new Request(reqUrl.origin + '/api/site-info?url=' + encodeURIComponent(target.href));
+  const cacheKey = new Request(reqUrl.origin + '/api/site-info?v=2&url=' + encodeURIComponent(target.href));
   if (cache) { const hit = await cache.match(cacheKey); if (hit) return hit; }
   try {
-    const out = json(await siteInfo(target), 200, 'public, max-age=86400');
+    const out = json(await siteInfo(target, reqUrl.origin), 200, 'public, max-age=86400');
     if (cache && ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, out.clone()));
     return out;
   } catch (err) {
-    return json({ ok: false, error: '讀取不到這個網站', url: target.href, name: target.hostname.replace(/^www\./, '') }, 502);
+    return json({ ok: false, error: '讀取不到這個網站', url: target.href, name: target.hostname.replace(/^www\./, ''), embeddable: false }, 502);
   }
 }
 

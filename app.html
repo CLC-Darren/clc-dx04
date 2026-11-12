@@ -76,12 +76,7 @@
 
   <header id="clc-header"></header>
 
-  <!-- 在 DX04 Header 底下開啟分站（清單存在 Firestore dx04_settings/apps，只開啟清單裡的網址） -->
-  <div class="flex items-center gap-3 px-4 h-10 shrink-0 border-b border-slate-200 dark:border-white/10 text-sm">
-    <a href="/" class="text-[#007E8A] dark:text-[#00A3B4] font-bold no-underline">‹ 總控台</a>
-    <span id="appTitle" class="flex-1 min-w-0 truncate font-bold text-slate-700 dark:text-slate-200"></span>
-    <a id="appExternal" href="#" target="_blank" rel="noopener" class="hidden text-slate-500 dark:text-slate-400 no-underline whitespace-nowrap">新視窗開啟 ↗</a>
-  </div>
+  <!-- 在 DX04 Header 底下開啟分站（清單存在 Firestore dx04_settings/apps，只開啟清單裡的網址）；不允許內嵌的網站直接轉過去 -->
   <main class="flex-1 min-h-0 relative">
     <iframe id="appFrame" title="分站內容" class="hidden absolute inset-0 w-full h-full border-0 bg-white" allow="clipboard-write; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
     <p id="appMessage" class="p-8 text-center text-slate-500 dark:text-slate-400">載入中…</p>
@@ -101,13 +96,21 @@
         const url = app && safeUrl(app.url);
         if (!url) { msg.textContent = '找不到這個分站，可能已被移除。'; return false; }
         document.title = app.name + ' | CLC DX04';
-        document.getElementById('appTitle').textContent = app.name;
-        const ext = document.getElementById('appExternal');
-        ext.href = url; ext.classList.remove('hidden');
+        if (app.embeddable === false) { location.replace(url); return true; }
+        checkEmbed(url);
         if (frame.dataset.src !== url) { frame.dataset.src = url; frame.src = url; }
         frame.classList.remove('hidden');
         msg.textContent = '';
         return true;
+      }
+      // 舊資料沒有 embeddable：問一次 /api/site-info，對方不允許內嵌就直接轉過去。
+      let embedChecked = false;
+      function checkEmbed(url) {
+        if (embedChecked) return;
+        embedChecked = true;
+        fetch('/api/site-info?url=' + encodeURIComponent(url)).then(r => r.json()).then(info => {
+          if (info && info.embeddable === false) location.replace(url);
+        }).catch(() => {});
       }
       let shown = false;
       try {
