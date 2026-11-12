@@ -12,6 +12,7 @@
   <meta name="theme-color" content="#000000">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -129,10 +130,227 @@
   <script src="clc-sso.js"></script>
   <script src="header.js"></script>
   <script>
+    // PWA 安裝（與 YA 首頁相同做法）
+    const pwaDisplayMode = window.matchMedia('(display-mode: standalone)');
+    let deferredPrompt = null;
+    let pwaInstalledInSession = false;
+    let pwaInstallPromptPending = false;
+    let pwaInstallHelp = null;
+    let pwaInstallPreviousFocus = null;
+    let pwaInstallHelpRequest = 0;
+
+    function isPwaStandalone() {
+      return pwaDisplayMode.matches || window.navigator.standalone === true;
+    }
+
+    function checkPwaInstalledState() {
+      const btn = document.getElementById('installAppBtn');
+      if (!btn) return;
+      const installed = isPwaStandalone() || pwaInstalledInSession;
+      btn.hidden = installed;
+      btn.classList.toggle('hidden', installed);
+      btn.style.display = installed ? 'none' : '';
+      btn.disabled = pwaInstallPromptPending;
+      if (pwaInstallPromptPending) btn.setAttribute('aria-busy', 'true');
+      else btn.removeAttribute('aria-busy');
+      if (installed) closePwaInstallHelp();
+    }
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW 失敗', err));
       });
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const btn = document.getElementById('installAppBtn');
+      if (btn) {
+        btn.classList.add('bg-[#007E8A]/15', 'border-[#007E8A]/50', 'text-[#007E8A]', 'dark:text-teal-300');
+      }
+      checkPwaInstalledState();
+    });
+
+    window.addEventListener('appinstalled', () => {
+      pwaInstalledInSession = true;
+      deferredPrompt = null;
+      checkPwaInstalledState();
+    });
+
+    async function pwaInstallInstructions() {
+      const ua = navigator.userAgent;
+      const isIOS = /iPad|iPhone|iPod/.test(ua) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isIOS) {
+        return [
+          '使用 Safari 開啟目前這個 DX04 網址。',
+          '點選 Safari 的「分享」按鈕，再選擇「加入主畫面」。',
+          '確認名稱後點選「新增」，之後即可從主畫面開啟 CLC DX04。'
+        ];
+      }
+      if (/Android/i.test(ua)) {
+        return [
+          '使用 Android Chrome 開啟目前這個 DX04 網址。',
+          '點選右上角「⋮」選單，選擇「安裝應用程式」或「加入主畫面」。',
+          '依畫面指示確認；完成後從主畫面或應用程式清單開啟 CLC DX04。'
+        ];
+      }
+      let isBrave = false;
+      try {
+        isBrave = !!(navigator.brave && typeof navigator.brave.isBrave === 'function' &&
+          await navigator.brave.isBrave());
+      } catch (_) { /* 無法辨識時使用一般瀏覽器操作說明。 */ }
+      if (isBrave) {
+        return [
+          '在 Brave 網址列右側尋找安裝圖示；或開啟右上角主選單，尋找「安裝 CLC DX04」或「安裝應用程式」。',
+          '安裝項目可能位於「儲存與分享」或「投放、儲存與分享」子選單。',
+          '若選單沒有安裝項目，可使用 Chrome 或 Edge 開啟目前這個 DX04 網址安裝。'
+        ];
+      }
+      if (/Edg\//.test(ua)) {
+        return [
+          '在 Edge 網址列右側點選安裝圖示；或開啟右上角「⋯」選單。',
+          '選擇「應用程式」→「將此網站安裝為應用程式」，再依畫面指示確認。',
+          '完成後，從桌面或應用程式清單開啟 CLC DX04。'
+        ];
+      }
+      if (/Chrome\//.test(ua)) {
+        return [
+          '在 Chrome 網址列右側點選安裝圖示；或開啟右上角「⋮」選單。',
+          '尋找「安裝 CLC DX04」或「安裝網頁為應用程式」；安裝項目可能位於「投放、儲存與分享」內。',
+          '依畫面指示確認後，從桌面或應用程式清單開啟 CLC DX04。'
+        ];
+      }
+      return [
+        '在目前瀏覽器的網址列或右上角選單，尋找「安裝應用程式」或「加入主畫面」。',
+        '若沒有安裝項目，可使用 Chrome 或 Edge 開啟目前這個 DX04 網址安裝。'
+      ];
+    }
+
+    function closePwaInstallHelp() {
+      pwaInstallHelpRequest += 1;
+      if (!pwaInstallHelp || pwaInstallHelp.style.display === 'none') return;
+      pwaInstallHelp.style.display = 'none';
+      document.removeEventListener('keydown', handlePwaInstallHelpKeydown, true);
+      const previous = pwaInstallPreviousFocus;
+      pwaInstallPreviousFocus = null;
+      if (previous && previous.isConnected && !previous.hidden && !previous.disabled) previous.focus();
+    }
+
+    function handlePwaInstallHelpKeydown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closePwaInstallHelp();
+      } else if (event.key === 'Tab') {
+        event.stopImmediatePropagation();
+        const buttons = pwaInstallHelp.querySelectorAll('button');
+        const first = buttons[0];
+        const last = buttons[buttons.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !pwaInstallHelp.contains(document.activeElement))) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !pwaInstallHelp.contains(document.activeElement))) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    function createPwaInstallHelp() {
+      const overlay = document.createElement('div');
+      overlay.id = 'pwaInstallHelpOverlay';
+      overlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:2147483646;padding:16px;box-sizing:border-box;background:rgba(0,0,0,.7);align-items:center;justify-content:center;';
+      overlay.innerHTML = `
+        <section id="pwaInstallHelpDialog" role="dialog" aria-modal="true" aria-labelledby="pwaInstallHelpTitle" aria-describedby="pwaInstallHelpSummary pwaInstallHelpReason" style="box-sizing:border-box;width:100%;max-width:460px;max-height:calc(100% - 16px);overflow:auto;overscroll-behavior:contain;padding:24px;border:1px solid rgba(255,255,255,.15);border-radius:18px;background:#11131b;color:#f1f5f9;box-shadow:0 24px 70px rgba(0,0,0,.45);font:15px/1.7 system-ui,sans-serif;text-align:left;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <h2 id="pwaInstallHelpTitle" style="margin:0;font-size:20px;font-weight:800;">安裝 CLC DX04</h2>
+            <button id="pwaInstallHelpClose" type="button" aria-label="關閉安裝說明" style="flex:none;width:36px;height:36px;border:1px solid #64748b;border-radius:9px;background:transparent;color:#f1f5f9;cursor:pointer;font-size:20px;">×</button>
+          </div>
+          <p id="pwaInstallHelpSummary" style="margin:16px 0 0;">目前瀏覽器未提供直接安裝提示。</p>
+          <p id="pwaInstallHelpReason" style="display:none;margin:8px 0 0;color:#fde68a;"></p>
+          <ol id="pwaInstallHelpSteps" style="margin:16px 0;padding-left:24px;list-style:decimal;"></ol>
+          <p style="margin:0 0 20px;color:#cbd5e1;font-size:13px;">若已經安裝，請從桌面或應用程式清單開啟 CLC DX04。</p>
+          <button id="pwaInstallHelpDone" type="button" style="width:100%;min-height:44px;padding:10px 16px;border:0;border-radius:10px;background:#007e8a;color:white;cursor:pointer;font-size:15px;font-weight:700;">知道了</button>
+        </section>`;
+      overlay.querySelector('#pwaInstallHelpClose').addEventListener('click', closePwaInstallHelp);
+      overlay.querySelector('#pwaInstallHelpDone').addEventListener('click', closePwaInstallHelp);
+      overlay.addEventListener('click', event => {
+        if (event.target === overlay) closePwaInstallHelp();
+      });
+      document.body.appendChild(overlay);
+      pwaInstallHelp = overlay;
+    }
+
+    async function openPwaInstallHelp(reason = '') {
+      const request = ++pwaInstallHelpRequest;
+      const steps = await pwaInstallInstructions();
+      if (request !== pwaInstallHelpRequest || isPwaStandalone() || pwaInstalledInSession) return;
+      if (!pwaInstallHelp) createPwaInstallHelp();
+      const list = pwaInstallHelp.querySelector('#pwaInstallHelpSteps');
+      list.replaceChildren();
+      steps.forEach(text => {
+        const item = document.createElement('li');
+        item.textContent = text;
+        item.style.marginBottom = '8px';
+        list.appendChild(item);
+      });
+      const reasonElement = pwaInstallHelp.querySelector('#pwaInstallHelpReason');
+      reasonElement.textContent = reason;
+      reasonElement.style.display = reason ? '' : 'none';
+      pwaInstallHelp.querySelector('#pwaInstallHelpSummary').textContent = reason
+        ? '這次未能完成直接安裝，仍可使用下方方式操作。'
+        : '目前瀏覽器未提供直接安裝提示。';
+      if (pwaInstallHelp.style.display === 'none') pwaInstallPreviousFocus = document.activeElement;
+      pwaInstallHelp.style.display = 'flex';
+      document.addEventListener('keydown', handlePwaInstallHelpKeydown, true);
+      pwaInstallHelp.querySelector('#pwaInstallHelpClose').focus();
+    }
+
+    window.triggerPwaInstall = async function() {
+      if (isPwaStandalone() || pwaInstalledInSession) {
+        checkPwaInstalledState();
+        return;
+      }
+      if (pwaInstallPromptPending) return;
+      if (!deferredPrompt) {
+        await openPwaInstallHelp();
+        return;
+      }
+      closePwaInstallHelp();
+      const promptEvent = deferredPrompt;
+      deferredPrompt = null;
+      pwaInstallPromptPending = true;
+      checkPwaInstalledState();
+      try {
+        // 在使用者的點擊內立即呼叫；同一份原生提示僅能使用一次。
+        const result = await promptEvent.prompt();
+        const choice = result && typeof result.outcome === 'string'
+          ? result : await promptEvent.userChoice;
+        // 使用者取消是正常選擇；只有 appinstalled 才判定本次確實安裝完成。
+        if (choice && choice.outcome === 'dismissed') return;
+      } catch (err) {
+        console.warn('安裝提示未能開啟:', err);
+        let reason = '這次安裝提示未能開啟，請使用瀏覽器選單安裝，或稍後再試。';
+        if (err && err.name === 'NotAllowedError') {
+          reason = '瀏覽器目前不允許開啟直接安裝提示，請使用下方選單方式安裝。';
+        } else if (err && err.name === 'InvalidStateError') {
+          reason = '這次安裝提示已失效，請使用下方選單方式安裝，或稍後再試。';
+        } else if (err && err.name === 'AbortError') {
+          reason = '這次安裝已取消；你可以稍後再試，或使用下方方式安裝。';
+        }
+        await openPwaInstallHelp(reason);
+      } finally {
+        pwaInstallPromptPending = false;
+        checkPwaInstalledState();
+      }
+    };
+
+    if (typeof pwaDisplayMode.addEventListener === 'function') {
+      pwaDisplayMode.addEventListener('change', checkPwaInstalledState);
+    } else if (typeof pwaDisplayMode.addListener === 'function') {
+      pwaDisplayMode.addListener(checkPwaInstalledState);
     }
   </script>
 </body>

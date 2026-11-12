@@ -72,6 +72,7 @@ function renderHeaderComponent() {
       #clc-header #clcLogoLink { touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
       #clc-header #siteSwitcher { top: 100%; width: 180px; margin-top: 7.5px; padding: 6px 0; border-radius: 11.25px; z-index: 100; }
       #clc-header #siteSwitcher a { display: block; padding: 9px 15px; font-size: 13.5px; font-weight: 700; }
+      #clc-header #installAppBtn { height: 34px; box-sizing: border-box; font-size: 12px; padding: 0 10px; border-radius: 9px; }
       #clc-header #adminActiveDot { width: 7px; height: 7px; top: 6px; right: 6px; }
       /* 下拉選單使用與 YA 相同的固定像素尺寸，避免各頁 html font-size 不同造成放大縮小。 */
       #clc-header #adminDropdown { width: 210px; margin-top: 7.5px; padding-top: 7.5px; padding-bottom: 7.5px; border-radius: 11.25px; }
@@ -83,6 +84,7 @@ function renderHeaderComponent() {
         #clc-header > div { height: 48px !important; min-height: 48px !important; padding: 0 20px !important; }
         #clc-header .logo-badge { font-size: 14px; height: 36px; line-height: 36px; padding: 0 14px; border-radius: 10px; }
         #clc-header .header-btn { width: 36px; min-width: 36px; height: 36px; border-radius: 10px; font-size: 16px; }
+        #clc-header #installAppBtn { height: 36px; font-size: 13px; padding: 0 12px; border-radius: 10px; }
         #clc-header #adminDropdown > a,
         #clc-header #adminDropdown > button { font-size: 15px; }
       }
@@ -96,6 +98,9 @@ function renderHeaderComponent() {
     document.head.appendChild(style);
   }
 
+  // 只有首頁顯示「📲 安裝」（與 YA 相同）。
+  const homePath = window.location.pathname.replace(/\/+$/, '').replace(/\.html$/, '');
+  const isHome = homePath === '' || homePath === '/index';
   headerContainer.className = "border-b border-slate-200 dark:border-white/10 backdrop-blur-xl bg-white/70 dark:bg-[#090A0F]/70 sticky top-0 z-40";
   headerContainer.innerHTML = `
     <div>
@@ -111,6 +116,7 @@ function renderHeaderComponent() {
         </div>
       </div>
       <div class="flex items-center gap-1.5">
+        ${isHome ? `<button id="installAppBtn" onclick="window.triggerPwaInstall && window.triggerPwaInstall()" class="inline-flex items-center bg-slate-200/70 hover:bg-slate-300/70 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-300/60 dark:border-white/10 font-semibold transition active:scale-95"><span class="mr-1">📲</span><span class="whitespace-nowrap">安裝</span></button>` : ''}
         <div class="relative">
           <button id="adminLoginBtn" onclick="toggleAdminDropdown()" title="管理員登入 / 狀態" class="header-btn relative bg-slate-200/70 hover:bg-slate-300/70 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-300/60 dark:border-white/10 transition active:scale-95">
             <span id="adminBtnIcon">🔐</span>
