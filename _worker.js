@@ -334,39 +334,54 @@ async function handleTranscribe(request, env) {
     '5. 只輸出整理後的待辦內容本身，不要加引號、不要加前綴說明、不要換行。若完全聽不到語音內容，請回傳空字串。'
   ].join('\n');
 
-  try {
-    const geminiRes = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' + encodeURIComponent(apiKey),
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inlineData: { mimeType: rawMime || 'audio/webm', data: audioBase64 } },
-              { text: prompt }
-            ]
-          }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 200
-          }
-        })
-      }
-    );
-
-    const data = await geminiRes.json();
-    if (!geminiRes.ok) {
-      const msg = (data && data.error && data.error.message) || ('HTTP ' + geminiRes.status);
-      return json({ ok: false, error: 'Gemini 辨識失敗：' + msg }, 502);
+  const reqBody = JSON.stringify({
+    contents: [{
+      parts: [
+        { inlineData: { mimeType: rawMime || 'audio/webm', data: audioBase64 } },
+        { text: prompt }
+      ]
+    }],
+    generationConfig: {
+      temperature: 0.1,
+      maxOutputTokens: 200
     }
+  });
 
-    const parts = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
-    const text = parts.map(p => p.text || '').join('').replace(/[\r\n]+/g, ' ').trim();
-    return json({ ok: true, text });
-  } catch (err) {
-    return json({ ok: false, error: '連線 Gemini 服務失敗，請稍後再試' }, 502);
+  // 主力模型遇尖峰滿載時自動切換備援模型重試
+  const models = ['gemini-3.8-flash', 'gemini-3.8-flash-lite'];
+  let lastError = '連線 Gemini 服務失敗，請稍後再試';
+
+  for (let i = 0; i < models.length; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, 400));
+    try {
+      const geminiRes = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models/' + models[i] + ':generateContent?key=' + encodeURIComponent(apiKey),
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: reqBody
+        }
+      );
+
+      const data = await geminiRes.json();
+      if (!geminiRes.ok) {
+        const msg = (data && data.error && data.error.message) || ('HTTP ' + geminiRes.status);
+        lastError = 'Gemini 辨識失敗：' + msg;
+        if (geminiRes.status === 429 || geminiRes.status === 503 || /high demand|overloaded|try again/i.test(msg)) {
+          continue;
+        }
+        return json({ ok: false, error: lastError }, 502);
+      }
+
+      const parts = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+      const text = parts.map(p => p.text || '').join('').replace(/[\r\n]+/g, ' ').trim();
+      return json({ ok: true, text });
+    } catch (err) {
+      lastError = '連線 Gemini 服務失敗，請稍後再試';
+    }
   }
+
+  return json({ ok: false, error: lastError }, 502);
 }
 
 export default {
