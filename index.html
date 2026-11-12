@@ -95,6 +95,16 @@
     .dash-widget.is-dragging[data-widget="apps"] { background:#fff; border-radius:24px; }
     .dark .dash-widget.is-dragging[data-widget="apps"] { background:#161924; }
     body.dash-dragging { user-select:none; -webkit-user-select:none; }
+    .app-tile { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+    .app-tile img { pointer-events:none; }
+    .app-slot.is-admin { cursor:pointer; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+    .app-slot.is-admin:hover { border-color:#007E8A; color:#007E8A; }
+    .app-pressing { transform:scale(.92) !important; transition:transform .5s; }
+    .app-dialog::backdrop { background:rgba(0,0,0,.6); }
+    .app-input { height:44px; padding:0 14px; border-radius:12px; font-weight:400; font-size:15px; background:#f1f5f9; border:1px solid #e2e8f0; color:inherit; outline:none; }
+    .dark .app-input { background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.1); }
+    .app-input:focus { border-color:#007E8A; }
+    .app-input[readonly] { opacity:.6; }
   </style>
 
   <!-- 深淺主題預載防閃爍（與 YA 相同） -->
@@ -187,24 +197,35 @@
       <section data-widget="apps" aria-labelledby="appsTitle" class="dash-widget relative space-y-3">
         <button type="button" class="drag-handle lg:hidden" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
         <h2 id="appsTitle" class="text-sm font-bold text-slate-500 dark:text-brand-muted">分站入口</h2>
-        <div id="siteGrid" class="grid grid-cols-4 gap-3">
-          <!-- 連結與左上角 Logo 站台選單相同（同一份 CLC_SITES、同一個視窗開啟） -->
-          <a href="https://clc-dx04.pages.dev/ya/" data-site="ya" class="app-tile" title="CLC YA" aria-label="CLC YA">
-            <img src="/ya/apple-touch-icon.png" alt="" class="app-logo" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'app-fallback',textContent:'YA'}))">
-          </a>
-          <a href="https://clc-dx04.pages.dev/sr/" data-site="sr" class="app-tile" title="CLC SR" aria-label="CLC SR">
-            <img src="/sr/apple-touch-icon.png" alt="" class="app-logo" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'app-fallback',textContent:'SR'}))">
-          </a>
-          <div class="app-slot" aria-hidden="true">+</div>
-          <div class="app-slot" aria-hidden="true">+</div>
-          <div class="app-slot" aria-hidden="true">+</div>
-          <div class="app-slot" aria-hidden="true">+</div>
-          <div class="app-slot" aria-hidden="true">+</div>
-          <div class="app-slot" aria-hidden="true">+</div>
-        </div>
+        <!-- 分站清單存在 Firestore dx04_settings/apps；管理員長按「＋」新增、長按 Logo 編輯或移除 -->
+        <div id="siteGrid" class="grid grid-cols-4 gap-3"></div>
+        <p id="appsAdminHint" class="hidden text-xs text-slate-400 dark:text-slate-500">管理員：長按「＋」新增，長按 Logo 編輯或移除。</p>
       </section>
     </div>
   </main>
+
+  <!-- 分站新增／編輯（僅管理員） -->
+  <dialog id="appDialog" class="app-dialog rounded-3xl p-0 w-[min(92vw,420px)] bg-white dark:bg-[#161924] text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-white/10">
+    <form id="appForm" class="p-6 flex flex-col gap-4">
+      <h2 id="appDialogTitle" class="text-xl font-extrabold text-slate-900 dark:text-white">新增分站</h2>
+      <label class="flex flex-col gap-1.5 text-sm font-bold text-slate-600 dark:text-slate-300">名稱
+        <input id="appName" required maxlength="30" autocomplete="off" class="app-input" placeholder="例如：CLC Christmas">
+      </label>
+      <label class="flex flex-col gap-1.5 text-sm font-bold text-slate-600 dark:text-slate-300">網址
+        <input id="appUrl" required autocomplete="off" inputmode="url" class="app-input" placeholder="https://…">
+      </label>
+      <label class="flex flex-col gap-1.5 text-sm font-bold text-slate-600 dark:text-slate-300">Logo 圖片網址（選填）
+        <input id="appIcon" autocomplete="off" inputmode="url" class="app-input" placeholder="留白：自動抓該網站的 apple-touch-icon">
+      </label>
+      <p id="appFormError" class="hidden text-sm text-rose-600 dark:text-rose-400"></p>
+      <div class="flex items-center gap-2 pt-1">
+        <button type="button" id="appDeleteBtn" class="hidden h-11 px-4 rounded-xl font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10">移除</button>
+        <span class="flex-1"></span>
+        <button type="button" id="appCancelBtn" class="h-11 px-4 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5">取消</button>
+        <button type="submit" id="appSaveBtn" class="h-11 px-5 rounded-xl font-bold bg-[#007E8A] hover:bg-[#006C77] text-white">儲存</button>
+      </div>
+    </form>
+  </dialog>
 
   <footer class="border-t border-slate-200 dark:border-white/10 py-3.5 text-center text-[10px] md:text-xs text-slate-500 dark:text-brand-muted">
     <p>© 2026 CLC. Powered by Cloudflare &amp; GitHub.</p>
@@ -410,11 +431,235 @@
   <script src="clc-sso.js"></script>
   <script src="header.js"></script>
   <script>
-    // 分站入口網址一律取自 header.js 的 CLC_SITES，和 Logo 站台選單完全一致。
-    document.querySelectorAll('#siteGrid a[data-site]').forEach(a => {
-      const site = (window.CLC_SITES || []).find(s => s.key === a.dataset.site);
-      if (site) a.href = site.url;
-    });
+    // 分站入口：清單存在 Firestore dx04_settings/apps（所有裝置共用），本機另存一份快取讓畫面先出來。
+    // 管理員（admin／superuser）：長按「＋」新增；長按 Logo 編輯或移除。YA、SR 也一樣可以移除。
+    // 開啟方式：YA、SR 用 CLC_SITES 網址（和左上角 Logo 站台選單相同）；其他網站在 DX04 Header 底下的 app.html 內開啟。
+    (function () {
+      const grid = document.getElementById('siteGrid');
+      const hint = document.getElementById('appsAdminHint');
+      const CACHE_KEY = 'clc_dx04_apps';
+      const MIN_SLOTS = 8, MAX_APPS = 40, LONG_PRESS_MS = 550;
+      const DEFAULT_APPS = [
+        { id: 'ya', site: 'ya', name: 'CLC YA', url: 'https://clc-dx04.pages.dev/ya/', icon: '/ya/apple-touch-icon.png' },
+        { id: 'sr', site: 'sr', name: 'CLC SR', url: 'https://clc-dx04.pages.dev/sr/', icon: '/sr/apple-touch-icon.png' }
+      ];
+      let apps = DEFAULT_APPS;
+      try {
+        const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+        if (Array.isArray(cached)) apps = cached;
+      } catch (_) {}
+
+      const isAdmin = () => !!window.isAdmin;
+      // 只接受 http(s) 或站內路徑，避免 javascript: 之類的連結。
+      function safeUrl(value) {
+        const v = String(value || '').trim();
+        if (!v) return '';
+        if (v.startsWith('/') && !v.startsWith('//')) return v;
+        try { const u = new URL(v); return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : ''; } catch (_) { return ''; }
+      }
+      function isSameSite(url) {
+        try {
+          const u = new URL(url, location.href);
+          return u.origin === location.origin || u.hostname === 'clc-dx04.pages.dev';
+        } catch (_) { return false; }
+      }
+      function hrefFor(app) {
+        const site = app.site && (window.CLC_SITES || []).find(s => s.key === app.site);
+        if (site) return site.url;
+        const url = safeUrl(app.url);
+        if (!url) return '#';
+        return isSameSite(url) ? url : '/app.html?id=' + encodeURIComponent(app.id);
+      }
+      function initials(name) {
+        const n = String(name || '').replace(/^CLC\s+/i, '').trim();
+        return (n.slice(0, 2) || '?').toUpperCase();
+      }
+      function fallback(app) {
+        const span = document.createElement('span');
+        span.className = 'app-fallback';
+        span.textContent = initials(app.name);
+        return span;
+      }
+
+      function render() {
+        const admin = isAdmin();
+        grid.replaceChildren();
+        apps.forEach(app => {
+          const a = document.createElement('a');
+          a.className = 'app-tile';
+          a.draggable = false;
+          a.href = hrefFor(app);
+          a.title = app.name;
+          a.setAttribute('aria-label', app.name);
+          a.dataset.appId = app.id;
+          const icon = safeUrl(app.icon);
+          if (icon) {
+            const img = document.createElement('img');
+            img.className = 'app-logo';
+            img.alt = '';
+            img.src = icon;
+            img.addEventListener('error', () => img.replaceWith(fallback(app)), { once: true });
+            a.append(img);
+          } else {
+            a.append(fallback(app));
+          }
+          grid.append(a);
+        });
+        const total = Math.max(MIN_SLOTS, Math.ceil((apps.length + (admin && apps.length < MAX_APPS ? 1 : 0)) / 4) * 4);
+        for (let i = apps.length; i < total; i++) {
+          if (admin) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'app-slot is-admin';
+            b.textContent = '+';
+            b.title = '長按新增分站';
+            b.setAttribute('aria-label', '新增分站（長按或按 Enter）');
+            b.dataset.add = '1';
+            grid.append(b);
+          } else {
+            const d = document.createElement('div');
+            d.className = 'app-slot';
+            d.setAttribute('aria-hidden', 'true');
+            d.textContent = '+';
+            grid.append(d);
+          }
+        }
+        hint.classList.toggle('hidden', !admin);
+      }
+
+      // ---------- 長按 ----------
+      let press = null, suppressClick = false;
+      grid.addEventListener('pointerdown', e => {
+        if (!isAdmin() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        const target = e.target.closest('.app-tile, .app-slot.is-admin');
+        if (!target) return;
+        target.classList.add('app-pressing');
+        press = {
+          target, x: e.clientX, y: e.clientY,
+          timer: setTimeout(() => {
+            target.classList.remove('app-pressing');
+            suppressClick = true;
+            if (navigator.vibrate) navigator.vibrate(15);
+            openDialog(target.dataset.appId || null);
+            press = null;
+          }, LONG_PRESS_MS)
+        };
+      });
+      function cancelPress() {
+        if (!press) return;
+        clearTimeout(press.timer);
+        press.target.classList.remove('app-pressing');
+        press = null;
+      }
+      grid.addEventListener('pointermove', e => {
+        if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) cancelPress();
+      });
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => grid.addEventListener(t, cancelPress));
+      grid.addEventListener('click', e => {
+        if (suppressClick) { e.preventDefault(); e.stopPropagation(); suppressClick = false; return; }
+        const add = e.target.closest('.app-slot.is-admin');
+        // 鍵盤按 Enter／空白鍵（沒有指標位置）時直接開新增
+        if (add && e.detail === 0) openDialog(null);
+      }, true);
+      grid.addEventListener('contextmenu', e => { if (isAdmin() && e.target.closest('.app-tile, .app-slot')) e.preventDefault(); });
+
+      // ---------- 新增／編輯視窗 ----------
+      const dialog = document.getElementById('appDialog');
+      const form = document.getElementById('appForm');
+      const fName = document.getElementById('appName');
+      const fUrl = document.getElementById('appUrl');
+      const fIcon = document.getElementById('appIcon');
+      const errEl = document.getElementById('appFormError');
+      const delBtn = document.getElementById('appDeleteBtn');
+      const saveBtn = document.getElementById('appSaveBtn');
+      let editingId = null;
+      function showError(msg) { errEl.textContent = msg; errEl.classList.toggle('hidden', !msg); }
+      function openDialog(id) {
+        if (!isAdmin()) return;
+        editingId = id;
+        const app = id ? apps.find(a => a.id === id) : null;
+        document.getElementById('appDialogTitle').textContent = app ? '編輯分站' : '新增分站';
+        fName.value = app ? app.name : '';
+        fUrl.value = app ? (app.site ? hrefFor(app) : app.url) : '';
+        fIcon.value = app ? (app.icon || '') : '';
+        fUrl.readOnly = !!(app && app.site);
+        fUrl.title = fUrl.readOnly ? 'YA、SR 的網址跟著 header.js 的 CLC_SITES' : '';
+        delBtn.classList.toggle('hidden', !app);
+        showError('');
+        saveBtn.disabled = false;
+        dialog.showModal();
+        fName.focus();
+      }
+      document.getElementById('appCancelBtn').addEventListener('click', () => dialog.close());
+      dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
+
+      async function persist(next) {
+        if (!window.db || !window.firebase) throw new Error('資料庫尚未載入');
+        await window.db.collection('dx04_settings').doc('apps').set({
+          items: next,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedBy: String(window.currentAdminEmail || '')
+        });
+        apps = next;
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify(apps)); } catch (_) {}
+        render();
+      }
+      function errorText(err) {
+        return err && err.code === 'permission-denied'
+          ? '權限不足：請確認已用管理員登入，並已到 Firebase Console 發布最新的 firestore.rules。'
+          : '儲存失敗，請稍後再試。';
+      }
+      form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const name = fName.value.trim();
+        const old = editingId ? apps.find(a => a.id === editingId) : null;
+        let url = (old && old.site) ? old.url : safeUrl(fUrl.value);
+        if (!url && /^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(fUrl.value.trim())) url = safeUrl('https://' + fUrl.value.trim());
+        if (!name) return showError('請輸入名稱。');
+        if (!url) return showError('網址格式不正確（需以 https:// 開頭）。');
+        let icon = safeUrl(fIcon.value);
+        if (fIcon.value.trim() && !icon) return showError('Logo 圖片網址格式不正確。');
+        if (!icon && !old) {
+          try { icon = new URL(url, location.href).origin + '/apple-touch-icon.png'; } catch (_) {}
+        }
+        const item = Object.assign({}, old || { id: 'app_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) }, { name, url, icon });
+        const next = old ? apps.map(a => a.id === old.id ? item : a) : apps.concat(item).slice(0, MAX_APPS);
+        saveBtn.disabled = true;
+        try {
+          await persist(next);
+          dialog.close();
+        } catch (err) {
+          console.warn('分站儲存失敗', err);
+          showError(errorText(err));
+          saveBtn.disabled = false;
+        }
+      });
+      delBtn.addEventListener('click', async () => {
+        const app = apps.find(a => a.id === editingId);
+        if (!app || !confirm('確定從總控台移除「' + app.name + '」？')) return;
+        try {
+          await persist(apps.filter(a => a.id !== app.id));
+          dialog.close();
+        } catch (err) {
+          console.warn('分站移除失敗', err);
+          showError(errorText(err));
+        }
+      });
+
+      // ---------- 讀取 ----------
+      render();
+      window.addEventListener('clc-admin-changed', render);
+      try {
+        window.db.collection('dx04_settings').doc('apps').onSnapshot(snap => {
+          const items = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : DEFAULT_APPS;
+          apps = items.filter(a => a && a.id && a.name);
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify(apps)); } catch (_) {}
+          render();
+        }, err => console.warn('分站清單讀取失敗（沿用快取或預設）', err));
+      } catch (err) {
+        console.warn('分站清單無法連線資料庫', err);
+      }
+    })();
   </script>
   <script>
     // PWA 安裝（與 YA 首頁相同做法）

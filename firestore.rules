@@ -49,6 +49,16 @@ service cloud.firestore {
       allow delete: if isAdmin() && !isBootstrapId(email);
     }
 
+    // ---------- 總控台設定 ----------
+    // apps：首頁「分站入口」清單。所有人可讀（首頁要顯示）；只有管理員可新增 / 修改，不可刪除整份文件。
+    match /dx04_settings/{docId} {
+      allow get: if docId == 'apps';
+      allow create, update: if isAdmin() && docId == 'apps'
+        && request.resource.data.keys().hasOnly(['items', 'updatedAt', 'updatedBy'])
+        && request.resource.data.items is list
+        && request.resource.data.items.size() <= 40;
+    }
+
     // 其他集合一律關閉，之後有新功能再個別開放。
     match /{document=**} {
       allow read, write: if false;

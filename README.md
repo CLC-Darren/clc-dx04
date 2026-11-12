@@ -73,6 +73,13 @@
 
 ---
 
+## 5a. CLC DX04 資料（Firestore `clc-dx04`）
+
+| Collection | 內容 |
+|---|---|
+| `admin_users/{email}` | 管理員名單（admin／viewer） |
+| `dx04_settings/apps` | 首頁「分站入口」清單（`items`：名稱、網址、Logo）。管理員在首頁長按「＋」新增、長按 Logo 編輯／移除；YA、SR 以外的網站在 `app.html`（DX04 Header 底下）開啟 |
+
 ## 5. CLC YA 重要資料（Firestore `clc-ya-portal`）
 
 | Collection | 內容 |

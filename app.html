@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>CLC DX04</title>
+
+  <!-- PWA 設定 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CLC DX04">
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase（登入與權限，版本與 YA 相同） -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"CLC Arial"', 'Arial', '"Microsoft JhengHei"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              teal: '#007E8A',
+              tealHover: '#006C77',
+              surface: '#11131B',
+              card: '#161924',
+              border: 'rgba(255, 255, 255, 0.1)',
+              muted: '#8A92A6',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    html { font-size: 16px; }
+    @media (min-width: 1024px) { html { font-size: 19px; } }
+    body { -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+  </style>
+  <!-- 深淺主題預載防閃爍（與 YA 相同） -->
+  <script>
+    (function () {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+      function savedTheme() {
+        const value = localStorage.getItem('theme');
+        return value === 'light' || value === 'dark' ? value : null;
+      }
+      function applyTheme() {
+        const chosen = savedTheme();
+        document.documentElement.classList.toggle('dark', chosen ? chosen === 'dark' : systemTheme.matches);
+      }
+      applyTheme();
+      function onSystemThemeChange() {
+        if (!savedTheme()) applyTheme();
+      }
+      if (typeof systemTheme.addEventListener === 'function') {
+        systemTheme.addEventListener('change', onSystemThemeChange);
+      } else if (typeof systemTheme.addListener === 'function') {
+        systemTheme.addListener(onSystemThemeChange);
+      }
+    })();
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-[#090A0F] dark:text-slate-100 h-[100dvh] flex flex-col overflow-hidden">
+
+  <header id="clc-header"></header>
+
+  <!-- 在 DX04 Header 底下開啟分站（清單存在 Firestore dx04_settings/apps，只開啟清單裡的網址） -->
+  <div class="flex items-center gap-3 px-4 h-10 shrink-0 border-b border-slate-200 dark:border-white/10 text-sm">
+    <a href="/" class="text-[#007E8A] dark:text-[#00A3B4] font-bold no-underline">‹ 總控台</a>
+    <span id="appTitle" class="flex-1 min-w-0 truncate font-bold text-slate-700 dark:text-slate-200"></span>
+    <a id="appExternal" href="#" target="_blank" rel="noopener" class="hidden text-slate-500 dark:text-slate-400 no-underline whitespace-nowrap">新視窗開啟 ↗</a>
+  </div>
+  <main class="flex-1 min-h-0 relative">
+    <iframe id="appFrame" title="分站內容" class="hidden absolute inset-0 w-full h-full border-0 bg-white" allow="clipboard-write; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    <p id="appMessage" class="p-8 text-center text-slate-500 dark:text-slate-400">載入中…</p>
+  </main>
+
+  <script src="clc-sso.js"></script>
+  <script src="header.js"></script>
+  <script>
+    (function () {
+      const id = new URLSearchParams(location.search).get('id') || '';
+      const frame = document.getElementById('appFrame');
+      const msg = document.getElementById('appMessage');
+      function safeUrl(v) {
+        try { const u = new URL(String(v || ''), location.href); return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : ''; } catch (_) { return ''; }
+      }
+      function show(app) {
+        const url = app && safeUrl(app.url);
+        if (!url) { msg.textContent = '找不到這個分站，可能已被移除。'; return false; }
+        document.title = app.name + ' | CLC DX04';
+        document.getElementById('appTitle').textContent = app.name;
+        const ext = document.getElementById('appExternal');
+        ext.href = url; ext.classList.remove('hidden');
+        if (frame.dataset.src !== url) { frame.dataset.src = url; frame.src = url; }
+        frame.classList.remove('hidden');
+        msg.textContent = '';
+        return true;
+      }
+      let shown = false;
+      try {
+        const cached = JSON.parse(localStorage.getItem('clc_dx04_apps') || 'null');
+        if (Array.isArray(cached)) shown = show(cached.find(a => a && a.id === id));
+      } catch (_) {}
+      try {
+        window.db.collection('dx04_settings').doc('apps').get().then(snap => {
+          const items = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : [];
+          const app = items.find(a => a && a.id === id);
+          if (app) show(app);
+          else { frame.classList.add('hidden'); frame.removeAttribute('src'); msg.textContent = '找不到這個分站，可能已被移除。'; }
+        }).catch(err => { console.warn('分站讀取失敗', err); if (!shown) msg.textContent = '分站清單讀取失敗，請回總控台再試一次。'; });
+      } catch (err) { if (!shown) msg.textContent = '分站清單讀取失敗，請回總控台再試一次。'; }
+    })();
+  </script>
+</body>
+</html>
