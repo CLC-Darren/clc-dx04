@@ -258,13 +258,17 @@ async function siteInfo(target, ancestorOrigin) {
   info.links.filter(l => l.kind === 'icon' && l.size < 64).sort((a, b) => b.size - a.size).forEach(l => add(l.href));
   add(final.origin + '/favicon.ico');
 
+  for (const image of [info.meta['og:image'], info.meta['twitter:image']]) {
+    try { if (image) add(new URL(image, finalUrl).href); } catch (_) {}
+  }
+
   let icon = '';
-  for (const c of candidates.slice(0, 8)) {
+  for (const c of candidates.slice(0, 10)) {
     let ok = false;
     try { ok = siteInfoAllowed(new URL(c)) && await siteInfoIsImage(c); } catch (_) { ok = false; }
     if (ok) { icon = c; break; }
   }
-  if (!icon) icon = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(final.hostname) + '&sz=128';
+  // 沒有可用圖片時交由前端顯示文字備援，不使用整個網域的 Google 圖示。
 
   const m = info.meta;
   const name = siteInfoCleanName(
@@ -289,10 +293,12 @@ async function handleSiteInfo(request, ctx) {
   target.hash = '';
 
   const cache = typeof caches !== 'undefined' ? caches.default : null;
-  const cacheKey = new Request(reqUrl.origin + '/api/site-info?v=2&url=' + encodeURIComponent(target.href));
-  if (cache) { const hit = await cache.match(cacheKey); if (hit) return hit; }
+  const cacheKey = new Request(reqUrl.origin + '/api/site-info?v=3&url=' + encodeURIComponent(target.href));
+  const fresh = reqUrl.searchParams.get('refresh') === '1';
+  if (cache && !fresh) { const hit = await cache.match(cacheKey); if (hit) return hit; }
   try {
-    const out = json(await siteInfo(target, reqUrl.origin), 200, 'public, max-age=86400');
+    const info = await siteInfo(target, reqUrl.origin);
+    const out = json(info, 200, 'public, max-age=' + (info.icon ? 86400 : 300));
     if (cache && ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, out.clone()));
     return out;
   } catch (err) {

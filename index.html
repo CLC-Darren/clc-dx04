@@ -1817,8 +1817,87 @@
         const n = String(name || '').replace(/^CLC\s+/i, '').trim();
         return (n.slice(0, 2) || '?').toUpperCase();
       }
+      const ICON_CACHE_KEY = 'clc_dx04_auto_icons_v1';
+      const ICON_DAY = 86400000, ICON_RETRY = 15 * 60000;
+      let iconCache = {};
+      try { const saved = JSON.parse(localStorage.getItem(ICON_CACHE_KEY) || '{}'); if (saved && typeof saved === 'object' && !Array.isArray(saved)) iconCache = saved; } catch (_) {}
+      const iconRequests = new Set(), brokenIconRetries = new Set();
+      let iconRefreshScheduled = false;
+      function iconKey(app) { return safeUrl(app.url) || ''; }
+      function isGoogleIcon(value) {
+        try { const u = new URL(value); return /(^|\.)google\.[a-z.]+$/.test(u.hostname) && u.pathname.includes('/s2/favicons'); } catch (_) { return false; }
+      }
+      function manualIcon(app) {
+        if (app.iconMode === 'manual') return true;
+        if (app.iconMode === 'auto') return false;
+        // 舊資料沒有來源標記：保留既有直接指定的圖片，Google 備援及空圖可自動更新。
+        return !!(safeUrl(app.icon) && !isGoogleIcon(app.icon));
+      }
+      function rememberIcons() {
+        try {
+          const entries = Object.entries(iconCache).sort((a, b) => (b[1].checkedAt || 0) - (a[1].checkedAt || 0)).slice(0, 200);
+          localStorage.setItem(ICON_CACHE_KEY, JSON.stringify(Object.fromEntries(entries)));
+        } catch (_) {}
+      }
+      function displayedIcon(app) {
+        if (manualIcon(app)) return safeUrl(app.icon);
+        const cached = iconCache[iconKey(app)];
+        if (cached) return safeUrl(cached.icon) || '';
+        return isGoogleIcon(app.icon) ? '' : safeUrl(app.icon);
+      }
+      function usableIcon(url) {
+        return new Promise(resolve => {
+          const image = new Image();
+          const timer = setTimeout(() => done(false), 8000);
+          function done(ok) { clearTimeout(timer); image.onload = image.onerror = null; resolve(ok); }
+          image.onload = () => done(image.naturalWidth > 0 && image.naturalHeight > 0);
+          image.onerror = () => done(false);
+          image.src = url;
+        });
+      }
+      function queueIconRefresh() {
+        if (iconRefreshScheduled) return;
+        iconRefreshScheduled = true;
+        setTimeout(() => { iconRefreshScheduled = false; refreshAutoIcons(); }, 250);
+      }
+      async function refreshAutoIcons() {
+        if (document.hidden) return;
+        const pending = apps.filter(app => {
+          const key = iconKey(app), cached = iconCache[key];
+          return key && !manualIcon(app) && !iconRequests.has(key) && (!cached || cached.nextCheckAt <= Date.now());
+        });
+        let index = 0;
+        async function run() {
+          while (index < pending.length) {
+            const app = pending[index++], key = iconKey(app);
+            if (iconRequests.has(key)) continue;
+            iconRequests.add(key);
+            const previous = displayedIcon(app);
+            iconCache[key] = Object.assign({}, iconCache[key], { icon: previous, nextCheckAt: Date.now() + ICON_RETRY });
+            try {
+              const force = brokenIconRetries.has(key) || (!previous && (!app.icon || isGoogleIcon(app.icon)));
+              const info = await siteInfo(key, force);
+              const candidate = safeUrl(info.icon);
+              const freshIcon = candidate && !isGoogleIcon(candidate) && await usableIcon(candidate) ? candidate : '';
+              let icon = freshIcon;
+              if (!icon && previous && !brokenIconRetries.has(key) && await usableIcon(previous)) icon = previous;
+              const current = apps.find(a => a.id === app.id);
+              if (!current || iconKey(current) !== key || manualIcon(current)) continue;
+              iconCache[key] = { icon, checkedAt: Date.now(), nextCheckAt: Date.now() + (freshIcon ? ICON_DAY : ICON_RETRY) };
+              rememberIcons();
+              // 不重建整個網格，避免背景抓圖打斷正在進行的拖曳或編輯。
+              Array.from(grid.querySelectorAll('.app-tile')).filter(el => el.dataset.appId === app.id).forEach(el => el.replaceChildren(logo(current)));
+            } catch (err) { console.warn('圖示更新失敗', err); rememberIcons(); }
+            finally { iconRequests.delete(key); }
+          }
+        }
+        await Promise.all([run(), run()]);
+      }
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) queueIconRefresh(); });
+      window.addEventListener('focus', queueIconRefresh);
+      setInterval(queueIconRefresh, ICON_RETRY);
       function logo(app) {
-        const icon = safeUrl(app.icon);
+        const icon = displayedIcon(app);
         const fallback = () => {
           const span = document.createElement('span');
           span.className = 'app-fallback';
@@ -1829,8 +1908,16 @@
         const img = document.createElement('img');
         img.className = 'app-logo';
         img.alt = '';
+        img.addEventListener('error', () => {
+          img.replaceWith(fallback());
+          const key = iconKey(app);
+          if (key && !manualIcon(app) && !brokenIconRetries.has(key)) {
+            brokenIconRetries.add(key);
+            iconCache[key] = { icon: '', checkedAt: Date.now(), nextCheckAt: 0 };
+            rememberIcons(); queueIconRefresh();
+          }
+        }, { once: true });
         img.src = icon;
-        img.addEventListener('error', () => img.replaceWith(fallback()), { once: true });
         return img;
       }
 
@@ -1895,6 +1982,7 @@
         }
         hint.classList.toggle('hidden', !admin || editing);
         doneBtn.classList.toggle('hidden', !editing);
+        queueIconRefresh();
       }
       function setEditing(on) {
         if (on && !isAdmin()) return;
@@ -1985,16 +2073,19 @@
         try { await persist(apps.filter(a => a.id !== id)); }
         catch (err) { console.warn('分站移除失敗', err); alert(errorText(err)); }
       }
-      async function siteInfo(url) {
+      async function siteInfo(url, fresh = false) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 20000);
         try {
-          const res = await fetch('/api/site-info?url=' + encodeURIComponent(url));
+          const res = await fetch('/api/site-info?url=' + encodeURIComponent(url) + (fresh ? '&refresh=1' : ''), {
+            signal: controller.signal, cache: fresh ? 'no-store' : 'default'
+          });
           const data = await res.json();
           if (data && data.ok) return data;
-        } catch (_) {}
-        // 讀不到時：名稱用網域，Logo 用 Google 圖示服務
+        } catch (_) {} finally { clearTimeout(timer); }
         let host = '';
         try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (_) {}
-        return { url, name: host || url, icon: host ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host) + '&sz=128' : '', embeddable: false };
+        return { url, name: host || url, icon: '', embeddable: false };
       }
 
       // ---------- 新增（只要貼網址） ----------
@@ -2029,6 +2120,7 @@
           name: String(info.name || '').slice(0, 30) || url,
           url: safeUrl(info.url) || url,
           icon: safeUrl(info.icon) || '',
+          iconMode: 'auto',
           embeddable: info.embeddable === true
         };
         try {
@@ -2052,7 +2144,7 @@
       const errEl = document.getElementById('appFormError');
       const saveBtn = document.getElementById('appSaveBtn');
       const refetchBtn = document.getElementById('appRefetchBtn');
-      let editingId = null, refetchedEmbeddable = null;
+      let editingId = null, refetchedEmbeddable = null, editingIconMode = 'manual';
       function showError(msg) { errEl.textContent = msg; errEl.classList.toggle('hidden', !msg); }
       function updatePreview() { preview.replaceChildren(logo({ name: fName.value, icon: fIcon.value })); }
       function openEdit(id) {
@@ -2064,22 +2156,29 @@
         fUrl.value = app.site ? hrefFor(app) : app.url;
         fUrl.readOnly = !!app.site;
         fUrl.title = app.site ? 'YA、SR 的網址跟著 header.js 的 CLC_SITES' : '';
-        fIcon.value = app.icon || '';
+        editingIconMode = manualIcon(app) ? 'manual' : 'auto';
+        fIcon.value = displayedIcon(app);
         updatePreview();
         showError('');
         saveBtn.disabled = false;
         dialog.showModal();
       }
-      fIcon.addEventListener('input', updatePreview);
+      fIcon.addEventListener('input', () => { editingIconMode = 'manual'; updatePreview(); });
       fName.addEventListener('input', updatePreview);
       refetchBtn.addEventListener('click', async () => {
         const url = fUrl.readOnly ? new URL(fUrl.value, location.href).href : normalizeInputUrl(fUrl.value);
         if (!url) return showError('網址格式不正確。');
         refetchBtn.disabled = true;
         refetchBtn.textContent = '讀取中…';
-        const info = await siteInfo(url);
+        const info = await siteInfo(url, true);
+        editingIconMode = 'auto';
+        const refreshedKey = safeUrl(url);
+        if (refreshedKey) {
+          iconCache[refreshedKey] = { icon:safeUrl(info.icon) || '', checkedAt:Date.now(), nextCheckAt:Date.now() + (info.icon ? ICON_DAY : ICON_RETRY) };
+          rememberIcons();
+        }
         refetchedEmbeddable = typeof info.embeddable === 'boolean' ? info.embeddable : null;
-        if (info.icon) fIcon.value = info.icon;
+        fIcon.value = info.icon || '';
         if (info.name && !fUrl.readOnly) fName.value = String(info.name).slice(0, 30);
         updatePreview();
         refetchBtn.disabled = false;
@@ -2099,7 +2198,7 @@
         if (fIcon.value.trim() && !icon) return showError('圖示網址格式不正確。');
         saveBtn.disabled = true;
         try {
-          const patch = { name, url, icon };
+          const patch = { name, url, icon, iconMode: editingIconMode };
           if (refetchedEmbeddable !== null && !old.site) patch.embeddable = refetchedEmbeddable;
           else if (url !== old.url) delete old.embeddable;
           await persist(apps.map(a => a.id === old.id ? Object.assign({}, old, patch) : a));
