@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-TW" class="dark dx-locked">
 <head>
-  <link rel="stylesheet" href="/login-gate.css">
-  <script src="/login-gate.js"></script>
+  <link rel="stylesheet" href="/login-gate.css?v=welcome-unified-1">
+  <script src="/login-gate.js?v=welcome-unified-1"></script>
   <script src="/reorder.js?v=drag-lift-3"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -219,7 +219,7 @@
       }
     })();
   </script>
-  <!-- DX04 Welcome 動態歡迎畫面 v2（掛載於 html 根節點，不被 dx-locked 隱藏；電腦版橫向左進右出 / 手機版直向上進下出，播畢靜止 1 分鐘自動重播，點擊進入網站） -->
+  <!-- DX04 Welcome 動態歡迎畫面 v2（掛載於 html 根節點，不被 dx-locked 隱藏；電腦版橫向左進右出 / 手機版直向上進下出，播畢靜止 30 秒自動重播，點擊沿用 Google 登入） -->
   <style id="dx04-welcome-style">
     html > #dx04-welcome-overlay {
       position: fixed !important;
@@ -235,6 +235,7 @@
       justify-content: center !important;
       overflow: hidden !important;
       cursor: pointer !important;
+      font-family: "CLC Arial", Arial, "Microsoft JhengHei", sans-serif !important;
       user-select: none !important;
       -webkit-user-select: none !important;
       touch-action: manipulation !important;
@@ -272,10 +273,10 @@
       document.documentElement.appendChild(overlay);
 
       const ctx = canvas.getContext('2d', { alpha: false });
-      if (!ctx) return;
+      if (!ctx) { overlay.remove(); return; }
 
       const DURATION = 10.0;          // 單次完整動畫長度（秒）
-      const REPLAY_DELAY_MS = 60000;  // 播放完畢後等待 1 分鐘（60,000ms）再自動重播
+      const REPLAY_DELAY_MS = 30000;  // 播放完畢後等待 30 秒再自動重播
       const PALETTE = {
         primary:   { r: 0,   g: 131, b: 139 }, // #00838B 深海青（主色）
         electric:  { r: 0,   g: 229, b: 255 }, // #00E5FF 電光青
@@ -292,7 +293,7 @@
       let logoText = 'DX04';
       let logoBaselineY = 0;
 
-      let entered = false;
+      let entered = false, entering = false;
       let state = 'playing'; // 'playing' | 'waiting'
       let startTime = performance.now();
       let rafId = 0;
@@ -324,12 +325,11 @@
         const octx = off.getContext('2d');
         if (!octx) return false;
 
-        // 橫向（電腦版）與直向（手機版）各自的視覺比例
-        const fontSize = isPortrait
-          ? Math.round(Math.min(W * 0.255, H * 0.135))
-          : Math.round(Math.min(W * 0.145, H * 0.26));
-
-        logoFontSpec = '900 ' + fontSize + 'px "Arial Black", "Helvetica Neue", Arial, sans-serif';
+        // 與原登入頁一致：clamp(64px, 14vw, 112px)、Arial 粗體、.05em 字距。
+        const fontSize = Math.max(64, Math.min(W * 0.14, 112));
+        logoFontSpec = '800 ' + fontSize + 'px "CLC Arial", Arial, "Microsoft JhengHei", sans-serif';
+        if ('letterSpacing' in octx) octx.letterSpacing = (fontSize * 0.05) + 'px';
+        if ('letterSpacing' in ctx) ctx.letterSpacing = (fontSize * 0.05) + 'px';
         logoBaselineY = H * 0.5;
 
         octx.fillStyle = '#000000';
@@ -675,7 +675,7 @@
         const elapsed = (now - startTime) / 1000;
 
         if (elapsed >= DURATION) {
-          // 播放結束，定格在原始純白 DX04 畫面，等待 1 分鐘後再次播放
+          // 播放結束，定格在原始純白 DX04 畫面，等待 30 秒後再次播放
           state = 'waiting';
           ctx.globalCompositeOperation = 'source-over';
           drawStaticLogo();
@@ -693,12 +693,17 @@
       }
 
       // 點擊或按鍵進入網站，立即停止歡迎動畫與重播排程
-      function enterSite(e) {
-        if (entered) return;
+      async function enterSite(e) {
+        if (entered || entering) return;
         if (e) {
           e.preventDefault();
           e.stopPropagation();
         }
+        if (typeof window.clcEnterWelcome !== 'function') return;
+        entering = true;
+        const authorized = await window.clcEnterWelcome();
+        entering = false;
+        if (!authorized) return;
         entered = true;
         clearTimeout(replayTimer);
         cancelAnimationFrame(rafId);
@@ -718,6 +723,8 @@
         }
       }
 
+      overlay.addEventListener('touchstart', e => e.stopPropagation(), { passive:true });
+      overlay.addEventListener('touchmove', e => e.stopPropagation(), { passive:true });
       overlay.addEventListener('click', enterSite);
       overlay.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') enterSite(e);
@@ -2222,7 +2229,7 @@
       overlay.id = 'pwaInstallHelpOverlay';
       overlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:2147483646;padding:16px;box-sizing:border-box;background:rgba(0,0,0,.7);align-items:center;justify-content:center;';
       overlay.innerHTML = `
-        <section id="pwaInstallHelpDialog" role="dialog" aria-modal="true" aria-labelledby="pwaInstallHelpTitle" aria-describedby="pwaInstallHelpSummary pwaInstallHelpReason" style="box-sizing:border-box;width:100%;max-width:460px;max-height:calc(100% - 16px);overflow:auto;overscroll-behavior:contain;padding:24px;border:1px solid rgba(255,255,255,.15);border-radius:18px;background:#11131b;color:#f1f5f9;box-shadow:0 24px 70px rgba(0,0,0,.45);font:15px/1.7 system-ui,sans-serif;text-align:left;">
+        <section id="pwaInstallHelpDialog" role="dialog" aria-modal="true" aria-labelledby="pwaInstallHelpTitle" aria-describedby="pwaInstallHelpSummary pwaInstallHelpReason" style="box-sizing:border-box;width:100%;max-width:460px;max-height:calc(100% - 16px);overflow:auto;overscroll-behavior:contain;padding:24px;border:1px solid rgba(255,255,255,.15);border-radius:18px;background:#11131b;color:#f1f5f9;box-shadow:0 24px 70px rgba(0,0,0,.45);font:15px/1.7 Arial,'Microsoft JhengHei',sans-serif;text-align:left;">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
             <h2 id="pwaInstallHelpTitle" style="margin:0;font-size:20px;font-weight:800;">安裝 CLC DX04</h2>
             <button id="pwaInstallHelpClose" type="button" aria-label="關閉安裝說明" style="flex:none;width:36px;height:36px;border:1px solid #64748b;border-radius:9px;background:transparent;color:#f1f5f9;cursor:pointer;font-size:20px;">×</button>
