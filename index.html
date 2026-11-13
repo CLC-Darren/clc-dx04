@@ -262,6 +262,20 @@
     (function () {
       if (document.getElementById('dx04-welcome-overlay')) return;
 
+      // 同一視窗只顯示一次；這個記號只控制片頭，不代表登入或授權。
+      const welcomeSessionKey = 'clc_dx04_welcome_seen_v1';
+      let returningFromSite = false;
+      try {
+        const previous = new URL(document.referrer);
+        returningFromSite = previous.origin === location.origin && /^\/(ya|sr)(\/|$)/.test(previous.pathname);
+      } catch (_) {}
+      try {
+        if (sessionStorage.getItem(welcomeSessionKey) === '1' || returningFromSite) {
+          sessionStorage.setItem(welcomeSessionKey, '1');
+          return;
+        }
+      } catch (_) { if (returningFromSite) return; }
+
       // 直接掛載在 <html>（document.documentElement），繞過 html.dx-locked 對 <body> 的隱藏規則
       const overlay = document.createElement('div');
       overlay.id = 'dx04-welcome-overlay';
@@ -276,6 +290,7 @@
 
       const ctx = canvas.getContext('2d', { alpha: false });
       if (!ctx) { overlay.remove(); return; }
+      try { sessionStorage.setItem(welcomeSessionKey, '1'); } catch (_) {}
 
       const DURATION = 10.0;          // 單次完整動畫長度（秒）
       const PALETTE = {
