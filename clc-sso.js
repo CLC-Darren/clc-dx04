@@ -256,7 +256,7 @@
       restore(); gesture = null;
       if (e.touches.length !== 1 || !canSwipe() || blocked(e.target)) return;
       const t = e.touches[0];
-      if (!inTopZone(t.clientY) || t.clientX < innerWidth * .2 || t.clientX > innerWidth * .8) return;
+      if (!inTopZone(t.clientY) || t.clientX < innerWidth * .1 || t.clientX > innerWidth * .9) return;
       gesture = { id:t.identifier, x:t.clientX, y:t.clientY, at:performance.now(), horizontal:false, dx:0 };
     }, { passive:true });
     document.addEventListener('touchmove', e => {
