@@ -105,8 +105,9 @@ function renderHeaderComponent() {
   const homePath = window.location.pathname.replace(/\/+$/, '').replace(/\.html$/, '');
   const isHome = homePath === '' || homePath === '/index';
   // Header 固定深色：在容器加上 dark class，不隨深淺模式切換。
-  headerContainer.className = "dark border-b border-white/10 backdrop-blur-xl bg-[#090A0F]/70 text-slate-100 sticky top-0 z-40";
+  headerContainer.className = "dark border-b border-white/10 backdrop-blur-xl bg-[#090A0F] text-slate-100 sticky top-0 z-40";
   headerContainer.style.colorScheme = "dark";
+  headerContainer.style.backgroundColor = "#090A0F"; // 實心黑，淺色模式下不透出底色
   headerContainer.innerHTML = `
     <div>
       <div id="clcLogoWrap" class="relative">
