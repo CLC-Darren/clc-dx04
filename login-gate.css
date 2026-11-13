@@ -2,7 +2,7 @@ html.dx-locked { background: #000 !important; color-scheme: dark; }
 html.dx-locked body { background: #000 !important; overflow: hidden !important; }
 html.dx-locked body > :not(#dx-login-gate) { display: none !important; }
 #dx-login-gate[hidden] { display: none !important; }
-#dx-login-gate { position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center; background: #000; color: #fff; font-family: 'CLC Arial', Arial, 'Microsoft JhengHei', sans-serif; }
+#dx-login-gate { position: fixed; inset: 0; z-index: 2147483646; display: grid; place-items: center; background: #000; color: #fff; font-family: 'CLC Arial', Arial, 'Microsoft JhengHei', sans-serif; }
 #dx-login-button { appearance: none; border: 0; border-radius: 0; padding: 22px 32px; background: transparent; color: #fff; font: 800 clamp(64px, 14vw, 112px)/1.1 'CLC Arial', Arial, sans-serif; letter-spacing: .05em; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 #dx-login-button:hover { background: transparent; }
 #dx-login-button:focus-visible { outline: 3px solid #fff; outline-offset: 7px; }
