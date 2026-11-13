@@ -1,0 +1,54 @@
+/* DX 淺色主題：品牌色 #007E8A + Apple (iOS/macOS) 淺色設計原則。
+   只在 html 沒有 .dark 時生效；深色模式與固定深色的 header 都不受影響。 */
+
+/* —— 底色與卡片：系統灰底 + 純白卡片，用層次取代邊框 —— */
+html:not(.dark) body.bg-slate-50 { background-color: #F2F2F7; color: #1C1C1E; }
+html:not(.dark) .bg-slate-50:not(#clc-header *) { background-color: #F2F2F7; }
+html:not(.dark) .bg-white:not(#clc-header *) { background-color: #FFFFFF; }
+html:not(.dark) .dash-widget,
+html:not(.dark) .app-dialog {
+  border-color: transparent !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 6px 20px rgba(0,0,0,.05);
+}
+
+/* —— 文字：Apple label 階層 —— */
+html:not(.dark) .text-slate-900:not(#clc-header *),
+html:not(.dark) .text-slate-800:not(#clc-header *) { color: #1C1C1E; }
+html:not(.dark) .text-slate-700:not(#clc-header *),
+html:not(.dark) .text-slate-600:not(#clc-header *) { color: #3A3A3C; }
+html:not(.dark) .text-slate-500:not(#clc-header *),
+html:not(.dark) .text-slate-400:not(#clc-header *) { color: #8E8E93; }
+
+/* —— 分隔線：淡、半透明 —— */
+html:not(.dark) .border-slate-100:not(#clc-header *) { border-color: rgba(60,60,67,.10); }
+html:not(.dark) .border-slate-200:not(#clc-header *),
+html:not(.dark) .border-slate-300:not(#clc-header *),
+html:not(.dark) .border-slate-300\/60:not(#clc-header *) { border-color: rgba(60,60,67,.16); }
+
+/* —— 填色控制項：iOS fill —— */
+html:not(.dark) .bg-slate-100:not(#clc-header *),
+html:not(.dark) .bg-slate-200\/70:not(#clc-header *) { background-color: rgba(118,118,128,.12); }
+html:not(.dark) .hover\:bg-slate-100:hover:not(#clc-header *),
+html:not(.dark) .hover\:bg-slate-300\/70:hover:not(#clc-header *) { background-color: rgba(118,118,128,.20); }
+
+/* —— 首頁自訂元件 —— */
+html:not(.dark) .todo-title { color: #1C1C1E; }
+html:not(.dark) .todo-meta,
+html:not(.dark) .todo-group,
+html:not(.dark) .todo-empty,
+html:not(.dark) .todo-mic { color: #8E8E93; }
+html:not(.dark) .todo-mic:hover { color: #007E8A; }
+html:not(.dark) .todo-ck { border-color: #C7C7CC; }
+html:not(.dark) .todo-ck.p1 { border-color: #FB923C; }
+html:not(.dark) .todo-ck:checked { background: #007E8A; border-color: #007E8A; }
+html:not(.dark) .todo-row { border-bottom-color: rgba(60,60,67,.10); }
+html:not(.dark) .todo-del { color: #AEAEB2; }
+html:not(.dark) .todo-del:hover,
+html:not(.dark) .todo-del:focus-visible { color: #e11d48; }
+html:not(.dark) .app-slot { border-color: #C7C7CC; color: #AEAEB2; }
+html:not(.dark) .app-slot.is-admin:hover { border-color: #007E8A; color: #007E8A; }
+html:not(.dark) .drag-handle span { background: #D1D1D6; }
+html:not(.dark) .dash-widget.is-dragging .drag-handle span { background: #007E8A; }
+html:not(.dark) .app-input { background: rgba(118,118,128,.12); border-color: transparent; }
+html:not(.dark) .app-input:focus { border-color: #007E8A; }
+html:not(.dark) .app-dialog::backdrop { background: rgba(0,0,0,.35); }
