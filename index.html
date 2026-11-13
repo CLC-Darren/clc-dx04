@@ -326,7 +326,8 @@
 
         // 與原登入頁一致：clamp(64px, 14vw, 112px)、Arial 粗體、.05em 字距。
         const fontSize = Math.max(64, Math.min(W * 0.14, 112));
-        logoFontSpec = '800 ' + fontSize + 'px "CLC Arial", Arial, "Microsoft JhengHei", sans-serif';
+        // 原底層的 CLC Arial 粗體對應 Arial Bold；Canvas 明確使用 700，避免 800 字重的替代字形。
+        logoFontSpec = '700 ' + fontSize + 'px Arial, "Microsoft JhengHei", sans-serif';
         if ('letterSpacing' in octx) octx.letterSpacing = (fontSize * 0.05) + 'px';
         if ('letterSpacing' in ctx) ctx.letterSpacing = (fontSize * 0.05) + 'px';
         logoBaselineY = H * 0.5;
