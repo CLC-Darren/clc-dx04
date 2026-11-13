@@ -120,6 +120,26 @@
     if (document.body) show(); else document.addEventListener('DOMContentLoaded', show);
   }
 
+  let returningToLogin = false;
+  async function returnToLogin() {
+    if (returningToLogin) return;
+    returningToLogin = true;
+    await logoutAll();
+    // 使用根目錄，不能留在 /ya/ 或 /sr/ 的公開首頁。
+    window.location.replace('/');
+  }
+
+  // Worker 插入的是 defer script，分站原本的 header.js 已完成載入。
+  // 沿用分站既有確認與 signOut；只有真正登出成功才清除共用登入並返回。
+  if (siteKey && typeof window.handleAdminLogout === 'function') {
+    const originalLogout = window.handleAdminLogout;
+    window.handleAdminLogout = async function (...args) {
+      const wasSignedIn = !!window.auth?.currentUser;
+      await originalLogout.apply(this, args);
+      if (wasSignedIn && !window.auth?.currentUser) await returnToLogin();
+    };
+  }
+
   async function runSite() {
     if (window.top !== window) return; // 被嵌入 iframe 時由外層頁面處理
     let site;
@@ -147,7 +167,7 @@
     // 分站登出（登入狀態被移除）→ 所有站一起登出。
     setInterval(async () => {
       const now = await hasAuthUser(config.apiKey);
-      if (had && !now) await logoutAll();
+      if (had && !now) await returnToLogin();
       had = now;
     }, 1500);
   }

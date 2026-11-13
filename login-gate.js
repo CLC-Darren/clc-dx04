@@ -18,7 +18,7 @@
     const gate = document.getElementById('dx-login-gate');
     if (gate) gate.hidden = allowed;
     // 清掉已載入的私有畫面、計時器與監聽，避免登出後仍背景讀取。
-    if (!allowed && started) { location.reload(); return; }
+    if (!allowed && started && !window.clcLogoutPending) { location.replace('/'); return; }
     startPrivateScripts();
   };
   document.addEventListener('DOMContentLoaded', () => {

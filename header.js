@@ -334,9 +334,17 @@ async function triggerAdminLogin(options = {}) {
 
 async function handleAdminLogout() {
   if (confirm("確定要登出管理員身分嗎？\n（DX04、YA、SR 會一起登出）")) {
-    if (window.CLCSSO) await window.CLCSSO.logoutAll();
-    await window.auth.signOut();
-    applyAdminState(false, "");
+    window.clcLogoutPending = true;
+    try {
+      if (window.CLCSSO) await window.CLCSSO.logoutAll();
+      await window.auth.signOut();
+      applyAdminState(false, "");
+      window.location.replace('/');
+    } catch (error) {
+      window.clcLogoutPending = false;
+      console.error('登出失敗：', error);
+      alert('登出尚未完成，請重試。');
+    }
   }
 }
 
