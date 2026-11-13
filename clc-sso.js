@@ -175,9 +175,9 @@
   // Same-origin DX04 / YA / SR cycling. No preloading or extra data listeners.
   function installSiteSwipe() {
     if (window.top !== window) return;
-    let gesture = null;
+    let gesture = null, visual = null, navigating = false;
     const dirtyForms = new Set();
-    const canSwipe = () => innerWidth <= 1023 && !!window.isSuperuser &&
+    const canSwipe = () => !navigating && innerWidth <= 1023 && !!window.isSuperuser &&
       !document.documentElement.classList.contains('dx-locked') &&
       !document.querySelector('dialog[open], .todo-edit, .reorder-source, .reorder-floating, .is-dragging, #siteGrid.is-editing') &&
       !Array.from(dirtyForms).some(form => form.isConnected && Array.from(form.elements).some(field => {
@@ -199,37 +199,97 @@
       }
       return false;
     }
+    const routes = ['/', '/ya/', '/sr/'], labels = ['DX04', 'YA', 'SR'];
+    const currentSite = () => /^\/ya(?:\/|$)/.test(location.pathname) ? 1 : /^\/sr(?:\/|$)/.test(location.pathname) ? 2 : 0;
+    function inTopZone(y) {
+      if (scrollY > 8) return false;
+      const heading = document.querySelector('#dx-swipe-zone') || document.querySelector('main h1')?.parentElement;
+      const header = document.getElementById('clc-header');
+      const bottom = heading ? heading.getBoundingClientRect().bottom + 12 : header?.getBoundingClientRect().bottom || 0;
+      return y >= 0 && y <= bottom;
+    }
+    function makeVisual(dx) {
+      const next = (currentSite() + (dx < 0 ? 1 : 2)) % routes.length;
+      if (visual) {
+        visual.next = next;
+        visual.layer.querySelector('strong').textContent = labels[next];
+        return;
+      }
+      const body = document.body, layer = document.createElement('div');
+      layer.id = 'clc-site-transition';
+      layer.setAttribute('role', 'status'); layer.setAttribute('aria-live', 'polite');
+      layer.style.cssText = 'position:fixed;inset:0;z-index:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#090a0f;color:#fff;font-family:Arial,sans-serif;pointer-events:none;will-change:transform;';
+      const title = document.createElement('strong'); title.textContent = labels[next];
+      title.style.cssText = 'font-size:52px;letter-spacing:.08em;';
+      const caption = document.createElement('span'); caption.textContent = '載入中…'; caption.style.cssText = 'font-size:14px;color:#94a3b8;';
+      layer.append(title, caption);
+      visual = { layer, next, css: { transform:body.style.transform, transition:body.style.transition, position:body.style.position, zIndex:body.style.zIndex, willChange:body.style.willChange }, overflow:document.documentElement.style.overflowX };
+      document.documentElement.appendChild(layer);
+      document.documentElement.style.overflowX = 'hidden';
+      body.style.position = 'relative'; body.style.zIndex = '1'; body.style.willChange = 'transform'; body.style.transition = 'none';
+    }
+    function draw(dx) {
+      makeVisual(dx);
+      const amount = Math.max(-innerWidth, Math.min(innerWidth, dx));
+      document.body.style.transform = `translate3d(${amount}px,0,0)`;
+      visual.layer.style.transform = `translate3d(${(dx < 0 ? innerWidth : -innerWidth) + amount}px,0,0)`;
+    }
+    function restore() {
+      if (!visual) return;
+      Object.assign(document.body.style, visual.css);
+      document.documentElement.style.overflowX = visual.overflow;
+      visual.layer.remove(); visual = null;
+    }
+    function cancel() {
+      gesture = null;
+      if (!visual || navigating) return;
+      const state = visual;
+      document.body.style.transition = 'transform 160ms ease-out';
+      document.body.style.transform = 'translate3d(0,0,0)';
+      setTimeout(() => { if (visual === state && !gesture && !navigating) restore(); }, 170);
+    }
     document.addEventListener('input', e => { const form = e.target.closest('form'); if (form) dirtyForms.add(form); }, true);
     document.addEventListener('change', e => { const form = e.target.closest('form'); if (form) dirtyForms.add(form); }, true);
     document.addEventListener('reset', e => dirtyForms.delete(e.target), true);
     document.addEventListener('touchstart', e => {
-      gesture = null;
+      if (navigating) return;
+      restore(); gesture = null;
       if (e.touches.length !== 1 || !canSwipe() || blocked(e.target)) return;
       const t = e.touches[0];
-      if (t.clientX < innerWidth * .2 || t.clientX > innerWidth * .8) return;
-      gesture = { id: t.identifier, x: t.clientX, y: t.clientY, at: performance.now(), horizontal: false, dx: 0 };
-    }, { passive: true });
+      if (!inTopZone(t.clientY) || t.clientX < innerWidth * .2 || t.clientX > innerWidth * .8) return;
+      gesture = { id:t.identifier, x:t.clientX, y:t.clientY, at:performance.now(), horizontal:false, dx:0 };
+    }, { passive:true });
     document.addEventListener('touchmove', e => {
-      if (!gesture || e.touches.length !== 1 || !canSwipe()) { gesture = null; return; }
+      if (!gesture) return;
+      if (e.touches.length !== 1 || !canSwipe()) { cancel(); return; }
       const t = e.touches[0], dx = t.clientX - gesture.x, dy = t.clientY - gesture.y;
-      if (t.identifier !== gesture.id) { gesture = null; return; }
+      if (t.identifier !== gesture.id) { cancel(); return; }
       if (!gesture.horizontal) {
-        if (Math.abs(dy) > 14 && Math.abs(dy) >= Math.abs(dx)) { gesture = null; return; }
+        if (Math.abs(dy) > 14 && Math.abs(dy) >= Math.abs(dx)) { cancel(); return; }
         if (Math.abs(dx) < 18 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
         gesture.horizontal = true;
       }
       gesture.dx = dx;
       if (e.cancelable) e.preventDefault();
-    }, { passive: false });
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches) draw(dx);
+    }, { passive:false });
     document.addEventListener('touchend', () => {
-      const g = gesture; gesture = null;
-      if (!g || !g.horizontal || !canSwipe() || performance.now() - g.at > 800 || Math.abs(g.dx) < Math.max(64, innerWidth * .18)) return;
-      const routes = ['/', '/ya/', '/sr/'];
-      const current = location.pathname.startsWith('/ya/') || location.pathname === '/ya' ? 1 :
-        location.pathname.startsWith('/sr/') || location.pathname === '/sr' ? 2 : 0;
-      location.assign(routes[(current + (g.dx < 0 ? 1 : 2)) % routes.length]);
-    }, { passive: true });
-    document.addEventListener('touchcancel', () => { gesture = null; }, { passive: true });
+      const g = gesture;
+      if (!g || !g.horizontal || !canSwipe() || performance.now() - g.at > 800 || Math.abs(g.dx) < Math.max(64, innerWidth * .18)) { cancel(); return; }
+      gesture = null;
+      makeVisual(g.dx); navigating = true;
+      const next = visual.next;
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const transition = reduced ? 'none' : 'transform 200ms cubic-bezier(.2,.7,.3,1)';
+      document.body.style.transition = transition;
+      visual.layer.style.transition = transition;
+      document.body.style.transform = `translate3d(${g.dx < 0 ? -innerWidth : innerWidth}px,0,0)`;
+      visual.layer.style.transform = 'translate3d(0,0,0)';
+      setTimeout(() => { location.assign(routes[next]); }, reduced ? 0 : 210);
+    }, { passive:true });
+    document.addEventListener('touchcancel', cancel, { passive:true });
+    window.addEventListener('pageshow', () => { navigating = false; gesture = null; restore(); });
+
   }
   installSiteSwipe();
 

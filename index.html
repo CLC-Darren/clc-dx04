@@ -168,9 +168,9 @@
     .reorder-handle:focus-visible { outline:2px solid #007E8A; border-radius:6px; }
     #appsAdminHint { display:none !important; }
     @media (max-width:1023px) {
-      #dashGrid > [data-widget="clock"] { display:grid; grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr); align-items:center; padding:18px 16px; gap:12px; }
+      #dashGrid > [data-widget="clock"] { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr); align-items:center; padding:18px 16px; gap:12px; }
       .clock-main { min-width:0; }
-      #clockTime { font-size:clamp(27px,7.5vw,40px); }
+      #clockTime { font-size:clamp(34px,9vw,48px); }
       #clockSec { font-size:14px; }
       #clockDate { font-size:11px; line-height:1.5; }
       #dashGrid .clock-weather { min-width:0; border-top:0; border-left:1px solid rgba(148,163,184,.25); padding-top:0; padding-left:12px; gap:6px; }
@@ -178,7 +178,7 @@
       .clock-weather > div:last-child > p:first-child { flex-wrap:wrap; gap:2px 6px; }
       #wxTemp { font-size:23px; }
       #wxDesc { font-size:12px; line-height:1.4; }
-      #wxMeta { font-size:10px; line-height:1.4; }
+      #wxMeta { display:none; }
       #wxRefresh { margin-top:4px; padding:4px 6px; font-size:11px; }
     }
     .todo-row { cursor:grab; user-select:none; -webkit-user-select:none; }
@@ -226,7 +226,7 @@
 
   <main class="max-w-6xl w-full mx-auto px-5 sm:px-8 py-8 lg:py-12 flex-1 flex flex-col gap-6 lg:gap-8">
 
-    <div class="space-y-1.5">
+    <div id="dx-swipe-zone" class="space-y-1.5">
       <p class="text-xs lg:text-sm font-bold tracking-[0.3em] text-[#007E8A] dark:text-[#00A3B4] uppercase">CLC Control Panel</p>
       <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Good Morning DX04</h1>
     </div>
@@ -774,7 +774,7 @@
         },
         error: () => setStatus('無法保存排序，請確認瀏覽器允許本機儲存。')
       });
-      const byTime = (a, b) => (a.due || '9999').localeCompare(b.due || '9999') || (a.time || '99').localeCompare(b.time || '99') || (a.created - b.created);
+      const byNewest = (a, b) => b.created - a.created || b.id.localeCompare(a.id);
 
       function render() {
         body.replaceChildren();
@@ -795,18 +795,10 @@
         const t = today();
         const order = readOrder();
         const rank = new Map(order.map((id, i) => [id, i]));
-        const byOrder = (a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity) || byTime(a, b);
+        const byOrder = (a, b) => (rank.get(a.id) ?? -1) - (rank.get(b.id) ?? -1) || byNewest(a, b);
         const open = todos.filter(x => !x.done);
         const overdue = open.filter(x => x.due && x.due < t).sort(byOrder);
-        const now = open.filter(x => !x.due || x.due === t).sort(byOrder);
-        const later = open.filter(x => x.due && x.due > t).sort(byOrder);
-        if (order.length) {
-          group('待辦', '', open.sort(byOrder), { showDate: true });
-        } else {
-          group('逾期', 'is-overdue', overdue, { overdue: true, showDate: true });
-          group('今天', '', now, {});
-          group('之後', '', later, { showDate: true });
-        }
+        group('待辦', '', open.sort(byOrder), { showDate: true });
         if (!open.length) {
           const p = document.createElement('p');
           p.className = 'todo-empty';
@@ -852,7 +844,7 @@
           todos = snap.docs.map(d => {
             const x = d.data();
             return {
-              id: d.id, title: String(x.title || ''), due: x.due || '', time: x.time || '', tag: x.tag || '',
+              raw: x, id: d.id, title: String(x.title || ''), due: x.due || '', time: x.time || '', tag: x.tag || '',
               done: !!x.done,
               doneMs: x.doneAt && x.doneAt.toMillis ? x.doneAt.toMillis() : (x.done ? Date.now() : 0),
               created: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.now()
@@ -865,18 +857,69 @@
       async function addTodo(text) {
         const p = parse(text);
         const FV = firebase.firestore.FieldValue;
-        await col().add({
+        const existingOrder = readOrder();
+        const rank = new Map(existingOrder.map((id, i) => [id, i]));
+        const previousIds = todos.filter(t => !t.done).sort((a, b) => (rank.get(a.id) ?? -1) - (rank.get(b.id) ?? -1) || byNewest(a, b)).map(t => t.id);
+        const added = await col().add({
           title: p.title.slice(0, 200), due: p.due, time: p.time, tag: p.tag.slice(0, 20),
           done: false, doneAt: null, createdAt: FV.serverTimestamp(), updatedAt: FV.serverTimestamp()
         });
+        try { localStorage.setItem(orderKey(), JSON.stringify([added.id, ...previousIds.filter(id => id !== added.id)])); } catch (_) {}
+        render();
       }
       function toggleDone(todo, done) {
         const FV = firebase.firestore.FieldValue;
         col().doc(todo.id).update({ done, doneAt: done ? FV.serverTimestamp() : null, updatedAt: FV.serverTimestamp() })
           .catch(err => { console.warn('待辦更新失敗', err); setStatus(errText(err)); render(); });
       }
-      function removeTodo(todo) {
-        col().doc(todo.id).delete().catch(err => { console.warn('待辦刪除失敗', err); setStatus(errText(err)); });
+      const undoEntries = new Map(), deleting = new Set();
+      let undoBar = null, undoBusy = false;
+      function showUndo() {
+        if (!undoBar) {
+          undoBar = document.createElement('div');
+          undoBar.id = 'todoUndoBar';
+          undoBar.setAttribute('role', 'status');
+          undoBar.setAttribute('aria-live', 'polite');
+          undoBar.style.cssText = 'position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:1000;max-width:calc(100vw - 32px);padding:12px 18px;border-radius:14px;background:#242a38;color:#fff;box-shadow:0 8px 30px #0006;display:flex;align-items:center;gap:18px;font-size:14px;';
+          const message = document.createElement('span'); message.id = 'todoUndoMessage';
+          const button = document.createElement('button'); button.id = 'todoUndoButton'; button.type = 'button';
+          button.textContent = '復原 Undo'; button.style.cssText = 'flex:none;background:none;border:0;color:#67e8f9;font:700 14px Arial;padding:8px;cursor:pointer;';
+          button.addEventListener('click', undoDelete);
+          undoBar.append(message, button); document.body.append(undoBar);
+        }
+        undoBar.hidden = !undoEntries.size;
+        undoBar.style.display = undoEntries.size ? 'flex' : 'none';
+        undoBar.querySelector('#todoUndoMessage').textContent = `已刪除 ${undoEntries.size} 項待辦`;
+        undoBar.querySelector('button').disabled = undoBusy;
+      }
+      function expireUndo(id) {
+        const entry = undoEntries.get(id); if (!entry) return;
+        clearTimeout(entry.timer); undoEntries.delete(id); showUndo();
+      }
+      async function removeTodo(todo) {
+        if (deleting.has(todo.id) || !canUse()) return;
+        deleting.add(todo.id);
+        try {
+          await col().doc(todo.id).delete();
+          const entry = { data: todo.raw, timer: setTimeout(() => expireUndo(todo.id), 5000) };
+          undoEntries.set(todo.id, entry); showUndo();
+        } catch (err) { console.warn('待辦刪除失敗', err); setStatus(errText(err)); }
+        finally { deleting.delete(todo.id); }
+      }
+      async function undoDelete() {
+        if (undoBusy || !canUse()) return;
+        undoBusy = true;
+        const entries = Array.from(undoEntries.entries());
+        entries.forEach(([, entry]) => clearTimeout(entry.timer)); showUndo();
+        try {
+          for (const [id, entry] of entries) {
+            try { await col().doc(id).set(entry.data); undoEntries.delete(id); }
+            catch (err) {
+              entry.timer = setTimeout(() => expireUndo(id), 5000);
+              console.warn('待辦復原失敗', err); setStatus('復原未完成，請再按一次 Undo。' + errText(err));
+            }
+          }
+        } finally { undoBusy = false; showUndo(); }
       }
       // ---------- 修改：點文字變成輸入框，Enter／離開存檔，Esc 取消，清空等於刪除 ----------
       const TAG_SHORT = { 'CLC YA': 'YA', 'CLC SR': 'SR', 'CLC DX04': 'DX04', 'Christmas': '聖誕' };
