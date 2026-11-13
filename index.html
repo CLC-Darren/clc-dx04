@@ -2,7 +2,7 @@
 <html lang="zh-TW" class="dark dx-locked">
 <head>
   <link rel="stylesheet" href="/login-gate.css?v=welcome-unified-1">
-  <link rel="stylesheet" href="/light-theme.css?v=2">
+  <link rel="stylesheet" href="/light-theme.css?v=3">
   <script src="/login-gate.js?v=welcome-unified-1"></script>
   <script src="/reorder.js?v=drag-lift-3"></script>
   <meta charset="UTF-8">
@@ -97,8 +97,7 @@
     .dash-widget.is-dragging { z-index:30; box-shadow:0 18px 40px rgba(0,0,0,.35); transition:none; }
     .dash-widget.is-dragging .drag-handle { cursor:grabbing; }
     .dash-widget.is-dragging .drag-handle span { background:#007E8A; }
-    .dash-widget.is-dragging[data-widget="apps"] { background:#fff; border-radius:24px; }
-    .dark .dash-widget.is-dragging[data-widget="apps"] { background:#161924; }
+    .dash-widget.is-dragging[data-widget="apps"] { background:transparent; box-shadow:none; }
     body.dash-dragging { user-select:none; -webkit-user-select:none; }
     .app-tile[draggable="true"] { cursor:grab; }
     .app-tile { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }

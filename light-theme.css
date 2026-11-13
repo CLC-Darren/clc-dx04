@@ -53,5 +53,5 @@ html:not(.dark) .app-input { background: rgba(118,118,128,.12); border-color: tr
 html:not(.dark) .app-input:focus { border-color: #007E8A; }
 html:not(.dark) .app-dialog::backdrop { background: rgba(0,0,0,.35); }
 
-/* 分站入口：不是卡片，維持透明、無陰影（拖曳時沿用原本樣式） */
-html:not(.dark) .dash-widget[data-widget="apps"]:not(.is-dragging) { background: transparent; box-shadow: none; }
+/* 分站入口：不是卡片，維持透明、無陰影，拖曳時也一樣 */
+html:not(.dark) .dash-widget[data-widget="apps"] { background: transparent; box-shadow: none; }
