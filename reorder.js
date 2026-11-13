@@ -1,11 +1,46 @@
 // Direct mouse dragging, long-press touch dragging, native App drag/drop and keyboard sorting.
 window.clcReorder = function (container, options) {
   let source = null, target = null, after = false, pointer = null, holdTimer = null;
-  let suppressUntil = 0, saving = false;
+  let suppressUntil = 0, saving = false, floating = null;
   const item = node => node?.closest?.(options.item);
   const excluded = node => node?.closest?.('input, textarea, select, .todo-del, .app-remove, .app-slot');
+  function lift() {
+    if (!options.directMouse || !source) return;
+    const rect = source.getBoundingClientRect();
+    floating = source.cloneNode(true);
+    floating.classList.remove('reorder-source', 'reorder-target');
+    floating.classList.add('reorder-floating');
+    floating.removeAttribute('id');
+    floating.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+    floating.setAttribute('aria-hidden', 'true');
+    floating.inert = true;
+    floating.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;box-sizing:border-box;margin:0;pointer-events:none;z-index:2147483646;`;
+    floating._liftOrigin = { left: rect.left, top: rect.top };
+    document.body.appendChild(floating);
+    follow(pointer.x, pointer.y);
+  }
+  function follow(x, y) {
+    if (!floating || !pointer) return;
+    const origin = floating._liftOrigin;
+    const left = Math.max(12, Math.min(innerWidth - floating.offsetWidth * 1.035 - 12, origin.left + x - pointer.x));
+    const top = Math.max(8, Math.min(innerHeight - floating.offsetHeight * 1.035 - 8, origin.top + y - pointer.y - 7));
+    floating.style.transform = `translate3d(${left - origin.left}px,${top - origin.top}px,0) scale(1.035) rotate(-0.5deg)`;
+  }
+  async function land(ghost, id) {
+    if (!ghost) return;
+    const row = Array.from(container.querySelectorAll(options.item)).find(el => el.dataset.sortId === id);
+    if (!row || !ghost.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) { ghost.remove(); return; }
+    const rect = row.getBoundingClientRect(), origin = ghost._liftOrigin;
+    try {
+      await ghost.animate([
+        { transform: ghost.style.transform, opacity: 1 },
+        { transform: `translate3d(${rect.left - origin.left}px,${rect.top - origin.top}px,0) scale(1) rotate(0deg)`, opacity: 0 }
+      ], { duration: 160, easing: 'ease-out' }).finished;
+    } catch (_) {} finally { ghost.remove(); }
+  }
   function clear() {
     clearTimeout(holdTimer);
+    floating?.remove(); floating = null;
     container.querySelectorAll('.reorder-source, .reorder-target').forEach(el => el.classList.remove('reorder-source', 'reorder-target'));
     source = target = pointer = null;
   }
@@ -22,10 +57,12 @@ window.clcReorder = function (container, options) {
     pointer.armed = true;
     options.start?.();
     source.classList.add('reorder-source');
+    lift();
     if (pointer.touch && navigator.vibrate) navigator.vibrate(15);
   }
   function move(x, y) {
     pointer.moved = true;
+    follow(x, y);
     aim(item(document.elementFromPoint(x, y)), x, y);
     if (y < 60) window.scrollBy(0, -15);
     else if (y > innerHeight - 60) window.scrollBy(0, 15);
@@ -33,13 +70,14 @@ window.clcReorder = function (container, options) {
   async function finish(commit) {
     const from = source?.dataset.sortId, to = target?.dataset.sortId, insertAfter = after;
     if (pointer?.armed) suppressUntil = Date.now() + 500;
+    const ghost = floating; floating = null;
     clear();
-    if (!commit || !from || !to || !options.allowed()) return;
+    if (!commit || !from || !to || !options.allowed()) { await land(ghost, from); return; }
     suppressUntil = Date.now() + 500;
     saving = true;
     try { await options.move(from, to, insertAfter); }
     catch (error) { options.error?.(error); }
-    finally { saving = false; }
+    finally { await land(ghost, from); saving = false; }
   }
   container.addEventListener('click', e => {
     if (Date.now() < suppressUntil || e.target.closest('.reorder-handle')) {

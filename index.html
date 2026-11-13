@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/login-gate.css">
   <script src="/login-gate.js"></script>
-  <script src="/reorder.js?v=direct-drag-2"></script>
+  <script src="/reorder.js?v=drag-lift-3"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>CLC DX04 | 總控台</title>
@@ -169,7 +169,12 @@
     .todo-edit { user-select:text; -webkit-user-select:text; }
     .app-tile { -webkit-touch-callout:none; user-select:none; -webkit-user-select:none; }
     @media (max-width: 1023px), (pointer: coarse) { .reorder-handle { display:none !important; } }
-    .reorder-source { opacity:.45; }
+    .reorder-source { opacity:.3; }
+    .todo-row.reorder-source { outline:1px dashed #007E8A; outline-offset:2px; border-radius:12px; }
+    .reorder-floating { list-style:none; padding:6px 10px; border:1px solid rgba(0,126,138,.55); border-radius:14px; background:#fff; color:#0f172a; box-shadow:0 20px 45px rgba(0,0,0,.25),0 5px 14px rgba(0,0,0,.15); transform-origin:center; will-change:transform; }
+    .dark .reorder-floating { background:#242a38; color:#f1f5f9; border-color:#00A3B4; box-shadow:0 22px 50px rgba(0,0,0,.65),0 0 0 1px rgba(0,163,180,.2); }
+    .reorder-floating .reorder-handle, .reorder-floating .todo-del { visibility:hidden; }
+    @media (prefers-reduced-motion: reduce) { .reorder-floating { will-change:auto; } }
     .reorder-target { outline:2px solid #00A3B4; outline-offset:3px; border-radius:8px; }
     .app-cell > .reorder-handle { position:absolute; right:-8px; bottom:18px; z-index:3; border-radius:8px; background:#161924; color:#fff; min-height:28px; }
   </style>
