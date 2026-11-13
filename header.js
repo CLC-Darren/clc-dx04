@@ -65,6 +65,7 @@ function renderHeaderComponent() {
     const style = document.createElement('style');
     style.id = 'clc-header-fixed-style';
     style.textContent = `
+      html.dark #clc-header .clc-ic-moon, html:not(.dark) #clc-header .clc-ic-sun { display: none; }
       #clc-header { box-sizing: border-box !important; border-bottom-width: 1px !important; }
       #clc-header > div { width: 100% !important; height: 46px !important; min-height: 46px !important; padding: 0 14px !important; box-sizing: border-box !important; display: flex !important; align-items: center !important; justify-content: space-between !important; }
       #clc-header .logo-badge { font-size: 13.5px; height: 34px; line-height: 34px; box-sizing: border-box; padding: 0 12px; border-radius: 9px; font-weight: 800; background: #007E8A; color: white; display: inline-flex; align-items: center; text-decoration: none; letter-spacing: .05em; }
@@ -103,7 +104,9 @@ function renderHeaderComponent() {
   // 只有首頁顯示「📲 安裝」（與 YA 相同）。
   const homePath = window.location.pathname.replace(/\/+$/, '').replace(/\.html$/, '');
   const isHome = homePath === '' || homePath === '/index';
-  headerContainer.className = "border-b border-slate-200 dark:border-white/10 backdrop-blur-xl bg-white/70 dark:bg-[#090A0F]/70 sticky top-0 z-40";
+  // Header 固定深色：在容器加上 dark class，不隨深淺模式切換。
+  headerContainer.className = "dark border-b border-white/10 backdrop-blur-xl bg-[#090A0F]/70 text-slate-100 sticky top-0 z-40";
+  headerContainer.style.colorScheme = "dark";
   headerContainer.innerHTML = `
     <div>
       <div id="clcLogoWrap" class="relative">
@@ -135,7 +138,7 @@ function renderHeaderComponent() {
             <button onclick="handleAdminLogout()" class="w-full text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 font-bold transition">🚪 登出管理員</button>
           </div>
         </div>
-        <button onclick="toggleTheme()" aria-label="切換深淺模式" class="header-btn bg-slate-200/70 hover:bg-slate-300/70 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-300/60 dark:border-white/10 transition active:scale-95"><span class="dark:hidden">🌙</span><span class="hidden dark:inline">☀️</span></button>
+        <button onclick="toggleTheme()" aria-label="切換深淺模式" class="header-btn bg-slate-200/70 hover:bg-slate-300/70 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-300/60 dark:border-white/10 transition active:scale-95"><span class="clc-ic-moon">🌙</span><span class="clc-ic-sun">☀️</span></button>
       </div>
     </div>
   `;
