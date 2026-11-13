@@ -97,6 +97,7 @@
     .dash-widget.is-dragging[data-widget="apps"] { background:#fff; border-radius:24px; }
     .dark .dash-widget.is-dragging[data-widget="apps"] { background:#161924; }
     body.dash-dragging { user-select:none; -webkit-user-select:none; }
+    .app-tile[draggable="true"] { cursor:grab; }
     .app-tile { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
     .app-tile img { pointer-events:none; }
     .app-slot.is-admin { cursor:pointer; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
@@ -162,11 +163,27 @@
     .app-remove:hover span, .app-remove:focus-visible span { background:#e11d48; }
     .app-preview { width:52px; height:52px; flex:none; }
     .app-preview .app-logo, .app-preview .app-fallback { width:100%; height:100%; }
-    .reorder-handle { flex:none; min-width:28px; min-height:36px; padding:4px; border:0; background:transparent; color:#8A92A6; cursor:grab; touch-action:none; font:20px/1 Arial; }
+    .reorder-handle { display:none !important; flex:none; min-width:28px; min-height:36px; padding:4px; border:0; background:transparent; color:#8A92A6; cursor:grab; touch-action:none; font:20px/1 Arial; }
     .reorder-handle:active { cursor:grabbing; }
     .reorder-handle:focus-visible { outline:2px solid #007E8A; border-radius:6px; }
-    .todo-row { user-select:none; -webkit-user-select:none; }
+    #appsAdminHint { display:none !important; }
+    @media (max-width:1023px) {
+      #dashGrid > [data-widget="clock"] { display:grid; grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr); align-items:center; padding:18px 16px; gap:12px; }
+      .clock-main { min-width:0; }
+      #clockTime { font-size:clamp(27px,7.5vw,40px); }
+      #clockSec { font-size:14px; }
+      #clockDate { font-size:11px; line-height:1.5; }
+      #dashGrid .clock-weather { min-width:0; border-top:0; border-left:1px solid rgba(148,163,184,.25); padding-top:0; padding-left:12px; gap:6px; }
+      #wxIcon { width:24px; height:24px; }
+      .clock-weather > div:last-child > p:first-child { flex-wrap:wrap; gap:2px 6px; }
+      #wxTemp { font-size:23px; }
+      #wxDesc { font-size:12px; line-height:1.4; }
+      #wxMeta { font-size:10px; line-height:1.4; }
+      #wxRefresh { margin-top:4px; padding:4px 6px; font-size:11px; }
+    }
+    .todo-row { cursor:grab; user-select:none; -webkit-user-select:none; }
     .todo-edit { user-select:text; -webkit-user-select:text; }
+    .app-tile[draggable="true"] { cursor:grab; }
     .app-tile { -webkit-touch-callout:none; user-select:none; -webkit-user-select:none; }
     @media (max-width: 1023px), (pointer: coarse) { .reorder-handle { display:none !important; } }
     .reorder-source { opacity:.3; }
@@ -220,11 +237,11 @@
       <!-- 時間、日期、天氣 -->
       <section data-widget="clock" aria-label="時間與天氣" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-5">
         <button type="button" class="drag-handle lg:hidden" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
-        <div>
+        <div class="clock-main">
           <p class="flex items-baseline gap-1 font-extrabold tracking-tight tabular-nums text-slate-900 dark:text-white"><span id="clockTime" class="text-5xl sm:text-6xl">--:--</span><span id="clockSec" class="text-2xl sm:text-3xl text-slate-400 dark:text-brand-muted">:--</span></p>
           <p id="clockDate" class="mt-1 text-base text-slate-500 dark:text-brand-muted">&nbsp;</p>
         </div>
-        <div class="border-t border-slate-100 dark:border-white/[0.06] pt-5 flex items-center gap-4">
+        <div class="clock-weather border-t border-slate-100 dark:border-white/[0.06] pt-5 flex items-center gap-4">
           <div id="wxIcon" class="w-14 h-14 shrink-0 text-[#007E8A] dark:text-[#00A3B4]"></div>
           <div class="min-w-0 flex-1">
             <p class="flex items-baseline gap-2"><span id="wxTemp" class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">--°</span><span id="wxDesc" class="text-base text-slate-600 dark:text-slate-300">讀取天氣中…</span></p>
@@ -271,7 +288,7 @@
         </div>
         <!-- 分站清單存在 Firestore dx04_settings/apps；管理員長按進入編輯模式：「−」移除、「＋」新增、點 Logo 編輯 -->
         <div id="siteGrid" class="grid grid-cols-4 gap-3"></div>
-        <p id="appsAdminHint" class="hidden text-xs text-slate-400 dark:text-slate-500">管理員：拖曳圖示調整順序；手機長按後拖曳，長按放開可編輯。</p>
+        <p id="appsAdminHint" class="hidden text-xs text-slate-400 dark:text-slate-500"></p>
       </section>
     </div>
   </main>
@@ -620,7 +637,7 @@
           const handle = document.createElement('button');
           handle.type = 'button'; handle.className = 'reorder-handle'; handle.textContent = '⠿';
           handle.setAttribute('aria-label', '拖曳排序：' + todo.title);
-          handle.title = '拖曳或用方向鍵調整同分類順序';
+          handle.title = '';
           li.append(handle);
         }
         const label = document.createElement('div');
@@ -638,8 +655,8 @@
         text.className = 'todo-text';
         text.tabIndex = 0;
         text.setAttribute('role', 'button');
-        text.setAttribute('aria-label', '修改：' + todo.title);
-        // 手機連點兩下才編輯；桌面滑鼠與鍵盤保留原操作。
+        text.setAttribute('aria-label', '雙擊修改：' + todo.title);
+        // 滑鼠雙擊或手機連點兩下才編輯；鍵盤 Enter 保留。
         let lastTapAt = 0, touchDownAt = 0, lastPointerType = '';
         text.addEventListener('pointerdown', e => {
           lastPointerType = e.pointerType;
@@ -647,7 +664,11 @@
         });
         text.addEventListener('click', e => {
           const isTouch = (e.pointerType || lastPointerType) === 'touch';
-          if (!isTouch || (e.detail === 0 && !e.pointerType)) { startEdit(todo, text); return; }
+          if (!isTouch) {
+            if (e.detail >= 2 || e.detail === 0) startEdit(todo, text);
+            return;
+          }
+          if (e.detail === 0 && !e.pointerType) { startEdit(todo, text); return; }
           const now = performance.now();
           // 長按放開不應被算成點擊或進入編輯，包含拖曳未啟動的情況。
           if (touchDownAt && now - touchDownAt >= 350) { lastTapAt = 0; return; }
@@ -1215,7 +1236,7 @@
           if (admin) {
             const handle = document.createElement('button');
             handle.type = 'button'; handle.className = 'reorder-handle'; handle.textContent = '⠿';
-            handle.title = '拖曳或用方向鍵調整順序';
+            handle.title = '';
             handle.setAttribute('aria-label', '拖曳排序：' + app.name);
             cell.append(handle);
           }
