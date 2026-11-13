@@ -82,10 +82,10 @@
     .dark .app-slot { border-color:#334155; color:#475569; }
     /* 手機保存上下順序；桌面另存三個位置，預設沿用原版配置。 */
     @media (min-width: 1024px) {
-      #dashGrid { grid-template-columns:minmax(0,1.45fr) minmax(0,1fr); grid-template-rows:auto 1fr; align-items:stretch; }
-      #dashGrid > [data-desktop-slot="main"] { grid-column:1; grid-row:1 / span 2; }
-      #dashGrid > [data-desktop-slot="top"] { grid-column:2; grid-row:1; }
-      #dashGrid > [data-desktop-slot="bottom"] { grid-column:2; grid-row:2; }
+      #dashGrid { grid-template-columns:minmax(0,1fr) minmax(0,1.45fr); grid-template-rows:auto 1fr; align-items:stretch; }
+      #dashGrid > [data-desktop-slot="main"] { grid-column:2; grid-row:1 / span 2; }
+      #dashGrid > [data-desktop-slot="top"] { grid-column:1; grid-row:1; }
+      #dashGrid > [data-desktop-slot="bottom"] { grid-column:1; grid-row:2; }
     }
     .dash-widget.widget-drop-target { outline:2px solid #00A3B4; outline-offset:4px; }
     .dash-widget { position:relative; }
