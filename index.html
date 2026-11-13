@@ -222,7 +222,489 @@
 </head>
 <body class="bg-slate-50 text-slate-800 dark:bg-[#090A0F] dark:text-slate-100 min-h-screen flex flex-col justify-between selection:bg-[#007E8A] selection:text-white">
 
-  <header id="clc-header"></header>
+    <!-- DX04 Welcome 動態歡迎畫面（電腦版橫向左進右出 / 手機版直向上進下出，播畢後靜止 1 分鐘自動重播，點擊即進入網站） -->
+  <style id="dx04-welcome-style">
+    #dx04-welcome-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483647;
+      background: #000000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      opacity: 1;
+      transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    #dx04-welcome-overlay.is-leaving {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #dx04-welcome-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <div id="dx04-welcome-overlay" role="button" tabindex="0" aria-label="點擊進入網站">
+    <canvas id="dx04-welcome-canvas"></canvas>
+  </div>
+  <script>
+    (function () {
+      const overlay = document.getElementById('dx04-welcome-overlay');
+      const canvas = document.getElementById('dx04-welcome-canvas');
+      if (!overlay || !canvas) return;
+      const ctx = canvas.getContext('2d', { alpha: false });
+
+      const DURATION = 10.0;          // 單次完整動畫長度（秒）
+      const REPLAY_DELAY_MS = 60000;  // 播放完畢後等待 1 分鐘（60,000ms）再自動重播
+      const PALETTE = {
+        primary:   { r: 0,   g: 131, b: 139 }, // #00838B 深海青（主色）
+        electric:  { r: 0,   g: 229, b: 255 }, // #00E5FF 電光青
+        cobalt:    { r: 41,  g: 121, b: 255 }, // #2979FF 科技鈷藍
+        mint:      { r: 167, g: 255, b: 235 }, // #A7FFEB 冰川薄荷
+        white:     { r: 255, g: 255, b: 255 }  // #FFFFFF 純白還原
+      };
+
+      let W = 0, H = 0, dpr = 1;
+      let isPortrait = false;
+      let particles = [];
+      let streamFilaments = [];
+      let logoFontSpec = '';
+      let logoText = 'DX04';
+      let logoBaselineY = 0;
+
+      let entered = false;
+      let state = 'playing'; // 'playing' | 'waiting'
+      let startTime = performance.now();
+      let rafId = 0;
+      let replayTimer = null;
+
+      function clamp(v, min, max) { return v < min ? min : (v > max ? max : v); }
+      function smoothstep(e0, e1, x) {
+        const t = clamp((x - e0) / (e1 - e0), 0, 1);
+        return t * t * (3 - 2 * t);
+      }
+      function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      }
+      function lerp(a, b, t) { return a + (b - a) * t; }
+      function mixColor(c1, c2, t) {
+        return {
+          r: Math.round(lerp(c1.r, c2.r, t)),
+          g: Math.round(lerp(c1.g, c2.g, t)),
+          b: Math.round(lerp(c1.b, c2.b, t))
+        };
+      }
+
+      // 離屏取樣純白粗體無襯線 DX04 像素，確保起點與終點 100% 精準對齊原圖
+      function sampleLogoTargets() {
+        const off = document.createElement('canvas');
+        off.width = W;
+        off.height = H;
+        const octx = off.getContext('2d');
+
+        // 橫向（電腦版）與直向（手機版）各自的視覺比例
+        const fontSize = isPortrait
+          ? Math.round(Math.min(W * 0.255, H * 0.135))
+          : Math.round(Math.min(W * 0.145, H * 0.26));
+
+        logoFontSpec = '900 ' + fontSize + 'px "Arial Black", "Helvetica Neue", Arial, sans-serif';
+        logoBaselineY = H * 0.5;
+
+        octx.fillStyle = '#000000';
+        octx.fillRect(0, 0, W, H);
+        octx.fillStyle = '#FFFFFF';
+        octx.font = logoFontSpec;
+        octx.textAlign = 'center';
+        octx.textBaseline = 'middle';
+        octx.fillText(logoText, W * 0.5, logoBaselineY);
+
+        const imgData = octx.getImageData(0, 0, W, H).data;
+        const step = isPortrait
+          ? Math.max(2, Math.round(Math.min(W, H) / 230))
+          : Math.max(2, Math.round(Math.min(W, H) / 270));
+
+        const pts = [];
+        let minX = W, maxX = 0, minY = H, maxY = 0;
+
+        for (let y = 0; y < H; y += step) {
+          for (let x = 0; x < W; x += step) {
+            const idx = (y * W + x) * 4;
+            if (imgData[idx] > 140) {
+              pts.push({ x, y });
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+
+        const spanX = Math.max(1, maxX - minX);
+        const spanY = Math.max(1, maxY - minY);
+
+        particles = pts.map((pt, i) => {
+          const normX = (pt.x - minX) / spanX; // 0 (左) -> 1 (右)
+          const normY = (pt.y - minY) / spanY; // 0 (上) -> 1 (下)
+          const h1 = Math.sin(i * 12.9898 + pt.x * 0.07) * 43758.5453;
+          const r1 = h1 - Math.floor(h1);
+          const h2 = Math.sin(i * 78.233 + pt.y * 0.09) * 24634.6345;
+          const r2 = h2 - Math.floor(h2);
+          const h3 = Math.sin((i + 17) * 39.425) * 19283.421;
+          const r3 = h3 - Math.floor(h3);
+
+          // 三層非對稱氣動光帶分配
+          const lane = r1 < 0.44 ? 0 : (r1 < 0.78 ? 1 : 2);
+          let tone = PALETTE.primary;
+          if (r2 > 0.86) tone = PALETTE.mint;
+          else if (r2 > 0.56) tone = PALETTE.electric;
+          else if (r2 > 0.30) tone = PALETTE.cobalt;
+
+          return {
+            tx: pt.x,
+            ty: pt.y,
+            normX,
+            normY,
+            lane,
+            r1,
+            r2,
+            r3,
+            tone,
+            baseSize: Math.max(1.3, step * (0.52 + r3 * 0.34))
+          };
+        });
+
+        // 背景細微氣氛流線（電腦版：左進右出；手機版：上進下出）
+        const count = isPortrait ? 38 : 46;
+        streamFilaments = Array.from({ length: count }, (_, idx) => {
+          const t = idx / count;
+          return {
+            offset: (t - 0.5) * 0.78 + Math.sin(idx * 3.7) * 0.06,
+            speed: 0.65 + (idx % 5) * 0.14,
+            phase: idx * 1.37,
+            len: 0.14 + (idx % 4) * 0.05,
+            tone: idx % 3 === 0 ? PALETTE.electric : (idx % 3 === 1 ? PALETTE.primary : PALETTE.cobalt)
+          };
+        });
+      }
+
+      function setupViewport(resetClock) {
+        W = window.innerWidth || document.documentElement.clientWidth || 1280;
+        H = window.innerHeight || document.documentElement.clientHeight || 720;
+        isPortrait = H > W; // 手機直向 vs 電腦橫向
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        sampleLogoTargets();
+        if (resetClock) {
+          startTime = performance.now();
+        }
+      }
+
+      function drawStaticLogo() {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = logoFontSpec;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(logoText, W * 0.5, logoBaselineY);
+      }
+
+      // 電腦版（橫向）：非對稱「左進右出」流體光帶
+      function renderDesktopHorizontal(elapsed) {
+        const leaveProgress = smoothstep(1.35, 3.65, elapsed);
+        const returnProgress = smoothstep(6.25, 8.45, elapsed);
+        const morphEnvelope = leaveProgress * (1 - returnProgress);
+
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, W, H);
+
+        if (morphEnvelope <= 0.0001) {
+          drawStaticLogo();
+          return;
+        }
+
+        // 柔和深海青空間光暈（非對稱偏右側流動）
+        const glowX = W * (0.46 + 0.14 * Math.sin(elapsed * 0.7));
+        const glowY = H * (0.52 - 0.06 * Math.cos(elapsed * 0.6));
+        const rad = Math.max(W, H) * 0.48;
+        const grad = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, rad);
+        grad.addColorStop(0, 'rgba(0, 131, 139, ' + (0.20 * morphEnvelope).toFixed(4) + ')');
+        grad.addColorStop(0.55, 'rgba(41, 121, 255, ' + (0.07 * morphEnvelope).toFixed(4) + ')');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        // 繪製左進右出流體光絲
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < streamFilaments.length; i++) {
+          const f = streamFilaments[i];
+          const u0 = ((elapsed * 0.28 * f.speed + f.phase) % 1.35) - 0.2;
+          const u1 = u0 + f.len;
+          const x0 = u0 * W;
+          const x1 = u1 * W;
+          const wave0 = Math.sin(u0 * 5.2 + f.phase) * H * 0.075 - u0 * H * 0.14;
+          const wave1 = Math.sin(u1 * 5.2 + f.phase) * H * 0.075 - u1 * H * 0.14;
+          const baseY = H * (0.54 + f.offset * 0.65);
+
+          const alpha = 0.22 * morphEnvelope * Math.sin(clamp(u0, 0, 1) * Math.PI);
+          if (alpha <= 0.004) continue;
+
+          ctx.strokeStyle = 'rgba(' + f.tone.r + ',' + f.tone.g + ',' + f.tone.b + ',' + alpha.toFixed(4) + ')';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(x0, baseY + wave0);
+          ctx.lineTo(x1, baseY + wave1);
+          ctx.stroke();
+        }
+
+        // 粒子計算（由左至右依序剝離，向右上方流出，再由左側匯入定格）
+        const flowPhase = clamp((elapsed - 1.35) / (8.45 - 1.35), 0, 1);
+
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          // 左側字元（D）先離散、右側字元（4）後離散
+          const stagger = p.normX * 0.55 + p.r1 * 0.18;
+          const outT = easeInOutCubic(smoothstep(1.35 + stagger * 0.85, 3.35 + stagger * 0.85, elapsed));
+          const inT  = easeInOutCubic(smoothstep(6.05 + stagger * 0.85, 8.15 + stagger * 0.85, elapsed));
+          const active = outT * (1 - inT);
+
+          let x = p.tx;
+          let y = p.ty;
+          let col = PALETTE.white;
+          let alpha = 1;
+          let size = p.baseSize;
+
+          if (active > 0.0005) {
+            // 沿著左進右出循環軌跡推進
+            const drift = (elapsed - 1.35) * (0.24 + p.r2 * 0.13) + p.normX * 0.42 + p.r3 * 0.25;
+            const wrapU = ((drift % 1.36) + 1.36) % 1.36 - 0.18; // -0.18（左側入口）到 1.18（右側出口）
+            const streamX = wrapU * W;
+
+            const laneShift = (p.lane - 1) * H * 0.095;
+            const harmonic = Math.sin(wrapU * 5.6 + p.lane * 1.4 + elapsed * 1.9) * H * (0.065 + p.r2 * 0.035);
+            const upwardTilt = (0.5 - wrapU) * H * 0.22; // 左低右高非對稱斜向氣流
+            const streamY = H * 0.5 + laneShift + harmonic + upwardTilt + (p.normY - 0.5) * H * 0.08;
+
+            // 離散時往右飄出、回歸時從左側平滑匯入
+            const biasX = (1 - inT) * streamX + inT * (p.tx - W * 0.26 * (1 - inT));
+            const targetStreamX = inT > 0.05 ? lerp(streamX, p.tx - W * 0.18, inT) : streamX;
+
+            x = lerp(p.tx, targetStreamX, active);
+            y = lerp(p.ty, streamY, active);
+
+            // 顏色由純白漸變為 #00838B 主色與搭配冷色調
+            const colorBlend = smoothstep(0.05, 0.45, active);
+            const primaryMix = mixColor(PALETTE.primary, p.tone, 0.35 + 0.65 * Math.sin(wrapU * Math.PI));
+            col = mixColor(PALETTE.white, primaryMix, colorBlend);
+
+            const edgeFade = smoothstep(-0.18, -0.02, wrapU) * (1 - smoothstep(1.02, 1.18, wrapU));
+            alpha = lerp(1, 0.35 + 0.65 * edgeFade, active);
+            size = p.baseSize * (1 + 0.45 * active * (0.5 + 0.5 * p.r3));
+          }
+
+          ctx.fillStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + alpha.toFixed(3) + ')';
+          ctx.fillRect(x - size * 0.5, y - size * 0.5, size, size);
+        }
+
+        // 起訖純白文字微幅疊合，保證 0s 與 10s 邊緣銳利無鋸齒
+        const crispAlpha = 1 - smoothstep(1.35, 1.85, elapsed) + smoothstep(8.05, 8.45, elapsed);
+        if (crispAlpha > 0.01) {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = 'rgba(255, 255, 255, ' + clamp(crispAlpha, 0, 1).toFixed(3) + ')';
+          ctx.font = logoFontSpec;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(logoText, W * 0.5, logoBaselineY);
+        }
+      }
+
+      // 手機版（直向）：非對稱「上進下出」垂直流體光帶
+      function renderMobileVertical(elapsed) {
+        const leaveProgress = smoothstep(1.35, 3.65, elapsed);
+        const returnProgress = smoothstep(6.25, 8.45, elapsed);
+        const morphEnvelope = leaveProgress * (1 - returnProgress);
+
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, W, H);
+
+        if (morphEnvelope <= 0.0001) {
+          drawStaticLogo();
+          return;
+        }
+
+        // 柔和深海青垂直空間光暈
+        const glowX = W * (0.52 + 0.08 * Math.sin(elapsed * 0.65));
+        const glowY = H * (0.48 + 0.14 * Math.sin(elapsed * 0.7));
+        const rad = Math.max(W, H) * 0.46;
+        const grad = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, rad);
+        grad.addColorStop(0, 'rgba(0, 131, 139, ' + (0.22 * morphEnvelope).toFixed(4) + ')');
+        grad.addColorStop(0.55, 'rgba(41, 121, 255, ' + (0.08 * morphEnvelope).toFixed(4) + ')');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        // 繪製上進下出垂直流體光絲
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < streamFilaments.length; i++) {
+          const f = streamFilaments[i];
+          const v0 = ((elapsed * 0.27 * f.speed + f.phase) % 1.35) - 0.2;
+          const v1 = v0 + f.len;
+          const y0 = v0 * H;
+          const y1 = v1 * H;
+          const wave0 = Math.sin(v0 * 5.4 + f.phase) * W * 0.085 + (v0 - 0.5) * W * 0.18;
+          const wave1 = Math.sin(v1 * 5.4 + f.phase) * W * 0.085 + (v1 - 0.5) * W * 0.18;
+          const baseX = W * (0.5 + f.offset * 0.68);
+
+          const alpha = 0.22 * morphEnvelope * Math.sin(clamp(v0, 0, 1) * Math.PI);
+          if (alpha <= 0.004) continue;
+
+          ctx.strokeStyle = 'rgba(' + f.tone.r + ',' + f.tone.g + ',' + f.tone.b + ',' + alpha.toFixed(4) + ')';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(baseX + wave0, y0);
+          ctx.lineTo(baseX + wave1, y1);
+          ctx.stroke();
+        }
+
+        // 粒子計算（由上至下依序剝離，向下方斜向流出，再由上方匯入定格）
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          const stagger = p.normY * 0.55 + p.r1 * 0.18;
+          const outT = easeInOutCubic(smoothstep(1.35 + stagger * 0.85, 3.35 + stagger * 0.85, elapsed));
+          const inT  = easeInOutCubic(smoothstep(6.05 + stagger * 0.85, 8.15 + stagger * 0.85, elapsed));
+          const active = outT * (1 - inT);
+
+          let x = p.tx;
+          let y = p.ty;
+          let col = PALETTE.white;
+          let alpha = 1;
+          let size = p.baseSize;
+
+          if (active > 0.0005) {
+            const drift = (elapsed - 1.35) * (0.24 + p.r2 * 0.13) + p.normY * 0.42 + p.r3 * 0.25;
+            const wrapV = ((drift % 1.36) + 1.36) % 1.36 - 0.18; // -0.18（上方入口）到 1.18（下方出口）
+            const streamY = wrapV * H;
+
+            const laneShift = (p.lane - 1) * W * 0.11;
+            const harmonic = Math.sin(wrapV * 5.8 + p.lane * 1.4 + elapsed * 1.9) * W * (0.075 + p.r2 * 0.04);
+            const diagonalTilt = (wrapV - 0.5) * W * 0.24; // 上偏左、下偏右非對稱垂直 S 型氣流
+            const streamX = W * 0.5 + laneShift + harmonic + diagonalTilt + (p.normX - 0.5) * W * 0.10;
+
+            const targetStreamY = inT > 0.05 ? lerp(streamY, p.ty - H * 0.18, inT) : streamY;
+
+            x = lerp(p.tx, streamX, active);
+            y = lerp(p.ty, targetStreamY, active);
+
+            const colorBlend = smoothstep(0.05, 0.45, active);
+            const primaryMix = mixColor(PALETTE.primary, p.tone, 0.35 + 0.65 * Math.sin(wrapV * Math.PI));
+            col = mixColor(PALETTE.white, primaryMix, colorBlend);
+
+            const edgeFade = smoothstep(-0.18, -0.02, wrapV) * (1 - smoothstep(1.02, 1.18, wrapV));
+            alpha = lerp(1, 0.35 + 0.65 * edgeFade, active);
+            size = p.baseSize * (1 + 0.45 * active * (0.5 + 0.5 * p.r3));
+          }
+
+          ctx.fillStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + alpha.toFixed(3) + ')';
+          ctx.fillRect(x - size * 0.5, y - size * 0.5, size, size);
+        }
+
+        const crispAlpha = 1 - smoothstep(1.35, 1.85, elapsed) + smoothstep(8.05, 8.45, elapsed);
+        if (crispAlpha > 0.01) {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = 'rgba(255, 255, 255, ' + clamp(crispAlpha, 0, 1).toFixed(3) + ')';
+          ctx.font = logoFontSpec;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(logoText, W * 0.5, logoBaselineY);
+        }
+      }
+
+      function scheduleReplay() {
+        if (entered) return;
+        clearTimeout(replayTimer);
+        replayTimer = setTimeout(() => {
+          if (entered) return;
+          state = 'playing';
+          startTime = performance.now();
+          rafId = requestAnimationFrame(loop);
+        }, REPLAY_DELAY_MS);
+      }
+
+      function loop(now) {
+        if (entered) return;
+        const elapsed = (now - startTime) / 1000;
+
+        if (elapsed >= DURATION) {
+          // 播放結束，定格在原始純白 DX04 畫面，等待 1 分鐘後再次播放
+          state = 'waiting';
+          ctx.globalCompositeOperation = 'source-over';
+          drawStaticLogo();
+          scheduleReplay();
+          return;
+        }
+
+        if (isPortrait) {
+          renderMobileVertical(elapsed);
+        } else {
+          renderDesktopHorizontal(elapsed);
+        }
+
+        rafId = requestAnimationFrame(loop);
+      }
+
+      // 點擊或按鍵進入網站，立即停止歡迎動畫與重播排程
+      function enterSite(e) {
+        if (entered) return;
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        entered = true;
+        clearTimeout(replayTimer);
+        cancelAnimationFrame(rafId);
+        window.removeEventListener('resize', onResize);
+        overlay.classList.add('is-leaving');
+        setTimeout(() => {
+          if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        }, 460);
+      }
+
+      function onResize() {
+        if (entered) return;
+        const prevPortrait = isPortrait;
+        setupViewport(false);
+        if (state === 'waiting') {
+          ctx.globalCompositeOperation = 'source-over';
+          drawStaticLogo();
+        } else if (prevPortrait !== isPortrait) {
+          // 若旋轉螢幕切換直/橫向，維持當前播放進度並即時切換對應動態軌跡
+        }
+      }
+
+      overlay.addEventListener('click', enterSite);
+      overlay.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') enterSite(e);
+      });
+      window.addEventListener('resize', onResize);
+
+      setupViewport(true);
+      drawStaticLogo();
+      rafId = requestAnimationFrame(loop);
+    })();
+  </script>
+<header id="clc-header"></header>
 
   <main class="max-w-6xl w-full mx-auto px-5 sm:px-8 py-8 lg:py-12 flex-1 flex flex-col gap-6 lg:gap-8">
 
