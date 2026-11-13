@@ -634,7 +634,25 @@
         text.tabIndex = 0;
         text.setAttribute('role', 'button');
         text.setAttribute('aria-label', '修改：' + todo.title);
-        text.addEventListener('click', () => startEdit(todo, text));
+        // 手機連點兩下才編輯；桌面滑鼠與鍵盤保留原操作。
+        let lastTapAt = 0, touchDownAt = 0, lastPointerType = '';
+        text.addEventListener('pointerdown', e => {
+          lastPointerType = e.pointerType;
+          touchDownAt = e.pointerType === 'touch' ? performance.now() : 0;
+        });
+        text.addEventListener('click', e => {
+          const isTouch = (e.pointerType || lastPointerType) === 'touch';
+          if (!isTouch || (e.detail === 0 && !e.pointerType)) { startEdit(todo, text); return; }
+          const now = performance.now();
+          // 長按放開不應被算成點擊或進入編輯，包含拖曳未啟動的情況。
+          if (touchDownAt && now - touchDownAt >= 350) { lastTapAt = 0; return; }
+          if (lastTapAt && now - lastTapAt <= 350) {
+            lastTapAt = 0;
+            startEdit(todo, text);
+          } else {
+            lastTapAt = now;
+          }
+        });
         text.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); startEdit(todo, text); } });
         const title = document.createElement('span');
         title.className = 'todo-title';
