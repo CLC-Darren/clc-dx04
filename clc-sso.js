@@ -208,6 +208,20 @@
       const bottom = heading ? heading.getBoundingClientRect().bottom + 12 : header?.getBoundingClientRect().bottom || 0;
       return y >= 0 && y <= bottom;
     }
+    function inCardGap(x, y) {
+      const grid = document.getElementById('dashGrid');
+      if (!grid) return false;
+      const bounds = grid.getBoundingClientRect();
+      if (x < bounds.left || x > bounds.right) return false;
+      const cards = Array.from(grid.querySelectorAll(':scope > [data-widget]'))
+        .map(el => el.getBoundingClientRect())
+        .filter(rect => rect.width > 0 && rect.height > 0)
+        .sort((a, b) => a.top - b.top);
+      return cards.some((card, i) => {
+        const next = cards[i + 1];
+        return next && next.top > card.bottom && y > card.bottom && y < next.top;
+      });
+    }
     function makeVisual(dx) {
       const next = (currentSite() + (dx < 0 ? 1 : 2)) % routes.length;
       if (visual) {
@@ -256,7 +270,7 @@
       restore(); gesture = null;
       if (e.touches.length !== 1 || !canSwipe() || blocked(e.target)) return;
       const t = e.touches[0];
-      if (!inTopZone(t.clientY) || t.clientX < innerWidth * .1 || t.clientX > innerWidth * .9) return;
+      if ((!inTopZone(t.clientY) && !inCardGap(t.clientX, t.clientY)) || t.clientX < innerWidth * .1 || t.clientX > innerWidth * .9) return;
       gesture = { id:t.identifier, x:t.clientX, y:t.clientY, at:performance.now(), horizontal:false, dx:0 };
     }, { passive:true });
     document.addEventListener('touchmove', e => {
