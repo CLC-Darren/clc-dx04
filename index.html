@@ -3,6 +3,7 @@
 <head>
   <link rel="stylesheet" href="/login-gate.css">
   <script src="/login-gate.js"></script>
+  <script src="/reorder.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>CLC DX04 | 總控台</title>
@@ -161,6 +162,12 @@
     .app-remove:hover span, .app-remove:focus-visible span { background:#e11d48; }
     .app-preview { width:52px; height:52px; flex:none; }
     .app-preview .app-logo, .app-preview .app-fallback { width:100%; height:100%; }
+    .reorder-handle { flex:none; min-width:28px; min-height:36px; padding:4px; border:0; background:transparent; color:#8A92A6; cursor:grab; touch-action:none; font:20px/1 Arial; }
+    .reorder-handle:active { cursor:grabbing; }
+    .reorder-handle:focus-visible { outline:2px solid #007E8A; border-radius:6px; }
+    .reorder-source { opacity:.45; }
+    .reorder-target { outline:2px solid #00A3B4; outline-offset:3px; border-radius:8px; }
+    .app-cell > .reorder-handle { position:absolute; right:-8px; bottom:18px; z-index:3; border-radius:8px; background:#161924; color:#fff; min-height:28px; }
   </style>
 
   <!-- 深淺主題預載防閃爍（與 YA 相同） -->
@@ -255,7 +262,7 @@
         </div>
         <!-- 分站清單存在 Firestore dx04_settings/apps；管理員長按進入編輯模式：「−」移除、「＋」新增、點 Logo 編輯 -->
         <div id="siteGrid" class="grid grid-cols-4 gap-3"></div>
-        <p id="appsAdminHint" class="hidden text-xs text-slate-400 dark:text-slate-500">管理員：長按任一格進入編輯模式。</p>
+        <p id="appsAdminHint" class="hidden text-xs text-slate-400 dark:text-slate-500">管理員：拖曳圖示或 ⠿ 調整順序；長按任一格編輯。</p>
       </section>
     </div>
   </main>
@@ -598,6 +605,14 @@
       function row(todo, opts) {
         const li = document.createElement('li');
         li.className = 'todo-row';
+        li.dataset.sortId = todo.id;
+        if (!todo.done) {
+          const handle = document.createElement('button');
+          handle.type = 'button'; handle.className = 'reorder-handle'; handle.textContent = '⠿';
+          handle.setAttribute('aria-label', '拖曳排序：' + todo.title);
+          handle.title = '拖曳或用方向鍵調整同分類順序';
+          li.append(handle);
+        }
         const label = document.createElement('div');
         label.className = 'todo-item';
         const hit = document.createElement('label');
@@ -651,7 +666,7 @@
       function enableSwipeDelete(li, todo) {
         let start = null, dx = 0, active = false;
         li.addEventListener('pointerdown', e => {
-          if (e.pointerType !== 'touch' || e.target.closest('.todo-edit')) return;
+          if (e.pointerType !== 'touch' || e.target.closest('.todo-edit, .reorder-handle')) return;
           start = { x: e.clientX, y: e.clientY }; dx = 0; active = false;
         });
         li.addEventListener('pointermove', e => {
@@ -695,6 +710,21 @@
         items.forEach(t => ul.append(row(t, opts)));
         body.append(h, ul);
       }
+      const orderKey = () => 'clc_dx04_todo_order:' + String(window.currentAdminEmail || '').toLowerCase();
+      function readOrder() {
+        try { const v = JSON.parse(localStorage.getItem(orderKey()) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; }
+      }
+      window.clcReorder(body, {
+        item: '.todo-row', sameGroup: true, allowed: () => !!window.isSuperuser,
+        move(from, to, after) {
+          const rows = Array.from(body.querySelectorAll('.todo-row'));
+          const ids = rows.map(el => el.dataset.sortId).filter(id => id !== from);
+          ids.splice(ids.indexOf(to) + (after ? 1 : 0), 0, from);
+          localStorage.setItem(orderKey(), JSON.stringify(ids));
+          render();
+        },
+        error: () => setStatus('無法保存排序，請確認瀏覽器允許本機儲存。')
+      });
       const byTime = (a, b) => (a.due || '9999').localeCompare(b.due || '9999') || (a.time || '99').localeCompare(b.time || '99') || (a.created - b.created);
 
       function render() {
@@ -714,10 +744,13 @@
         input.disabled = false;
         input.placeholder = '新增待辦… 例如「明天下午3點 回覆新朋友 #SR」';
         const t = today();
+        const order = readOrder();
+        const rank = new Map(order.map((id, i) => [id, i]));
+        const byOrder = (a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity) || byTime(a, b);
         const open = todos.filter(x => !x.done);
-        const overdue = open.filter(x => x.due && x.due < t).sort(byTime);
-        const now = open.filter(x => !x.due || x.due === t).sort(byTime);
-        const later = open.filter(x => x.due && x.due > t).sort(byTime);
+        const overdue = open.filter(x => x.due && x.due < t).sort(byOrder);
+        const now = open.filter(x => !x.due || x.due === t).sort(byOrder);
+        const later = open.filter(x => x.due && x.due > t).sort(byOrder);
         group('逾期', 'is-overdue', overdue, { overdue: true, showDate: true });
         group('今天', '', now, {});
         group('之後', '', later, { showDate: true });
@@ -1133,10 +1166,12 @@
         apps.forEach((app, i) => {
           const cell = document.createElement('div');
           cell.className = 'app-cell';
+          cell.dataset.sortId = app.id;
+          cell.draggable = admin;
           cell.style.setProperty('--jiggle-delay', (-(i % 3) * 0.11) + 's');
           const a = document.createElement('a');
           a.className = 'app-tile';
-          a.draggable = false;
+          a.draggable = admin;
           const link = linkFor(app);
           a.href = link.href;
           if (link.newTab) { a.target = '_blank'; a.rel = 'noopener'; }
@@ -1145,6 +1180,13 @@
           a.dataset.appId = app.id;
           a.append(logo(app));
           cell.append(a);
+          if (admin) {
+            const handle = document.createElement('button');
+            handle.type = 'button'; handle.className = 'reorder-handle'; handle.textContent = '⠿';
+            handle.title = '拖曳或用方向鍵調整順序';
+            handle.setAttribute('aria-label', '拖曳排序：' + app.name);
+            cell.append(handle);
+          }
           if (editing) {
             const rm = document.createElement('button');
             rm.type = 'button';
@@ -1190,6 +1232,18 @@
       // 點分站區以外的地方結束編輯（和 iPhone 一樣）
       document.addEventListener('pointerdown', e => {
         if (editing && !e.target.closest('#siteGrid, #appsDoneBtn, dialog')) setEditing(false);
+      });
+
+      window.clcReorder(grid, {
+        item: '.app-cell', grid: true, allowed: () => isAdmin(), start: () => cancelPress(),
+        async move(from, to, after) {
+          const moving = apps.find(a => a.id === from);
+          if (!moving || !apps.some(a => a.id === to)) return;
+          const next = apps.filter(a => a.id !== from);
+          next.splice(next.findIndex(a => a.id === to) + (after ? 1 : 0), 0, moving);
+          await persist(next);
+        },
+        error: err => alert('排序儲存失敗：' + errorText(err))
       });
 
       // ---------- 長按進入編輯模式 ----------
@@ -1398,7 +1452,8 @@
       }
     })();
   </script>
-  <script type="text/plain" data-dx-private>
+  <script>
+    // 安裝事件須在登入前監聽，避免錯過 beforeinstallprompt 與 window.load。
     // PWA 安裝（與 YA 首頁相同做法）
     const pwaDisplayMode = window.matchMedia('(display-mode: standalone)');
     let deferredPrompt = null;
@@ -1425,7 +1480,7 @@
       const btn = document.getElementById('installAppBtn');
       if (!btn) return;
       if (isPwaStandalone() && !pwaKnownInstalled) setPwaKnownInstalled(true);
-      const installed = isPwaStandalone() || pwaInstalledInSession || pwaKnownInstalled;
+      const installed = isPwaStandalone() || pwaInstalledInSession;
       btn.hidden = installed;
       btn.classList.toggle('hidden', installed);
       btn.style.display = installed ? 'none' : '';
@@ -1634,11 +1689,12 @@
       pwaDisplayMode.addListener(checkPwaInstalledState);
     }
     checkPwaInstalledState();
+    document.addEventListener('DOMContentLoaded', checkPwaInstalledState);
     // 支援的瀏覽器（Chrome／Edge）直接詢問系統是否已安裝，只查一次。
     if (!isPwaStandalone() && typeof navigator.getInstalledRelatedApps === 'function') {
       navigator.getInstalledRelatedApps().then(apps => {
         // 只採用「已安裝」的結果；部分平台不支援偵測會回傳空清單，不據此判定未安裝。
-        if (Array.isArray(apps) && apps.length > 0) setPwaKnownInstalled(true);
+        if (Array.isArray(apps) && apps.length > 0) { pwaInstalledInSession = true; setPwaKnownInstalled(true); }
         checkPwaInstalledState();
       }).catch(() => {});
     }
