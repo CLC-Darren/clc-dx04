@@ -80,11 +80,10 @@
     .app-fallback { display:grid; place-content:center; background:#007E8A; color:#fff; font-weight:800; font-size:1.5rem; }
     .app-slot { aspect-ratio:1; border-radius:22%; border:2px dashed #cbd5e1; color:#94a3b8; display:grid; place-content:center; font-size:1.75rem; font-weight:300; user-select:none; }
     .dark .app-slot { border-color:#334155; color:#475569; }
-    /* 首頁區塊：電腦固定位置；手機依 DOM 順序，可拖曳 */
+    /* 首頁區塊依保存的 DOM 順序排列：手機單欄、電腦雙欄。 */
     @media (min-width: 1024px) {
-      #dashGrid > [data-widget="todo"] { grid-column: 1; grid-row: 1 / span 2; }
-      #dashGrid > [data-widget="apps"] { grid-column: 2; grid-row: 1; }
-      #dashGrid > [data-widget="clock"] { grid-column: 2; grid-row: 2; }
+      #dashGrid { grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-flow:row; align-items:start; }
+      #dashGrid > [data-widget] { grid-column:auto; grid-row:auto; min-width:0; }
     }
     .dash-widget { position:relative; }
     .drag-handle { position:absolute; top:0; left:50%; transform:translateX(-50%); width:56px; height:22px; display:flex; align-items:center; justify-content:center; background:none; border:0; padding:0; cursor:grab; touch-action:none; z-index:2; }
@@ -724,12 +723,12 @@
       <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Good Morning DX04</h1>
     </div>
 
-    <!-- 手機：單欄，可拖曳排序（順序存在本機）；電腦：左待辦、右上分站、右下時間天氣 -->
-    <div id="dashGrid" class="flex flex-col gap-6 lg:grid lg:grid-cols-[1.45fr_1fr] lg:grid-rows-[auto_1fr] lg:items-stretch">
+    <!-- 手機單欄、電腦雙欄；區塊拖曳排序保存在目前瀏覽器 -->
+    <div id="dashGrid" class="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start">
 
       <!-- 時間、日期、天氣 -->
       <section data-widget="clock" aria-label="時間與天氣" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-5">
-        <button type="button" class="drag-handle lg:hidden" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
+        <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
         <div class="clock-main">
           <p class="flex items-baseline gap-1 font-extrabold tracking-tight tabular-nums text-slate-900 dark:text-white"><span id="clockTime" class="text-5xl sm:text-6xl">--:--</span><span id="clockSec" class="text-2xl sm:text-3xl text-slate-400 dark:text-brand-muted">:--</span></p>
           <p id="clockDate" class="mt-1 text-base text-slate-500 dark:text-brand-muted">&nbsp;</p>
@@ -746,7 +745,7 @@
 
       <!-- 今日待辦：存在 Firestore dx04_todos（僅 Superuser 可讀寫）；可文字或語音新增、勾選完成、刪除 -->
       <section data-widget="todo" aria-labelledby="todoTitle" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-3">
-        <button type="button" class="drag-handle lg:hidden" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
+        <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
         <div class="flex items-center justify-between gap-3">
           <h2 id="todoTitle" class="text-xl font-extrabold text-slate-900 dark:text-white">今日待辦</h2>
           <p id="todoSummary" class="text-xs sm:text-sm text-slate-500 dark:text-brand-muted"></p>
@@ -774,7 +773,7 @@
 
       <!-- App 入口：4 欄 × 2 排，共 8 格 -->
       <section data-widget="apps" aria-labelledby="appsTitle" class="dash-widget relative space-y-3">
-        <button type="button" class="drag-handle lg:hidden" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
+        <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
         <div class="flex items-center justify-between gap-3 min-h-[28px]">
           <h2 id="appsTitle" class="text-sm font-bold text-slate-500 dark:text-brand-muted">分站入口</h2>
           <button type="button" id="appsDoneBtn" class="hidden h-9 px-4 rounded-full text-sm font-bold bg-[#007E8A] hover:bg-[#006C77] text-white">完成</button>
@@ -857,6 +856,31 @@
         if (!drag) return;
         const el = drag.el;
         const pageY = drag.clientY + window.scrollY;
+        if (drag.desktop) {
+          const dx = () => drag.clientX - drag.startClientX + drag.baseX;
+          const dy = () => pageY - drag.startPageY + drag.base;
+          const draw = () => { el.style.transform = 'translate(' + dx() + 'px,' + dy() + 'px)'; };
+          draw();
+          const list = widgets();
+          const target = list.find(other => {
+            if (other === el) return false;
+            const r = other.getBoundingClientRect();
+            return drag.clientX >= r.left && drag.clientX <= r.right &&
+              drag.clientY >= r.top && drag.clientY <= r.bottom;
+          });
+          if (target) {
+            const old = el.getBoundingClientRect();
+            const naturalLeft = old.left - dx(), naturalTop = old.top - dy();
+            const forward = list.indexOf(el) < list.indexOf(target);
+            grid.insertBefore(el, forward ? target.nextSibling : target);
+            el.style.transform = '';
+            const next = el.getBoundingClientRect();
+            drag.baseX += naturalLeft - next.left;
+            drag.base += naturalTop - next.top;
+            draw();
+          }
+          return;
+        }
         const dy = () => pageY - drag.startPageY + drag.base;
         el.style.transform = 'translateY(' + dy() + 'px)';
         const list = widgets();
@@ -883,7 +907,7 @@
       }
       grid.addEventListener('pointerdown', e => {
         const handle = e.target.closest('.drag-handle');
-        if (!handle || e.button !== 0 || window.matchMedia('(min-width: 1024px)').matches) return;
+        if (!handle || e.button !== 0) return;
         e.preventDefault();
         cancelPendingDrag();
         const el = handle.closest('[data-widget]');
@@ -891,9 +915,9 @@
         pendingDrag = pending;
         handle.setPointerCapture(e.pointerId);
         pending.timer = setTimeout(() => {
-          if (pendingDrag !== pending || !el.isConnected || window.matchMedia('(min-width: 1024px)').matches) return;
+          if (pendingDrag !== pending || !el.isConnected) return;
           pendingDrag = null;
-          drag = { el, id:pending.id, clientY:pending.y, startPageY:pending.y + window.scrollY, base:0, raf:0 };
+          drag = { el, id:pending.id, desktop:window.matchMedia('(min-width: 1024px)').matches, clientX:pending.x, startClientX:pending.x, clientY:pending.y, startPageY:pending.y + window.scrollY, baseX:0, base:0, raf:0 };
           el.classList.add('is-dragging');
           document.body.classList.add('dash-dragging');
           if (navigator.vibrate) navigator.vibrate(15);
@@ -904,6 +928,7 @@
         if (pendingDrag && e.pointerId === pendingDrag.id &&
             Math.hypot(e.clientX - pendingDrag.x, e.clientY - pendingDrag.y) > 10) cancelPendingDrag();
         if (!drag || e.pointerId !== drag.id) return;
+        drag.clientX = e.clientX;
         drag.clientY = e.clientY;
         update();
       });
