@@ -1,6 +1,8 @@
 <!DOCTYPE html>
-<html lang="zh-TW" class="dark">
+<html lang="zh-TW" class="dark dx-locked">
 <head>
+  <link rel="stylesheet" href="/login-gate.css">
+  <script src="/login-gate.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>CLC DX04 | 總控台</title>
@@ -305,7 +307,7 @@
     <p>© 2026 CLC. Powered by Cloudflare &amp; GitHub.</p>
   </footer>
 
-  <script>
+  <script type="text/plain" data-dx-private>
     // 手機版區塊拖曳排序（Pointer 事件，觸控與滑鼠皆可），順序存在 localStorage
     (function () {
       const grid = document.getElementById('dashGrid');
@@ -1006,7 +1008,7 @@
   </script>
   <script src="clc-sso.js"></script>
   <script src="header.js"></script>
-  <script>
+  <script type="text/plain" data-dx-private>
     // 分站入口：清單存在 Firestore dx04_settings/apps（所有裝置共用），本機另存一份快取讓畫面先出來。
     // 管理員：長按任一格進入「編輯模式」（像 iPhone 主畫面）→ 按「−」移除、按「＋」貼網址新增、點 Logo 改名稱或圖示。
     // 名稱與 Logo 由 /api/site-info 自動抓（和手機「加入主畫面」相同來源）。
@@ -1377,7 +1379,7 @@
       }
     })();
   </script>
-  <script>
+  <script type="text/plain" data-dx-private>
     // PWA 安裝（與 YA 首頁相同做法）
     const pwaDisplayMode = window.matchMedia('(display-mode: standalone)');
     let deferredPrompt = null;
@@ -1612,7 +1614,7 @@
     } else if (typeof pwaDisplayMode.addListener === 'function') {
       pwaDisplayMode.addListener(checkPwaInstalledState);
     }
-    document.addEventListener('DOMContentLoaded', checkPwaInstalledState);
+    checkPwaInstalledState();
     // 支援的瀏覽器（Chrome／Edge）直接詢問系統是否已安裝，只查一次。
     if (!isPwaStandalone() && typeof navigator.getInstalledRelatedApps === 'function') {
       navigator.getInstalledRelatedApps().then(apps => {
