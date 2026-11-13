@@ -653,9 +653,11 @@
           return;
         }
 
-        // 直接循環有動態的時間段，移除前後的靜止等待；每輪保持 10 秒。
-        const phase = (((now - startTime) / 1000) % DURATION + DURATION) % DURATION;
-        const elapsed = 1.35 + (phase / DURATION) * (8.45 - 1.35);
+        // 每輪動畫 10 秒，結尾停留 1 秒後重播。
+        const REPLAY_GAP_SECONDS = 1;
+        const cycleDuration = DURATION + REPLAY_GAP_SECONDS;
+        const phase = (((now - startTime) / 1000) % cycleDuration + cycleDuration) % cycleDuration;
+        const elapsed = 1.35 + (Math.min(phase, DURATION) / DURATION) * (8.45 - 1.35);
 
         if (isPortrait) {
           renderMobileVertical(elapsed);
