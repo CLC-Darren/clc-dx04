@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/login-gate.css">
   <script src="/login-gate.js"></script>
-  <script src="/reorder.js"></script>
+  <script src="/reorder.js?v=direct-drag-2"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>CLC DX04 | 總控台</title>
@@ -165,6 +165,10 @@
     .reorder-handle { flex:none; min-width:28px; min-height:36px; padding:4px; border:0; background:transparent; color:#8A92A6; cursor:grab; touch-action:none; font:20px/1 Arial; }
     .reorder-handle:active { cursor:grabbing; }
     .reorder-handle:focus-visible { outline:2px solid #007E8A; border-radius:6px; }
+    .todo-row { user-select:none; -webkit-user-select:none; }
+    .todo-edit { user-select:text; -webkit-user-select:text; }
+    .app-tile { -webkit-touch-callout:none; user-select:none; -webkit-user-select:none; }
+    @media (max-width: 1023px), (pointer: coarse) { .reorder-handle { display:none !important; } }
     .reorder-source { opacity:.45; }
     .reorder-target { outline:2px solid #00A3B4; outline-offset:3px; border-radius:8px; }
     .app-cell > .reorder-handle { position:absolute; right:-8px; bottom:18px; z-index:3; border-radius:8px; background:#161924; color:#fff; min-height:28px; }
@@ -262,7 +266,7 @@
         </div>
         <!-- 分站清單存在 Firestore dx04_settings/apps；管理員長按進入編輯模式：「−」移除、「＋」新增、點 Logo 編輯 -->
         <div id="siteGrid" class="grid grid-cols-4 gap-3"></div>
-        <p id="appsAdminHint" class="hidden text-xs text-slate-400 dark:text-slate-500">管理員：拖曳圖示或 ⠿ 調整順序；長按任一格編輯。</p>
+        <p id="appsAdminHint" class="hidden text-xs text-slate-400 dark:text-slate-500">管理員：拖曳圖示調整順序；手機長按後拖曳，長按放開可編輯。</p>
       </section>
     </div>
   </main>
@@ -603,6 +607,7 @@
       function canUse() { return !!window.isSuperuser && !!window.db; }
 
       function row(todo, opts) {
+        opts = Object.assign({}, opts, { overdue: !todo.done && !!todo.due && todo.due < today() });
         const li = document.createElement('li');
         li.className = 'todo-row';
         li.dataset.sortId = todo.id;
@@ -715,7 +720,7 @@
         try { const v = JSON.parse(localStorage.getItem(orderKey()) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; }
       }
       window.clcReorder(body, {
-        item: '.todo-row', sameGroup: true, allowed: () => !!window.isSuperuser,
+        item: '.todo-row', directMouse: true, allowed: () => !!window.isSuperuser,
         move(from, to, after) {
           const rows = Array.from(body.querySelectorAll('.todo-row'));
           const ids = rows.map(el => el.dataset.sortId).filter(id => id !== from);
@@ -751,9 +756,13 @@
         const overdue = open.filter(x => x.due && x.due < t).sort(byOrder);
         const now = open.filter(x => !x.due || x.due === t).sort(byOrder);
         const later = open.filter(x => x.due && x.due > t).sort(byOrder);
-        group('逾期', 'is-overdue', overdue, { overdue: true, showDate: true });
-        group('今天', '', now, {});
-        group('之後', '', later, { showDate: true });
+        if (order.length) {
+          group('待辦', '', open.sort(byOrder), { showDate: true });
+        } else {
+          group('逾期', 'is-overdue', overdue, { overdue: true, showDate: true });
+          group('今天', '', now, {});
+          group('之後', '', later, { showDate: true });
+        }
         if (!open.length) {
           const p = document.createElement('p');
           p.className = 'todo-empty';
@@ -1235,7 +1244,7 @@
       });
 
       window.clcReorder(grid, {
-        item: '.app-cell', grid: true, allowed: () => isAdmin(), start: () => cancelPress(),
+        item: '.app-cell', grid: true, allowed: () => isAdmin(), start: () => cancelPress(), hold: () => setEditing(true),
         async move(from, to, after) {
           const moving = apps.find(a => a.id === from);
           if (!moving || !apps.some(a => a.id === to)) return;

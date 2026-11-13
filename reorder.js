@@ -1,28 +1,41 @@
-// Pointer handles (mouse/touch), native desktop drag/drop, and keyboard sorting.
+// Direct mouse dragging, long-press touch dragging, native App drag/drop and keyboard sorting.
 window.clcReorder = function (container, options) {
-  let source = null, target = null, after = false, pointer = null, suppressUntil = 0, saving = false;
+  let source = null, target = null, after = false, pointer = null, holdTimer = null;
+  let suppressUntil = 0, saving = false;
   const item = node => node?.closest?.(options.item);
-  function valid(next) {
-    return source && next && next !== source && container.contains(next) &&
-      (!options.sameGroup || next.parentElement === source.parentElement);
-  }
+  const excluded = node => node?.closest?.('input, textarea, select, .todo-del, .app-remove, .app-slot');
   function clear() {
+    clearTimeout(holdTimer);
     container.querySelectorAll('.reorder-source, .reorder-target').forEach(el => el.classList.remove('reorder-source', 'reorder-target'));
     source = target = pointer = null;
   }
   function aim(next, x, y) {
-    if (target) target.classList.remove('reorder-target');
-    target = valid(next) ? next : null;
+    target?.classList.remove('reorder-target');
+    target = source && next && next !== source && container.contains(next) ? next : null;
     if (!target) return;
     const rect = target.getBoundingClientRect();
     after = options.grid ? x > rect.left + rect.width / 2 : y > rect.top + rect.height / 2;
     target.classList.add('reorder-target');
   }
+  function begin() {
+    if (!pointer || !source || !options.allowed()) return;
+    pointer.armed = true;
+    options.start?.();
+    source.classList.add('reorder-source');
+    if (pointer.touch && navigator.vibrate) navigator.vibrate(15);
+  }
+  function move(x, y) {
+    pointer.moved = true;
+    aim(item(document.elementFromPoint(x, y)), x, y);
+    if (y < 60) window.scrollBy(0, -15);
+    else if (y > innerHeight - 60) window.scrollBy(0, 15);
+  }
   async function finish(commit) {
     const from = source?.dataset.sortId, to = target?.dataset.sortId, insertAfter = after;
+    if (pointer?.armed) suppressUntil = Date.now() + 500;
     clear();
     if (!commit || !from || !to || !options.allowed()) return;
-    suppressUntil = Date.now() + 400;
+    suppressUntil = Date.now() + 500;
     saving = true;
     try { await options.move(from, to, insertAfter); }
     catch (error) { options.error?.(error); }
@@ -34,31 +47,63 @@ window.clcReorder = function (container, options) {
     }
   }, true);
   container.addEventListener('pointerdown', e => {
-    if (saving || !options.allowed() || e.button !== 0 || !e.target.closest('.reorder-handle')) return;
+    if (e.pointerType === 'touch' || saving || !options.allowed() || e.button !== 0 || excluded(e.target)) return;
+    const handle = e.target.closest('.reorder-handle');
+    if (!handle && !options.directMouse) return; // Apps keep native desktop drag/drop.
     const next = item(e.target); if (!next) return;
-    e.preventDefault(); e.stopPropagation();
-    source = next; pointer = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
-    container.setPointerCapture(e.pointerId);
+    source = next; pointer = { id: e.pointerId, x: e.clientX, y: e.clientY, armed: false, moved: false };
+    if (handle) { e.preventDefault(); e.stopPropagation(); }
   }, true);
   container.addEventListener('pointermove', e => {
-    if (!pointer || e.pointerId !== pointer.id) return;
-    if (!pointer.moved && Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y) < 6) return;
-    pointer.moved = true;
-    source.classList.add('reorder-source');
-    aim(item(document.elementFromPoint(e.clientX, e.clientY)), e.clientX, e.clientY);
-    if (e.clientY < 60) window.scrollBy(0, -15);
-    else if (e.clientY > innerHeight - 60) window.scrollBy(0, 15);
+    if (pointer?.touch && pointer.armed) e.stopPropagation();
+  }, true);
+  container.addEventListener('pointermove', e => {
+    if (!pointer || pointer.touch || e.pointerId !== pointer.id) return;
+    if (!pointer.armed) {
+      if (Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y) < 7) return;
+      begin();
+      container.setPointerCapture(e.pointerId);
+    }
+    e.preventDefault();
+    move(e.clientX, e.clientY);
   });
   container.addEventListener('pointerup', e => {
-    if (!pointer || e.pointerId !== pointer.id) return;
+    if (!pointer || pointer.touch || e.pointerId !== pointer.id) return;
     const moved = pointer.moved;
-    container.releasePointerCapture(e.pointerId);
-    if (moved) suppressUntil = Date.now() + 400;
+    if (container.hasPointerCapture(e.pointerId)) container.releasePointerCapture(e.pointerId);
     finish(moved);
   });
-  container.addEventListener('pointercancel', () => { if (pointer) finish(false); });
+  container.addEventListener('pointercancel', () => { if (pointer && !pointer.touch) finish(false); });
+  // A short swipe remains normal scrolling; only a stationary long press takes over touchmove.
+  container.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1 || saving || !options.allowed() || excluded(e.target)) { if (pointer?.touch) finish(false); return; }
+    const next = item(e.target); if (!next) return;
+    const touch = e.touches[0];
+    source = next; pointer = { touch: true, id: touch.identifier, x: touch.clientX, y: touch.clientY, armed: false, moved: false };
+    holdTimer = setTimeout(begin, 400);
+  }, { passive: true });
+  container.addEventListener('touchmove', e => {
+    if (!pointer?.touch) return;
+    const touch = Array.from(e.touches).find(t => t.identifier === pointer.id);
+    if (!touch) return;
+    if (!pointer.armed) {
+      if (Math.hypot(touch.clientX - pointer.x, touch.clientY - pointer.y) > 10) clear();
+      return;
+    }
+    if (e.cancelable) e.preventDefault();
+    move(touch.clientX, touch.clientY);
+  }, { passive: false });
+  container.addEventListener('touchend', e => {
+    if (!pointer?.touch) return;
+    if (Array.from(e.touches).some(t => t.identifier === pointer.id)) return;
+    const held = pointer.armed && !pointer.moved;
+    finish(pointer.moved);
+    if (held) options.hold?.();
+  });
+  container.addEventListener('touchcancel', () => { if (pointer?.touch) finish(false); });
+  container.addEventListener('contextmenu', e => { if (pointer?.touch && pointer.armed) e.preventDefault(); });
   container.addEventListener('dragstart', e => {
-    if (saving || !options.allowed()) { e.preventDefault(); return; }
+    if (saving || !options.allowed() || options.directMouse) { e.preventDefault(); return; }
     source = item(e.target);
     if (!source) { e.preventDefault(); return; }
     options.start?.();
@@ -72,16 +117,15 @@ window.clcReorder = function (container, options) {
     aim(item(e.target), e.clientX, e.clientY);
   });
   container.addEventListener('drop', e => { if (source) { e.preventDefault(); finish(true); } });
-  container.addEventListener('dragend', () => { if (source) { suppressUntil = Date.now() + 400; clear(); } });
+  container.addEventListener('dragend', () => { if (source) { suppressUntil = Date.now() + 500; clear(); } });
   container.addEventListener('keydown', e => {
     if (!e.target.closest('.reorder-handle') || !['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) || saving || !options.allowed()) return;
     const row = item(e.target), forward = ['ArrowDown','ArrowRight'].includes(e.key);
-    const next = forward ? row.nextElementSibling : row.previousElementSibling;
-    if (!next?.matches(options.item)) return;
+    const rows = Array.from(container.querySelectorAll(options.item));
+    const next = rows[rows.indexOf(row) + (forward ? 1 : -1)];
+    if (!next) return;
     e.preventDefault(); source = row; target = next; after = forward;
     const id = row.dataset.sortId;
-    finish(true).then(() => {
-      Array.from(container.querySelectorAll(options.item)).find(el => el.dataset.sortId === id)?.querySelector('.reorder-handle')?.focus();
-    });
+    finish(true).then(() => Array.from(container.querySelectorAll(options.item)).find(el => el.dataset.sortId === id)?.querySelector('.reorder-handle')?.focus());
   });
 };
