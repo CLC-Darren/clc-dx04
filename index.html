@@ -219,7 +219,7 @@
       }
     })();
   </script>
-  <!-- DX04 Welcome 動態歡迎畫面 v2（掛載於 html 根節點，不被 dx-locked 隱藏；電腦版橫向左進右出 / 手機版直向上進下出，播畢靜止 30 秒自動重播，點擊沿用 Google 登入） -->
+  <!-- DX04 Welcome 動態歡迎畫面 v2（掛載於 html 根節點，不被 dx-locked 隱藏；電腦版橫向左進右出 / 手機版直向上進下出，無等待連續循環，點擊沿用 Google 登入） -->
   <style id="dx04-welcome-style">
     html > #dx04-welcome-overlay {
       position: fixed !important;
@@ -276,7 +276,6 @@
       if (!ctx) { overlay.remove(); return; }
 
       const DURATION = 10.0;          // 單次完整動畫長度（秒）
-      const REPLAY_DELAY_MS = 10000;  // 播放完畢後等待 30 秒再自動重播
       const PALETTE = {
         primary:   { r: 0,   g: 131, b: 139 }, // #00838B 深海青（主色）
         electric:  { r: 0,   g: 229, b: 255 }, // #00E5FF 電光青
@@ -292,12 +291,11 @@
       let logoFontSpec = '';
       let logoText = 'DX04';
       let logoBaselineY = 0;
+      let logoBitmap = null;
 
       let entered = false, entering = false;
-      let state = 'playing'; // 'playing' | 'waiting'
       let startTime = performance.now();
       let rafId = 0;
-      let replayTimer = null;
 
       function clamp(v, min, max) { return v < min ? min : (v > max ? max : v); }
       function smoothstep(e0, e1, x) {
@@ -320,10 +318,11 @@
       function sampleLogoTargets() {
         if (W <= 0 || H <= 0) return false;
         const off = document.createElement('canvas');
-        off.width = W;
-        off.height = H;
+        off.width = Math.round(W * dpr);
+        off.height = Math.round(H * dpr);
         const octx = off.getContext('2d');
         if (!octx) return false;
+        octx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         // 與原登入頁一致：clamp(64px, 14vw, 112px)、Arial 粗體、.05em 字距。
         const fontSize = Math.max(64, Math.min(W * 0.14, 112));
@@ -332,17 +331,17 @@
         if ('letterSpacing' in ctx) ctx.letterSpacing = (fontSize * 0.05) + 'px';
         logoBaselineY = H * 0.5;
 
-        octx.fillStyle = '#000000';
-        octx.fillRect(0, 0, W, H);
+        octx.clearRect(0, 0, W, H);
         octx.fillStyle = '#FFFFFF';
         octx.font = logoFontSpec;
         octx.textAlign = 'center';
         octx.textBaseline = 'middle';
         octx.fillText(logoText, W * 0.5, logoBaselineY);
+        logoBitmap = off;
 
         let imgData;
         try {
-          imgData = octx.getImageData(0, 0, W, H).data;
+          imgData = octx.getImageData(0, 0, off.width, off.height).data;
         } catch (_) {
           return false;
         }
@@ -356,8 +355,8 @@
 
         for (let y = 0; y < H; y += step) {
           for (let x = 0; x < W; x += step) {
-            const idx = (y * W + x) * 4;
-            if (imgData[idx] > 140) {
+            const idx = (Math.round(y * dpr) * off.width + Math.round(x * dpr)) * 4;
+            if (imgData[idx + 3] > 140) {
               pts.push({ x, y });
               if (x < minX) minX = x;
               if (x > maxX) maxX = x;
@@ -436,15 +435,21 @@
         return ok;
       }
 
+      // 粒子取樣、動畫收斂與完整字樣共用同一張高解析透明底圖。
+      function drawLogo(opacity = 1) {
+        if (!logoBitmap) return;
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = clamp(opacity, 0, 1);
+        ctx.drawImage(logoBitmap, 0, 0, W, H);
+        ctx.restore();
+      }
       function drawStaticLogo() {
         if (W <= 0 || H <= 0) return;
+        ctx.globalCompositeOperation = 'source-over';
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, W, H);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = logoFontSpec;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(logoText, W * 0.5, logoBaselineY);
+        drawLogo();
       }
 
       // 電腦版（橫向）：非對稱「左進右出」流體光帶
@@ -452,6 +457,7 @@
         const leaveProgress = smoothstep(1.35, 3.65, elapsed);
         const returnProgress = smoothstep(6.25, 8.45, elapsed);
         const morphEnvelope = leaveProgress * (1 - returnProgress);
+        const particleOpacity = smoothstep(1.35, 1.85, elapsed) * (1 - smoothstep(7.65, 8.45, elapsed));
 
         ctx.globalCompositeOperation = 'source-over';
         ctx.fillStyle = '#000000';
@@ -534,19 +540,11 @@
             size = p.baseSize * (1 + 0.45 * active * (0.5 + 0.5 * p.r3));
           }
 
-          ctx.fillStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + alpha.toFixed(3) + ')';
+          ctx.fillStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + (alpha * particleOpacity).toFixed(3) + ')';
           ctx.fillRect(x - size * 0.5, y - size * 0.5, size, size);
         }
 
-        const crispAlpha = 1 - smoothstep(1.35, 1.85, elapsed) + smoothstep(8.05, 8.45, elapsed);
-        if (crispAlpha > 0.01) {
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.fillStyle = 'rgba(255, 255, 255, ' + clamp(crispAlpha, 0, 1).toFixed(3) + ')';
-          ctx.font = logoFontSpec;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(logoText, W * 0.5, logoBaselineY);
-        }
+        drawLogo(1 - particleOpacity);
       }
 
       // 手機版（直向）：非對稱「上進下出」垂直流體光帶
@@ -554,6 +552,7 @@
         const leaveProgress = smoothstep(1.35, 3.65, elapsed);
         const returnProgress = smoothstep(6.25, 8.45, elapsed);
         const morphEnvelope = leaveProgress * (1 - returnProgress);
+        const particleOpacity = smoothstep(1.35, 1.85, elapsed) * (1 - smoothstep(7.65, 8.45, elapsed));
 
         ctx.globalCompositeOperation = 'source-over';
         ctx.fillStyle = '#000000';
@@ -636,30 +635,11 @@
             size = p.baseSize * (1 + 0.45 * active * (0.5 + 0.5 * p.r3));
           }
 
-          ctx.fillStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + alpha.toFixed(3) + ')';
+          ctx.fillStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + (alpha * particleOpacity).toFixed(3) + ')';
           ctx.fillRect(x - size * 0.5, y - size * 0.5, size, size);
         }
 
-        const crispAlpha = 1 - smoothstep(1.35, 1.85, elapsed) + smoothstep(8.05, 8.45, elapsed);
-        if (crispAlpha > 0.01) {
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.fillStyle = 'rgba(255, 255, 255, ' + clamp(crispAlpha, 0, 1).toFixed(3) + ')';
-          ctx.font = logoFontSpec;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(logoText, W * 0.5, logoBaselineY);
-        }
-      }
-
-      function scheduleReplay() {
-        if (entered) return;
-        clearTimeout(replayTimer);
-        replayTimer = setTimeout(() => {
-          if (entered) return;
-          state = 'playing';
-          startTime = performance.now();
-          rafId = requestAnimationFrame(loop);
-        }, REPLAY_DELAY_MS);
+        drawLogo(1 - particleOpacity);
       }
 
       function loop(now) {
@@ -672,16 +652,9 @@
           return;
         }
 
-        const elapsed = (now - startTime) / 1000;
-
-        if (elapsed >= DURATION) {
-          // 播放結束，定格在原始純白 DX04 畫面，等待 30 秒後再次播放
-          state = 'waiting';
-          ctx.globalCompositeOperation = 'source-over';
-          drawStaticLogo();
-          scheduleReplay();
-          return;
-        }
+        // 直接循環有動態的時間段，移除前後的靜止等待；每輪保持 10 秒。
+        const phase = (((now - startTime) / 1000) % DURATION + DURATION) % DURATION;
+        const elapsed = 1.35 + (phase / DURATION) * (8.45 - 1.35);
 
         if (isPortrait) {
           renderMobileVertical(elapsed);
@@ -692,7 +665,7 @@
         rafId = requestAnimationFrame(loop);
       }
 
-      // 點擊或按鍵進入網站，立即停止歡迎動畫與重播排程
+      // 點擊或按鍵登入成功後，立即停止歡迎動畫
       async function enterSite(e) {
         if (entered || entering) return;
         if (e) {
@@ -705,7 +678,6 @@
         entering = false;
         if (!authorized) return;
         entered = true;
-        clearTimeout(replayTimer);
         cancelAnimationFrame(rafId);
         window.removeEventListener('resize', onResize);
         overlay.classList.add('is-leaving');
@@ -717,10 +689,7 @@
       function onResize() {
         if (entered) return;
         setupViewport(false);
-        if (state === 'waiting') {
-          ctx.globalCompositeOperation = 'source-over';
-          drawStaticLogo();
-        }
+        drawStaticLogo();
       }
 
       overlay.addEventListener('touchstart', e => e.stopPropagation(), { passive:true });
@@ -730,6 +699,9 @@
         if (e.key === 'Enter' || e.key === ' ') enterSite(e);
       });
       window.addEventListener('resize', onResize);
+      document.addEventListener('DOMContentLoaded', () => {
+        document.fonts.ready.then(() => { if (!entered) setupViewport(false); });
+      }, { once:true });
 
       if (setupViewport(true)) {
         drawStaticLogo();
