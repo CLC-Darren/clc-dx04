@@ -213,6 +213,7 @@
           <div class="min-w-0 flex-1">
             <p class="flex items-baseline gap-2"><span id="wxTemp" class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">--°</span><span id="wxDesc" class="text-base text-slate-600 dark:text-slate-300">讀取天氣中…</span></p>
             <p id="wxMeta" class="mt-1 text-sm text-slate-500 dark:text-brand-muted">板橋</p>
+            <button id="wxRefresh" type="button" hidden class="mt-2 rounded-lg border border-slate-300 dark:border-white/20 px-3 py-2 text-sm font-bold text-[#007E8A] dark:text-[#00A3B4] disabled:opacity-50" aria-label="重新讀取天氣">↻ 重新整理</button>
           </div>
         </div>
       </section>
@@ -447,16 +448,27 @@
         document.getElementById('wxIcon').innerHTML =
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full" aria-hidden="true">' + icons[name] + '</svg>';
       }
+      const refresh = document.getElementById('wxRefresh');
+      let loading = false;
+      let retryTimer = null;
       async function load() {
+        if (loading) return;
+        loading = true;
+        clearTimeout(retryTimer);
+        refresh.disabled = true;
+        refresh.textContent = '讀取中…';
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
         const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + LAT + '&longitude=' + LON +
           '&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m' +
           '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&timezone=Asia%2FTaipei';
         try {
-          const res = await fetch(url);
+          const res = await fetch(url, { signal: controller.signal });
           if (!res.ok) throw new Error(res.status);
           const d = await res.json();
           const c = d.current, day = d.daily;
           const [text, icon] = describe(c.weather_code);
+          refresh.hidden = true;
           setIcon(icon);
           document.getElementById('wxTemp').textContent = Math.round(c.temperature_2m) + '°';
           document.getElementById('wxDesc').textContent = text;
@@ -466,10 +478,17 @@
         } catch (err) {
           console.warn('天氣讀取失敗', err);
           setIcon('cloud');
-          document.getElementById('wxDesc').textContent = '天氣暫時無法讀取，稍後重試';
-          setTimeout(load, 2 * 60 * 1000);
+          document.getElementById('wxDesc').textContent = '天氣暫時無法讀取';
+          refresh.hidden = false;
+          retryTimer = setTimeout(load, 2 * 60 * 1000);
+        } finally {
+          clearTimeout(timeout);
+          loading = false;
+          refresh.disabled = false;
+          refresh.textContent = '↻ 重新整理';
         }
       }
+      refresh.addEventListener('click', load);
       load();
       setInterval(load, 30 * 60 * 1000);
     })();
