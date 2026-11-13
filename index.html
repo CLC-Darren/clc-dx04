@@ -80,11 +80,14 @@
     .app-fallback { display:grid; place-content:center; background:#007E8A; color:#fff; font-weight:800; font-size:1.5rem; }
     .app-slot { aspect-ratio:1; border-radius:22%; border:2px dashed #cbd5e1; color:#94a3b8; display:grid; place-content:center; font-size:1.75rem; font-weight:300; user-select:none; }
     .dark .app-slot { border-color:#334155; color:#475569; }
-    /* 首頁區塊依保存的 DOM 順序排列：手機單欄、電腦雙欄。 */
+    /* 手機保存上下順序；桌面另存三個位置，預設沿用原版配置。 */
     @media (min-width: 1024px) {
-      #dashGrid { grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-flow:row; align-items:start; }
-      #dashGrid > [data-widget] { grid-column:auto; grid-row:auto; min-width:0; }
+      #dashGrid { grid-template-columns:minmax(0,1.45fr) minmax(0,1fr); grid-template-rows:auto 1fr; align-items:stretch; }
+      #dashGrid > [data-desktop-slot="main"] { grid-column:1; grid-row:1 / span 2; }
+      #dashGrid > [data-desktop-slot="top"] { grid-column:2; grid-row:1; }
+      #dashGrid > [data-desktop-slot="bottom"] { grid-column:2; grid-row:2; }
     }
+    .dash-widget.widget-drop-target { outline:2px solid #00A3B4; outline-offset:4px; }
     .dash-widget { position:relative; }
     .drag-handle { position:absolute; top:0; left:50%; transform:translateX(-50%); width:56px; height:22px; display:flex; align-items:center; justify-content:center; background:none; border:0; padding:0; cursor:grab; touch-action:none; z-index:2; }
     .drag-handle span { width:36px; height:5px; border-radius:9999px; background:#cbd5e1; }
@@ -727,7 +730,7 @@
     <div id="dashGrid" class="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start">
 
       <!-- 時間、日期、天氣 -->
-      <section data-widget="clock" aria-label="時間與天氣" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-5">
+      <section data-widget="clock" data-desktop-slot="bottom" aria-label="時間與天氣" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-5">
         <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
         <div class="clock-main">
           <p class="flex items-baseline gap-1 font-extrabold tracking-tight tabular-nums text-slate-900 dark:text-white"><span id="clockTime" class="text-5xl sm:text-6xl">--:--</span><span id="clockSec" class="text-2xl sm:text-3xl text-slate-400 dark:text-brand-muted">:--</span></p>
@@ -744,7 +747,7 @@
       </section>
 
       <!-- 今日待辦：存在 Firestore dx04_todos（僅 Superuser 可讀寫）；可文字或語音新增、勾選完成、刪除 -->
-      <section data-widget="todo" aria-labelledby="todoTitle" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-3">
+      <section data-widget="todo" data-desktop-slot="main" aria-labelledby="todoTitle" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-3">
         <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
         <div class="flex items-center justify-between gap-3">
           <h2 id="todoTitle" class="text-xl font-extrabold text-slate-900 dark:text-white">今日待辦</h2>
@@ -772,7 +775,7 @@
       </section>
 
       <!-- App 入口：4 欄 × 2 排，共 8 格 -->
-      <section data-widget="apps" aria-labelledby="appsTitle" class="dash-widget relative space-y-3">
+      <section data-widget="apps" data-desktop-slot="top" aria-labelledby="appsTitle" class="dash-widget relative space-y-3">
         <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
         <div class="flex items-center justify-between gap-3 min-h-[28px]">
           <h2 id="appsTitle" class="text-sm font-bold text-slate-500 dark:text-brand-muted">分站入口</h2>
@@ -846,7 +849,33 @@
       function save() {
         try { localStorage.setItem(KEY, JSON.stringify(widgets().map(w => w.dataset.widget))); } catch (_) {}
       }
+      const DESKTOP_KEY = 'clc_dx04_widget_desktop_slots_v1';
+      let desktopSlots = ['todo', 'apps', 'clock'];
+      try {
+        const saved = JSON.parse(localStorage.getItem(DESKTOP_KEY) || 'null');
+        if (Array.isArray(saved) && saved.length === 3 && new Set(saved).size === 3 &&
+            saved.every(id => desktopSlots.includes(id))) desktopSlots = saved;
+      } catch (_) {}
+      function applyDesktopSlots() {
+        const slots = ['main', 'top', 'bottom'];
+        widgets().forEach(el => { el.dataset.desktopSlot = slots[desktopSlots.indexOf(el.dataset.widget)]; });
+      }
+      function saveDesktop() {
+        try { localStorage.setItem(DESKTOP_KEY, JSON.stringify(desktopSlots)); } catch (_) {}
+      }
+      applyDesktopSlots();
       let drag = null, pendingDrag = null;
+      function startDrag(pending) {
+        if (pendingDrag !== pending || !pending.el.isConnected) return;
+        cancelPendingDrag();
+        drag = { el:pending.el, id:pending.id, desktop:window.matchMedia('(min-width: 1024px)').matches,
+          clientX:pending.x, startClientX:pending.x, clientY:pending.y,
+          startPageY:pending.y + window.scrollY, base:0, raf:0, target:null };
+        drag.el.classList.add('is-dragging');
+        document.body.classList.add('dash-dragging');
+        if (!pending.mouse && navigator.vibrate) navigator.vibrate(15);
+        drag.raf = requestAnimationFrame(autoScroll);
+      }
       function cancelPendingDrag() {
         if (pendingDrag) clearTimeout(pendingDrag.timer);
         pendingDrag = null;
@@ -857,28 +886,16 @@
         const el = drag.el;
         const pageY = drag.clientY + window.scrollY;
         if (drag.desktop) {
-          const dx = () => drag.clientX - drag.startClientX + drag.baseX;
-          const dy = () => pageY - drag.startPageY + drag.base;
-          const draw = () => { el.style.transform = 'translate(' + dx() + 'px,' + dy() + 'px)'; };
-          draw();
-          const list = widgets();
-          const target = list.find(other => {
+          el.style.transform = 'translate(' + (drag.clientX - drag.startClientX) + 'px,' +
+            (pageY - drag.startPageY) + 'px)';
+          if (drag.target) drag.target.classList.remove('widget-drop-target');
+          drag.target = widgets().find(other => {
             if (other === el) return false;
             const r = other.getBoundingClientRect();
             return drag.clientX >= r.left && drag.clientX <= r.right &&
               drag.clientY >= r.top && drag.clientY <= r.bottom;
-          });
-          if (target) {
-            const old = el.getBoundingClientRect();
-            const naturalLeft = old.left - dx(), naturalTop = old.top - dy();
-            const forward = list.indexOf(el) < list.indexOf(target);
-            grid.insertBefore(el, forward ? target.nextSibling : target);
-            el.style.transform = '';
-            const next = el.getBoundingClientRect();
-            drag.baseX += naturalLeft - next.left;
-            drag.base += naturalTop - next.top;
-            draw();
-          }
+          }) || null;
+          if (drag.target) drag.target.classList.add('widget-drop-target');
           return;
         }
         const dy = () => pageY - drag.startPageY + drag.base;
@@ -911,22 +928,17 @@
         e.preventDefault();
         cancelPendingDrag();
         const el = handle.closest('[data-widget]');
-        const pending = { el, id:e.pointerId, x:e.clientX, y:e.clientY, timer:null };
+        const pending = { el, id:e.pointerId, x:e.clientX, y:e.clientY, mouse:e.pointerType === 'mouse', timer:null };
         pendingDrag = pending;
         handle.setPointerCapture(e.pointerId);
-        pending.timer = setTimeout(() => {
-          if (pendingDrag !== pending || !el.isConnected) return;
-          pendingDrag = null;
-          drag = { el, id:pending.id, desktop:window.matchMedia('(min-width: 1024px)').matches, clientX:pending.x, startClientX:pending.x, clientY:pending.y, startPageY:pending.y + window.scrollY, baseX:0, base:0, raf:0 };
-          el.classList.add('is-dragging');
-          document.body.classList.add('dash-dragging');
-          if (navigator.vibrate) navigator.vibrate(15);
-          drag.raf = requestAnimationFrame(autoScroll);
-        }, 500);
+        pending.timer = setTimeout(() => startDrag(pending), 500);
       });
       grid.addEventListener('pointermove', e => {
-        if (pendingDrag && e.pointerId === pendingDrag.id &&
-            Math.hypot(e.clientX - pendingDrag.x, e.clientY - pendingDrag.y) > 10) cancelPendingDrag();
+        if (pendingDrag && e.pointerId === pendingDrag.id) {
+          const distance = Math.hypot(e.clientX - pendingDrag.x, e.clientY - pendingDrag.y);
+          if (pendingDrag.mouse && distance > 6) startDrag(pendingDrag);
+          else if (!pendingDrag.mouse && distance > 10) cancelPendingDrag();
+        }
         if (!drag || e.pointerId !== drag.id) return;
         drag.clientX = e.clientX;
         drag.clientY = e.clientY;
@@ -939,8 +951,18 @@
         drag.el.classList.remove('is-dragging');
         drag.el.style.transform = '';
         document.body.classList.remove('dash-dragging');
+        if (drag.desktop) {
+          if (drag.target) {
+            drag.target.classList.remove('widget-drop-target');
+            if (e.type === 'pointerup') {
+              const from = desktopSlots.indexOf(drag.el.dataset.widget);
+              const to = desktopSlots.indexOf(drag.target.dataset.widget);
+              [desktopSlots[from], desktopSlots[to]] = [desktopSlots[to], desktopSlots[from]];
+              applyDesktopSlots(); saveDesktop();
+            }
+          }
+        } else { save(); }
         drag = null;
-        save();
       }
       grid.addEventListener('pointerup', end);
       grid.addEventListener('pointercancel', end);
@@ -951,6 +973,15 @@
         if (!handle || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
         e.preventDefault();
         const el = handle.closest('[data-widget]');
+        if (window.matchMedia('(min-width: 1024px)').matches) {
+          const from = desktopSlots.indexOf(el.dataset.widget);
+          const to = from + (e.key === 'ArrowUp' ? -1 : 1);
+          if (to >= 0 && to < desktopSlots.length) {
+            [desktopSlots[from], desktopSlots[to]] = [desktopSlots[to], desktopSlots[from]];
+            applyDesktopSlots(); saveDesktop();
+          }
+          return;
+        }
         if (e.key === 'ArrowUp' && el.previousElementSibling) grid.insertBefore(el, el.previousElementSibling);
         if (e.key === 'ArrowDown' && el.nextElementSibling) grid.insertBefore(el.nextElementSibling, el);
         handle.focus();
