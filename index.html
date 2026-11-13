@@ -176,7 +176,7 @@
       #dashGrid .clock-weather { min-width:0; border-top:0; border-left:1px solid rgba(148,163,184,.25); padding-top:0; padding-left:12px; gap:6px; }
       #wxIcon { width:24px; height:24px; }
       .clock-weather > div:last-child > p:first-child { flex-wrap:wrap; gap:2px 6px; }
-      #wxTemp { font-size:23px; }
+      #wxTemp { font-size:27px; }
       #wxDesc { font-size:12px; line-height:1.4; }
       #wxMeta { display:none; }
       #wxRefresh { margin-top:4px; padding:4px 6px; font-size:11px; }
@@ -354,7 +354,11 @@
       function save() {
         try { localStorage.setItem(KEY, JSON.stringify(widgets().map(w => w.dataset.widget))); } catch (_) {}
       }
-      let drag = null;
+      let drag = null, pendingDrag = null;
+      function cancelPendingDrag() {
+        if (pendingDrag) clearTimeout(pendingDrag.timer);
+        pendingDrag = null;
+      }
       // 以「頁面座標」計算位移，捲動時區塊仍跟著手指
       function update() {
         if (!drag) return;
@@ -386,21 +390,32 @@
       }
       grid.addEventListener('pointerdown', e => {
         const handle = e.target.closest('.drag-handle');
-        if (!handle || window.matchMedia('(min-width: 1024px)').matches) return;
+        if (!handle || e.button !== 0 || window.matchMedia('(min-width: 1024px)').matches) return;
         e.preventDefault();
+        cancelPendingDrag();
         const el = handle.closest('[data-widget]');
-        drag = { el, id: e.pointerId, clientY: e.clientY, startPageY: e.clientY + window.scrollY, base: 0, raf: 0 };
+        const pending = { el, id:e.pointerId, x:e.clientX, y:e.clientY, timer:null };
+        pendingDrag = pending;
         handle.setPointerCapture(e.pointerId);
-        el.classList.add('is-dragging');
-        document.body.classList.add('dash-dragging');
-        drag.raf = requestAnimationFrame(autoScroll);
+        pending.timer = setTimeout(() => {
+          if (pendingDrag !== pending || !el.isConnected || window.matchMedia('(min-width: 1024px)').matches) return;
+          pendingDrag = null;
+          drag = { el, id:pending.id, clientY:pending.y, startPageY:pending.y + window.scrollY, base:0, raf:0 };
+          el.classList.add('is-dragging');
+          document.body.classList.add('dash-dragging');
+          if (navigator.vibrate) navigator.vibrate(15);
+          drag.raf = requestAnimationFrame(autoScroll);
+        }, 500);
       });
       grid.addEventListener('pointermove', e => {
+        if (pendingDrag && e.pointerId === pendingDrag.id &&
+            Math.hypot(e.clientX - pendingDrag.x, e.clientY - pendingDrag.y) > 10) cancelPendingDrag();
         if (!drag || e.pointerId !== drag.id) return;
         drag.clientY = e.clientY;
         update();
       });
       function end(e) {
+        if (pendingDrag && e.pointerId === pendingDrag.id) cancelPendingDrag();
         if (!drag || e.pointerId !== drag.id) return;
         cancelAnimationFrame(drag.raf);
         drag.el.classList.remove('is-dragging');
@@ -411,6 +426,7 @@
       }
       grid.addEventListener('pointerup', end);
       grid.addEventListener('pointercancel', end);
+      grid.addEventListener('lostpointercapture', end);
       // 鍵盤：焦點在拖曳把手時，上下鍵移動
       grid.addEventListener('keydown', e => {
         const handle = e.target.closest('.drag-handle');
