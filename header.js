@@ -172,6 +172,8 @@ function applyAdminState(active, email, notify = true, viewer = false) {
     }
   }
 
+  if (window.clcSetGateAccess) window.clcSetGateAccess(active);
+
   if (notify) {
     window.dispatchEvent(new CustomEvent('clc-admin-changed', {
       detail: { isAdmin: window.isAdmin, isViewer: window.isViewer, canView: !!active, email: email }
@@ -300,7 +302,11 @@ function toggleAdminDropdown() {
   }
 }
 
-async function triggerAdminLogin() {
+async function triggerAdminLogin(options = {}) {
+  const reportError = message => {
+    if (options.onError) options.onError(message);
+    else alert(message);
+  };
   const provider = new firebase.auth.GoogleAuthProvider();
   try {
     const result = await window.auth.signInWithPopup(provider);
@@ -312,16 +318,16 @@ async function triggerAdminLogin() {
     const loginRole = await window.clcGetAdminRole(result.user);
     if (loginRole) {
       applyAdminState(true, email, true, loginRole === 'viewer');
-      alert(loginRole === 'viewer' ? `歡迎，${result.user.displayName || email}！目前為唯讀檢視權限。` : `歡迎回來，管理員 ${result.user.displayName || email}！`);
+      if (!options.quiet) alert(loginRole === 'viewer' ? `歡迎，${result.user.displayName || email}！目前為唯讀檢視權限。` : `歡迎回來，管理員 ${result.user.displayName || email}！`);
     } else {
       await window.auth.signOut();
       applyAdminState(false, "");
-      alert(`帳號【${email}】非授權管理員！`);
+      reportError(`帳號【${email}】非授權管理員！`);
     }
   } catch (error) {
     console.error("登入錯誤:", error);
     if (!['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(error?.code)) {
-      alert('管理員登入未完成，請確認網路連線與瀏覽器是否允許 Google 登入彈出視窗。');
+      reportError('管理員登入未完成，請確認網路連線與瀏覽器是否允許 Google 登入彈出視窗。');
     }
   }
 }
