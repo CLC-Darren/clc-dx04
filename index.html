@@ -219,46 +219,60 @@
       }
     })();
   </script>
-</head>
-<body class="bg-slate-50 text-slate-800 dark:bg-[#090A0F] dark:text-slate-100 min-h-screen flex flex-col justify-between selection:bg-[#007E8A] selection:text-white">
-
-    <!-- DX04 Welcome 動態歡迎畫面（電腦版橫向左進右出 / 手機版直向上進下出，播畢後靜止 1 分鐘自動重播，點擊即進入網站） -->
+  <!-- DX04 Welcome 動態歡迎畫面 v2（掛載於 html 根節點，不被 dx-locked 隱藏；電腦版橫向左進右出 / 手機版直向上進下出，播畢靜止 1 分鐘自動重播，點擊進入網站） -->
   <style id="dx04-welcome-style">
-    #dx04-welcome-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 2147483647;
-      background: #000000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      cursor: pointer;
-      user-select: none;
-      -webkit-user-select: none;
-      touch-action: manipulation;
-      opacity: 1;
-      transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    html > #dx04-welcome-overlay {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100dvh !important;
+      min-height: 100vh !important;
+      z-index: 2147483647 !important;
+      background: #000000 !important;
+      display: flex !important;
+      visibility: visible !important;
+      align-items: center !important;
+      justify-content: center !important;
+      overflow: hidden !important;
+      cursor: pointer !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      touch-action: manipulation !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      opacity: 1 !important;
+      transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1) !important;
     }
-    #dx04-welcome-overlay.is-leaving {
-      opacity: 0;
-      pointer-events: none;
+    html > #dx04-welcome-overlay.is-leaving {
+      opacity: 0 !important;
+      pointer-events: none !important;
     }
-    #dx04-welcome-canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
+    html > #dx04-welcome-overlay > #dx04-welcome-canvas {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      width: 100% !important;
+      height: 100% !important;
     }
   </style>
-  <div id="dx04-welcome-overlay" role="button" tabindex="0" aria-label="點擊進入網站">
-    <canvas id="dx04-welcome-canvas"></canvas>
-  </div>
-  <script>
+  <script id="dx04-welcome-script">
     (function () {
-      const overlay = document.getElementById('dx04-welcome-overlay');
-      const canvas = document.getElementById('dx04-welcome-canvas');
-      if (!overlay || !canvas) return;
+      if (document.getElementById('dx04-welcome-overlay')) return;
+
+      // 直接掛載在 <html>（document.documentElement），繞過 html.dx-locked 對 <body> 的隱藏規則
+      const overlay = document.createElement('div');
+      overlay.id = 'dx04-welcome-overlay';
+      overlay.setAttribute('role', 'button');
+      overlay.setAttribute('tabindex', '0');
+      overlay.setAttribute('aria-label', '點擊進入網站');
+
+      const canvas = document.createElement('canvas');
+      canvas.id = 'dx04-welcome-canvas';
+      overlay.appendChild(canvas);
+      document.documentElement.appendChild(overlay);
+
       const ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) return;
 
       const DURATION = 10.0;          // 單次完整動畫長度（秒）
       const REPLAY_DELAY_MS = 60000;  // 播放完畢後等待 1 分鐘（60,000ms）再自動重播
@@ -303,10 +317,12 @@
 
       // 離屏取樣純白粗體無襯線 DX04 像素，確保起點與終點 100% 精準對齊原圖
       function sampleLogoTargets() {
+        if (W <= 0 || H <= 0) return false;
         const off = document.createElement('canvas');
         off.width = W;
         off.height = H;
         const octx = off.getContext('2d');
+        if (!octx) return false;
 
         // 橫向（電腦版）與直向（手機版）各自的視覺比例
         const fontSize = isPortrait
@@ -324,7 +340,13 @@
         octx.textBaseline = 'middle';
         octx.fillText(logoText, W * 0.5, logoBaselineY);
 
-        const imgData = octx.getImageData(0, 0, W, H).data;
+        let imgData;
+        try {
+          imgData = octx.getImageData(0, 0, W, H).data;
+        } catch (_) {
+          return false;
+        }
+
         const step = isPortrait
           ? Math.max(2, Math.round(Math.min(W, H) / 230))
           : Math.max(2, Math.round(Math.min(W, H) / 270));
@@ -391,11 +413,15 @@
             tone: idx % 3 === 0 ? PALETTE.electric : (idx % 3 === 1 ? PALETTE.primary : PALETTE.cobalt)
           };
         });
+        return true;
       }
 
       function setupViewport(resetClock) {
-        W = window.innerWidth || document.documentElement.clientWidth || 1280;
-        H = window.innerHeight || document.documentElement.clientHeight || 720;
+        const rect = overlay.getBoundingClientRect();
+        W = Math.round(rect.width) || window.innerWidth || document.documentElement.clientWidth || 0;
+        H = Math.round(rect.height) || window.innerHeight || document.documentElement.clientHeight || 0;
+        if (W <= 0 || H <= 0) return false;
+
         isPortrait = H > W; // 手機直向 vs 電腦橫向
         dpr = Math.min(window.devicePixelRatio || 1, 2);
 
@@ -403,13 +429,15 @@
         canvas.height = Math.round(H * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        sampleLogoTargets();
-        if (resetClock) {
+        const ok = sampleLogoTargets();
+        if (ok && resetClock) {
           startTime = performance.now();
         }
+        return ok;
       }
 
       function drawStaticLogo() {
+        if (W <= 0 || H <= 0) return;
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, W, H);
         ctx.fillStyle = '#FFFFFF';
@@ -469,11 +497,8 @@
         }
 
         // 粒子計算（由左至右依序剝離，向右上方流出，再由左側匯入定格）
-        const flowPhase = clamp((elapsed - 1.35) / (8.45 - 1.35), 0, 1);
-
         for (let i = 0; i < particles.length; i++) {
           const p = particles[i];
-          // 左側字元（D）先離散、右側字元（4）後離散
           const stagger = p.normX * 0.55 + p.r1 * 0.18;
           const outT = easeInOutCubic(smoothstep(1.35 + stagger * 0.85, 3.35 + stagger * 0.85, elapsed));
           const inT  = easeInOutCubic(smoothstep(6.05 + stagger * 0.85, 8.15 + stagger * 0.85, elapsed));
@@ -486,7 +511,6 @@
           let size = p.baseSize;
 
           if (active > 0.0005) {
-            // 沿著左進右出循環軌跡推進
             const drift = (elapsed - 1.35) * (0.24 + p.r2 * 0.13) + p.normX * 0.42 + p.r3 * 0.25;
             const wrapU = ((drift % 1.36) + 1.36) % 1.36 - 0.18; // -0.18（左側入口）到 1.18（右側出口）
             const streamX = wrapU * W;
@@ -496,14 +520,11 @@
             const upwardTilt = (0.5 - wrapU) * H * 0.22; // 左低右高非對稱斜向氣流
             const streamY = H * 0.5 + laneShift + harmonic + upwardTilt + (p.normY - 0.5) * H * 0.08;
 
-            // 離散時往右飄出、回歸時從左側平滑匯入
-            const biasX = (1 - inT) * streamX + inT * (p.tx - W * 0.26 * (1 - inT));
             const targetStreamX = inT > 0.05 ? lerp(streamX, p.tx - W * 0.18, inT) : streamX;
 
             x = lerp(p.tx, targetStreamX, active);
             y = lerp(p.ty, streamY, active);
 
-            // 顏色由純白漸變為 #00838B 主色與搭配冷色調
             const colorBlend = smoothstep(0.05, 0.45, active);
             const primaryMix = mixColor(PALETTE.primary, p.tone, 0.35 + 0.65 * Math.sin(wrapU * Math.PI));
             col = mixColor(PALETTE.white, primaryMix, colorBlend);
@@ -517,7 +538,6 @@
           ctx.fillRect(x - size * 0.5, y - size * 0.5, size, size);
         }
 
-        // 起訖純白文字微幅疊合，保證 0s 與 10s 邊緣銳利無鋸齒
         const crispAlpha = 1 - smoothstep(1.35, 1.85, elapsed) + smoothstep(8.05, 8.45, elapsed);
         if (crispAlpha > 0.01) {
           ctx.globalCompositeOperation = 'source-over';
@@ -644,6 +664,14 @@
 
       function loop(now) {
         if (entered) return;
+        if (W <= 0 || H <= 0) {
+          if (setupViewport(true)) {
+            drawStaticLogo();
+          }
+          rafId = requestAnimationFrame(loop);
+          return;
+        }
+
         const elapsed = (now - startTime) / 1000;
 
         if (elapsed >= DURATION) {
@@ -683,13 +711,10 @@
 
       function onResize() {
         if (entered) return;
-        const prevPortrait = isPortrait;
         setupViewport(false);
         if (state === 'waiting') {
           ctx.globalCompositeOperation = 'source-over';
           drawStaticLogo();
-        } else if (prevPortrait !== isPortrait) {
-          // 若旋轉螢幕切換直/橫向，維持當前播放進度並即時切換對應動態軌跡
         }
       }
 
@@ -699,12 +724,16 @@
       });
       window.addEventListener('resize', onResize);
 
-      setupViewport(true);
-      drawStaticLogo();
+      if (setupViewport(true)) {
+        drawStaticLogo();
+      }
       rafId = requestAnimationFrame(loop);
     })();
   </script>
-<header id="clc-header"></header>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-[#090A0F] dark:text-slate-100 min-h-screen flex flex-col justify-between selection:bg-[#007E8A] selection:text-white">
+
+  <header id="clc-header"></header>
 
   <main class="max-w-6xl w-full mx-auto px-5 sm:px-8 py-8 lg:py-12 flex-1 flex flex-col gap-6 lg:gap-8">
 
