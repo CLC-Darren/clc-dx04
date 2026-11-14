@@ -4,8 +4,8 @@
   <link rel="stylesheet" href="/login-gate.css?v=welcome-unified-1">
   <link rel="stylesheet" href="/light-theme.css?v=3">
   <script src="/login-gate.js?v=welcome-unified-1"></script>
-  <script src="/reorder.js?v=drag-lift-3"></script>
-  <script src="/clc-slot-grid.js?v=20261115"></script>
+  <script src="/reorder.js?v=drag-lift-4"></script>
+  <script src="/clc-slot-grid.js?v=20261115c"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>CLC DX04 | 總控台</title>
@@ -139,6 +139,17 @@
     .todo-del:hover, .todo-del:focus-visible { opacity:1; color:#e11d48; background:rgba(225,29,72,.08); }
     @media (hover:hover) { .todo-del { opacity:0; } .todo-row:hover .todo-del, .todo-del:focus-visible { opacity:1; } }
     /* 手機、平板：不顯示 ×；點一下文字進入編輯，才出現 🗑 刪除（放在 .todo-del 之後，才不會被蓋掉） */
+    .todo-row { position:relative; }
+    .todo-minus { position:absolute; top:-9px; right:-6px; width:34px; height:34px; display:grid; place-content:center; border:0; background:none; padding:0; cursor:pointer; z-index:2; }
+    .todo-minus span { width:22px; height:22px; border-radius:50%; background:#475569; box-shadow:0 1px 4px rgba(0,0,0,.35); display:grid; place-content:center; }
+    .todo-minus span::after { content:""; width:10px; height:2px; border-radius:2px; background:#fff; }
+    .todo-minus:active span { background:#e11d48; }
+    .todo-deleting .todo-row { animation:todoJiggle .32s ease-in-out infinite; }
+    .todo-deleting .todo-row:nth-child(2n) { animation-delay:-.16s; }
+    @keyframes todoJiggle { 0%,100% { transform:rotate(-.4deg); } 50% { transform:rotate(.4deg); } }
+    @media (prefers-reduced-motion: reduce) { .todo-deleting .todo-row { animation:none; } }
+    /* 手機：復原列只顯示「復原」 */
+    @media (max-width:1023px), (pointer:coarse) { #todoUndoMessage, #todoUndoButton .undo-en { display:none; } #todoUndoBar { padding:6px 10px !important; } }
     .todo-trash { flex:none; width:40px; height:40px; margin:-4px 0 -4px 6px; display:grid; place-content:center; border:0; border-radius:12px; background:rgba(225,29,72,.1); color:#e11d48; cursor:pointer; }
     .todo-trash:active { transform:scale(.94); }
     @media (hover:none), (pointer:coarse), (max-width:1023px) { .todo-row .todo-del { display:none !important; } }
@@ -1282,6 +1293,15 @@
         del.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
         del.addEventListener('click', () => removeTodo(todo));
         li.append(label, del);
+        if (body.classList.contains('todo-deleting')) {
+          const minus = document.createElement('button');
+          minus.type = 'button';
+          minus.className = 'todo-minus';
+          minus.setAttribute('aria-label', '刪除：' + todo.title);
+          minus.innerHTML = '<span aria-hidden="true"></span>';
+          minus.addEventListener('click', e => { e.stopPropagation(); removeTodo(todo); });
+          li.append(minus);
+        }
         return li;
       }
       function group(title, cls, items, opts) {
@@ -1300,6 +1320,7 @@
       }
       window.clcReorder(body, {
         item: '.todo-row', directMouse: true, allowed: () => !!window.isSuperuser,
+        hold: () => setTodoDeleteMode(true), // 手機長按不動：每一項右上角出現「−」
         move(from, to, after) {
           const rows = Array.from(body.querySelectorAll('.todo-row'));
           const ids = rows.map(el => el.dataset.sortId).filter(id => id !== from);
@@ -1310,6 +1331,19 @@
         error: () => setStatus('無法保存排序，請確認瀏覽器允許本機儲存。')
       });
       const byNewest = (a, b) => b.created - a.created || b.id.localeCompare(a.id);
+      // 刪除模式（手機）：長按任一項 → 每項右上角出現「−」（跟 App 一樣），點旁邊或 Esc 結束。
+      function setTodoDeleteMode(on) {
+        on = !!on && !!window.isSuperuser;
+        if (body.classList.contains('todo-deleting') === on) return;
+        body.classList.toggle('todo-deleting', on);
+        doneList.classList.toggle('todo-deleting', on);
+        if (on && navigator.vibrate) navigator.vibrate(15);
+        render();
+      }
+      document.addEventListener('pointerdown', e => {
+        if (body.classList.contains('todo-deleting') && !e.target.closest('.todo-row, #todoUndoBar')) setTodoDeleteMode(false);
+      });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') setTodoDeleteMode(false); });
 
       function render() {
         body.replaceChildren();
@@ -1418,7 +1452,7 @@
           undoBar.style.cssText = 'position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:1000;max-width:calc(100vw - 32px);padding:12px 18px;border-radius:14px;background:#242a38;color:#fff;box-shadow:0 8px 30px #0006;display:flex;align-items:center;gap:18px;font-size:14px;';
           const message = document.createElement('span'); message.id = 'todoUndoMessage';
           const button = document.createElement('button'); button.id = 'todoUndoButton'; button.type = 'button';
-          button.textContent = '復原 Undo'; button.style.cssText = 'flex:none;background:none;border:0;color:#67e8f9;font:700 14px Arial;padding:8px;cursor:pointer;';
+          button.innerHTML = '復原<span class="undo-en"> Undo</span>'; button.style.cssText = 'flex:none;background:none;border:0;color:#67e8f9;font:700 14px Arial;padding:8px;cursor:pointer;';
           button.addEventListener('click', undoDelete);
           undoBar.append(message, button); document.body.append(undoBar);
         }

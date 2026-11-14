@@ -195,7 +195,7 @@
     // 三站都是整個畫面都能滑（Header 除外；左右各留 10% 給瀏覽器的返回手勢）。
     // 從連結、App 圖示、待辦上開始滑也可以：輕點照常、長按照常（拖曳排序開始後就不會切站）。
     function blocked(node) {
-      const controls = 'button:not(.ha-tile), input, textarea, select, dialog, [role="dialog"], [contenteditable="true"], .ha-menu, .slot-remove, .slot-empty.is-admin, .todo-trash, .drag-handle, .reorder-handle, iframe, video, audio';
+      const controls = 'button:not(.ha-tile):not(.slot-empty), input, textarea, select, dialog, [role="dialog"], [contenteditable="true"], .ha-menu, .slot-remove, .todo-trash, .todo-minus, .drag-handle, .reorder-handle, iframe, video, audio';
       if (node.closest(controls)) return true;
       for (let el = node; el && el !== document.body; el = el.parentElement) {
         if (el.scrollWidth > el.clientWidth + 4 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
@@ -262,8 +262,8 @@
       const t = e.touches[0], dx = t.clientX - gesture.x, dy = t.clientY - gesture.y;
       if (t.identifier !== gesture.id) { cancel(); return; }
       if (!gesture.horizontal) {
-        if (Math.abs(dy) > 14 && Math.abs(dy) >= Math.abs(dx)) { cancel(); return; }
-        if (Math.abs(dx) < 18 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        if (Math.abs(dy) > 16 && Math.abs(dy) >= Math.abs(dx)) { cancel(); return; }
+        if (Math.abs(dx) < 12 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
         gesture.horizontal = true;
       }
       gesture.dx = dx;
@@ -272,7 +272,8 @@
     }, { passive:false });
     document.addEventListener('touchend', () => {
       const g = gesture;
-      if (!g || !g.horizontal || !canSwipe() || performance.now() - g.at > 800 || Math.abs(g.dx) < Math.max(64, innerWidth * .18)) { cancel(); return; }
+      const fast = !!g && Math.abs(g.dx) >= 40 && performance.now() - g.at < 260; // 快速一撥也算
+      if (!g || !g.horizontal || !canSwipe() || performance.now() - g.at > 900 || (!fast && Math.abs(g.dx) < Math.max(56, innerWidth * .15))) { cancel(); return; }
       gesture = null;
       makeVisual(g.dx); navigating = true;
       const next = visual.next;

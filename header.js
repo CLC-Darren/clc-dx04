@@ -420,11 +420,14 @@ document.addEventListener('DOMContentLoaded', renderHeaderComponent);
   const st = document.createElement('style');
   st.textContent = `
     #clc-header { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
-    .clc-hmenu { position:fixed; z-index:2147483600; min-width:190px; padding:6px; border-radius:14px; background:#161924; border:1px solid rgba(255,255,255,.1); box-shadow:0 18px 40px rgba(0,0,0,.45); font:14px/1.3 Arial,"Microsoft JhengHei",sans-serif; }
-    .clc-hmenu button { display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border:0; border-radius:9px; background:transparent; color:#f1f5f9; font:inherit; font-weight:700; text-align:left; cursor:pointer; }
-    .clc-hmenu button:hover, .clc-hmenu button:focus-visible { background:rgba(255,255,255,.08); outline:none; }
-    .clc-hmenu-toast { position:fixed; left:50%; top:64px; transform:translateX(-50%); z-index:2147483600; padding:9px 16px; border-radius:9999px; background:#007E8A; color:#fff; font:700 13.5px/1.2 Arial,sans-serif; box-shadow:0 10px 30px rgba(0,0,0,.35); pointer-events:none; }
+    .clc-hmenu { position:fixed; z-index:2147483600; min-width:200px; padding:4px; border-radius:8px; background:#fff; color:#1a1a1a; border:1px solid rgba(0,0,0,.12); box-shadow:0 8px 24px rgba(0,0,0,.18); font:14px/20px "Segoe UI",Arial,sans-serif; }
+    html.dark .clc-hmenu { background:#2c2c2c; color:#fff; border-color:rgba(255,255,255,.1); box-shadow:0 8px 24px rgba(0,0,0,.5); }
+    .clc-hmenu button { display:block; width:100%; padding:6px 12px; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; text-align:left; cursor:default; }
+    .clc-hmenu button:hover, .clc-hmenu button:focus-visible { background:rgba(0,0,0,.06); outline:none; }
+    html.dark .clc-hmenu button:hover, html.dark .clc-hmenu button:focus-visible { background:rgba(255,255,255,.08); }
+    .clc-hmenu-toast { position:fixed; left:50%; top:60px; transform:translateX(-50%); z-index:2147483600; padding:6px 14px; border-radius:6px; background:#2c2c2c; color:#fff; font:13px/18px "Segoe UI",Arial,sans-serif; box-shadow:0 6px 18px rgba(0,0,0,.3); pointer-events:none; }
   `;
+
   (document.head || document.documentElement).appendChild(st);
 
   // 目前這一頁「原本網站」的網址：DX04 裡的外部網站取內嵌網站的網址，其他直接用這一頁。
@@ -459,18 +462,18 @@ document.addEventListener('DOMContentLoaded', renderHeaderComponent);
     const left = Math.max(0, ((screen.availWidth || w) - w) / 2), top = Math.max(0, ((screen.availHeight || h) - h) / 2);
     const win = window.open(url, '_blank', `popup,width=${w},height=${h},left=${left},top=${top}`);
     if (win) { try { win.opener = null; } catch (_) {} }
-    else toast('瀏覽器擋住了新視窗，請允許彈出視窗。');
+    else toast('Pop-up blocked');
   }
   function showMenu(x, y) {
     closeMenu();
     const url = pageUrl();
     menu = document.createElement('div');
     menu.className = 'clc-hmenu'; menu.setAttribute('role', 'menu');
-    menu.innerHTML = '<button type="button" role="menuitem" data-act="copy">📋 複製網址</button><button type="button" role="menuitem" data-act="open">🪟 在新視窗開啟</button>';
+    menu.innerHTML = '<button type="button" role="menuitem" data-act="copy">Copy link</button><button type="button" role="menuitem" data-act="open">Open in new window</button>';
     menu.addEventListener('click', async e => {
       const b = e.target.closest('button'); if (!b) return;
       closeMenu();
-      if (b.dataset.act === 'copy') toast(await copyText(url) ? '已複製網址' : '無法複製，請手動複製網址列');
+      if (b.dataset.act === 'copy') toast(await copyText(url) ? 'Link copied' : 'Couldn\'t copy link');
       else openWindow(url);
     });
     document.body.appendChild(menu);

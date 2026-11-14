@@ -3,7 +3,7 @@ window.clcReorder = function (container, options) {
   let source = null, target = null, after = false, pointer = null, holdTimer = null;
   let suppressUntil = 0, saving = false, floating = null;
   const item = node => node?.closest?.(options.item);
-  const excluded = node => node?.closest?.('input, textarea, select, .todo-del, .app-remove, .app-slot');
+  const excluded = node => node?.closest?.('input, textarea, select, .todo-del, .todo-minus, .app-remove, .app-slot, .slot-remove, .slot-empty');
   function lift() {
     if (!options.directMouse || !source) return;
     const rect = source.getBoundingClientRect();

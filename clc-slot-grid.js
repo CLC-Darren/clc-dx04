@@ -2,7 +2,8 @@
  * CLC 共用「主畫面格子」(DX04、YA、SR 三站同一份程式；三站各放一份相同的檔案)
  * 像手機主畫面：每個 App 記住自己在第幾格（pos），中間可以留空格。
  * - 長按 App → 進入編輯（晃動）。晃動時：拖曳到空格＝移過去；拖到另一個 App 上＝互換位置；
- *   按「−」刪除、點 App 修改、點空格「＋」新增、按「完成」或點旁邊結束。
+ *   按「−」刪除、點 App 修改、按「完成」或點旁邊結束。
+ *   新增：長按空格「＋」（晃動中點一下也可以），不容易誤觸。
  * - 長按後手指不放直接拖，也可以（跟手機一樣）。
  * - 只有 canEdit() 為 true 的人（Superuser）能編輯。
  *
@@ -35,7 +36,9 @@
       .slot-cell.slot-source { opacity:.3; }
       .slot-grid .slot-target { outline:2px solid #00A3B4; outline-offset:3px; border-radius:22%; }
       .slot-floating { position:fixed; margin:0; pointer-events:none; z-index:2147483646; will-change:transform; }
-      .slot-floating > :first-child { transform:scale(1.08); box-shadow:none; }
+      .slot-floating > :first-child { animation:none !important; transform:scale(1.08) rotate(-1.5deg); box-shadow:0 22px 45px rgba(0,0,0,.35),0 6px 14px rgba(0,0,0,.2); transition:transform .15s ease-out; }
+      .slot-floating.slot-landing > :first-child { transform:scale(1) rotate(0); box-shadow:none; transition:transform .16s ease-out, box-shadow .16s; }
+      .slot-empty.slot-pressing { transform:scale(.92); transition:transform .45s; }
       .slot-floating .slot-remove { display:none; }
       .slot-done { margin:14px auto 0; display:block; padding:8px 22px; border-radius:9999px; background:#007E8A; color:#fff; font-weight:700; font-size:14px; border:0; cursor:pointer; }
       .slot-done[hidden] { display:none; }
@@ -106,7 +109,7 @@
         } else if (admin) {
           const b = document.createElement('button');
           b.type = 'button'; b.className = 'slot-empty is-admin ' + (o.emptyClass || '');
-          b.dataset.slot = pos; b.textContent = '+'; b.title = '新增'; b.setAttribute('aria-label', '新增到第 ' + (pos + 1) + ' 格');
+          b.dataset.slot = pos; b.textContent = '+'; b.title = '長按新增'; b.setAttribute('aria-label', '新增到第 ' + (pos + 1) + ' 格');
           grid.append(b);
         } else {
           const d = document.createElement('div');
@@ -173,10 +176,11 @@
     async function endDrag(commit) {
       const st = g; g = null;
       suppressClickUntil = Date.now() + 400;
-      st.float?.remove();
+      const ok = commit && st.target && !saving && canEdit();
+      land(st.float, (ok ? st.target : st.cell).getBoundingClientRect(), st.origin);
       st.cell.classList.remove('slot-source');
       st.target?.classList.remove('slot-target');
-      if (!commit || !st.target || saving || !canEdit()) return;
+      if (!ok) return;
       const from = Number(st.cell.dataset.slot), to = Number(st.target.dataset.slot);
       if (from === to) return;
       const moving = items.find(it => it.pos === from), other = items.find(it => it.pos === to);
@@ -188,6 +192,15 @@
       catch (err) { console.warn('排列儲存失敗', err); o.error?.(err); }
       finally { saving = false; render(); }
     }
+    // 放開時卡片滑進格子再消失（跟今日待辦一樣）
+    function land(f, rect, origin) {
+      if (!f) return;
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) { f.remove(); return; }
+      f.classList.add('slot-landing');
+      f.style.transition = 'transform .16s ease-out';
+      f.style.transform = `translate3d(${rect.left - origin.x}px,${rect.top - origin.y}px,0)`;
+      setTimeout(() => f.remove(), 170);
+    }
     function cancelGesture() {
       if (!g) return;
       clearTimeout(g.timer);
@@ -196,7 +209,22 @@
     }
     function begin(e, x, y, touch) {
       if (saving || !canEdit() || g) return;
-      if (e.target.closest('.slot-remove, .slot-empty, a[target="_blank"].no-slot')) return;
+      if (e.target.closest('.slot-remove')) return;
+      const empty = e.target.closest('.slot-empty.is-admin');
+      if (empty && grid.contains(empty)) {
+        if (editing) return; // 晃動中點一下「＋」就新增
+        g = { cell: empty, empty: true, x, y, touch, held: false, dragging: false, target: null };
+        empty.classList.add('slot-pressing');
+        g.timer = setTimeout(() => {
+          if (!g || !g.empty) return;
+          empty.classList.remove('slot-pressing');
+          suppressClickUntil = Date.now() + 600;
+          if (navigator.vibrate) navigator.vibrate(15);
+          const pos = Number(empty.dataset.slot); g = null;
+          o.onAdd?.(pos);
+        }, LONG_PRESS);
+        return;
+      }
       const cell = e.target.closest('.slot-cell');
       if (!cell || !grid.contains(cell)) return;
       g = { cell, x, y, touch, held: false, dragging: false, editingAtStart: editing, target: null };
@@ -212,6 +240,7 @@
     function move(e, x, y) {
       if (!g) return false;
       const dist = Math.hypot(x - g.x, y - g.y);
+      if (g.empty) { if (dist >= MOVE_TOL) cancelGesture(); return false; }
       if (!g.dragging) {
         if (dist < MOVE_TOL) return g.held || g.editingAtStart;
         if (!g.held && !g.editingAtStart) { cancelGesture(); return false; } // 一般捲動或左右滑
@@ -260,7 +289,7 @@
       const rm = e.target.closest('.slot-remove');
       if (rm) { e.preventDefault(); e.stopImmediatePropagation(); o.onRemove?.(rm.dataset.removeId); return; }
       const empty = e.target.closest('.slot-empty.is-admin');
-      if (empty) { e.preventDefault(); e.stopImmediatePropagation(); o.onAdd?.(Number(empty.dataset.slot)); return; }
+      if (empty) { e.preventDefault(); e.stopImmediatePropagation(); if (editing) o.onAdd?.(Number(empty.dataset.slot)); return; }
       const cell = e.target.closest('.slot-cell');
       if (cell && editing) { e.preventDefault(); e.stopImmediatePropagation(); o.onEdit?.(cell.dataset.id); }
     }, true);
