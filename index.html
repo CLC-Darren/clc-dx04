@@ -5,6 +5,7 @@
   <link rel="stylesheet" href="/light-theme.css?v=3">
   <script src="/login-gate.js?v=welcome-unified-1"></script>
   <script src="/reorder.js?v=drag-lift-3"></script>
+  <script src="/clc-slot-grid.js?v=20261115"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>CLC DX04 | 總控台</title>
@@ -137,7 +138,9 @@
     .todo-del { flex:none; width:44px; height:44px; display:grid; place-content:center; border:0; background:none; color:#94a3b8; border-radius:12px; cursor:pointer; opacity:.55; }
     .todo-del:hover, .todo-del:focus-visible { opacity:1; color:#e11d48; background:rgba(225,29,72,.08); }
     @media (hover:hover) { .todo-del { opacity:0; } .todo-row:hover .todo-del, .todo-del:focus-visible { opacity:1; } }
-    /* 手機、平板：不顯示 ×，只能往右滑刪除（放在 .todo-del 之後，才不會被蓋掉） */
+    /* 手機、平板：不顯示 ×；點一下文字進入編輯，才出現 🗑 刪除（放在 .todo-del 之後，才不會被蓋掉） */
+    .todo-trash { flex:none; width:40px; height:40px; margin:-4px 0 -4px 6px; display:grid; place-content:center; border:0; border-radius:12px; background:rgba(225,29,72,.1); color:#e11d48; cursor:pointer; }
+    .todo-trash:active { transform:scale(.94); }
     @media (hover:none), (pointer:coarse), (max-width:1023px) { .todo-row .todo-del { display:none !important; } }
     .todo-group { margin:6px 0 0; font-size:.75rem; font-weight:700; letter-spacing:.05em; color:#64748b; }
     .dark .todo-group { color:#8A92A6; }
@@ -156,9 +159,7 @@
     /* 分站編輯模式（iPhone 式：晃動＋「−」） */
     .app-cell { position:relative; aspect-ratio:1; }
     .app-cell .app-tile { width:100%; height:100%; }
-    #siteGrid.is-editing .app-tile { animation:appJiggle .32s ease-in-out infinite; animation-delay:var(--jiggle-delay,0s); }
     @keyframes appJiggle { 0%,100% { transform:rotate(-2deg); } 50% { transform:rotate(2deg); } }
-    @media (prefers-reduced-motion: reduce) { #siteGrid.is-editing .app-tile { animation:none; } }
     .app-remove { position:absolute; top:-10px; left:-10px; width:36px; height:36px; display:grid; place-content:center; border:0; background:none; padding:0; cursor:pointer; z-index:2; }
     .app-remove span { width:22px; height:22px; border-radius:50%; background:#475569; box-shadow:0 1px 4px rgba(0,0,0,.35); display:grid; place-content:center; }
     .app-remove span::after { content:""; width:10px; height:2px; border-radius:2px; background:#fff; }
@@ -792,9 +793,9 @@
       <!-- App 入口：4 欄 × 2 排，共 8 格 -->
       <section data-widget="apps" data-desktop-slot="top" aria-labelledby="appsTitle" class="dash-widget relative space-y-3">
         <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
-        <div class="flex items-center justify-between gap-3 min-h-[28px]">
+        <div class="flex items-center justify-between gap-3 min-h-[36px]">
           <h2 id="appsTitle" class="text-sm font-bold text-slate-500 dark:text-brand-muted">分站入口</h2>
-          <button type="button" id="appsDoneBtn" class="hidden h-9 px-4 rounded-full text-sm font-bold bg-[#007E8A] hover:bg-[#006C77] text-white">完成</button>
+          <button type="button" id="appsDoneBtn" hidden class="h-9 px-4 rounded-full text-sm font-bold bg-[#007E8A] hover:bg-[#006C77] text-white">完成</button>
         </div>
         <!-- 分站清單存在 Firestore dx04_settings/apps；管理員長按進入編輯模式：「−」移除、「＋」新增、點 Logo 編輯 -->
         <div id="siteGrid" class="grid grid-cols-4 gap-3"></div>
@@ -1235,9 +1236,9 @@
         text.className = 'todo-text';
         text.tabIndex = 0;
         text.setAttribute('role', 'button');
-        text.setAttribute('aria-label', '雙擊修改：' + todo.title);
-        // 滑鼠雙擊或手機連點兩下才編輯；鍵盤 Enter 保留。
-        let lastTapAt = 0, touchDownAt = 0, lastPointerType = '';
+        text.setAttribute('aria-label', '修改：' + todo.title);
+        // 滑鼠雙擊、手機點一下編輯；鍵盤 Enter 保留。
+        let touchDownAt = 0, lastPointerType = '';
         text.addEventListener('pointerdown', e => {
           lastPointerType = e.pointerType;
           touchDownAt = e.pointerType === 'touch' ? performance.now() : 0;
@@ -1248,16 +1249,9 @@
             if (e.detail >= 2 || e.detail === 0) startEdit(todo, text);
             return;
           }
-          if (e.detail === 0 && !e.pointerType) { startEdit(todo, text); return; }
-          const now = performance.now();
-          // 長按放開不應被算成點擊或進入編輯，包含拖曳未啟動的情況。
-          if (touchDownAt && now - touchDownAt >= 350) { lastTapAt = 0; return; }
-          if (lastTapAt && now - lastTapAt <= 350) {
-            lastTapAt = 0;
-            startEdit(todo, text);
-          } else {
-            lastTapAt = now;
-          }
+          // 手機：點一下就編輯（編輯中才出現 🗑 刪除）；長按放開不算（那是拖曳排序）。
+          if (touchDownAt && performance.now() - touchDownAt >= 350) return;
+          startEdit(todo, text);
         });
         text.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); startEdit(todo, text); } });
         const title = document.createElement('span');
@@ -1288,46 +1282,7 @@
         del.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
         del.addEventListener('click', () => removeTodo(todo));
         li.append(label, del);
-        enableSwipeDelete(li, todo);
         return li;
-      }
-      // 手機：往右滑過一半寬度就刪除（不顯示 ×，避免誤刪）
-      function enableSwipeDelete(li, todo) {
-        let start = null, dx = 0, active = false;
-        li.addEventListener('pointerdown', e => {
-          if (e.pointerType !== 'touch' || e.target.closest('.todo-edit, .reorder-handle')) return;
-          start = { x: e.clientX, y: e.clientY }; dx = 0; active = false;
-        });
-        li.addEventListener('pointermove', e => {
-          if (!start) return;
-          const mx = e.clientX - start.x, my = e.clientY - start.y;
-          if (!active) {
-            if (Math.abs(my) > 10 && Math.abs(my) > Math.abs(mx)) { start = null; return; }
-            if (mx > 12 && mx > Math.abs(my)) { active = true; li.classList.add('is-swiping'); try { li.setPointerCapture(e.pointerId); } catch (_) {} }
-            else return;
-          }
-          dx = Math.max(0, mx);
-          li.style.setProperty('--swipe', dx + 'px');
-          li.classList.toggle('will-delete', dx > li.offsetWidth * 0.5);
-        });
-        const end = () => {
-          if (!start) return;
-          start = null;
-          if (!active) return;
-          li.classList.remove('is-swiping');
-          if (dx > li.offsetWidth * 0.5) {
-            li.style.setProperty('--swipe', li.offsetWidth + 'px');
-            li.classList.add('is-removing');
-            setTimeout(() => removeTodo(todo), 180);
-          } else {
-            li.style.setProperty('--swipe', '0px');
-            li.classList.remove('will-delete');
-          }
-        };
-        li.addEventListener('pointerup', end);
-        li.addEventListener('pointercancel', end);
-        // 滑動後放開不要觸發點文字修改
-        li.addEventListener('click', e => { if (active) { e.stopPropagation(); e.preventDefault(); active = false; } }, true);
       }
       function group(title, cls, items, opts) {
         if (!items.length) return;
@@ -1518,6 +1473,16 @@
         box.value = rawText(todo);
         box.setAttribute('aria-label', '修改待辦');
         textEl.replaceWith(box);
+        // 編輯中才出現刪除鈕（不容易誤觸）；刪除後下方可按「復原」。
+        const trash = document.createElement('button');
+        trash.type = 'button';
+        trash.className = 'todo-trash';
+        trash.title = '刪除';
+        trash.setAttribute('aria-label', '刪除：' + todo.title);
+        trash.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
+        trash.addEventListener('pointerdown', e => e.preventDefault()); // 不讓輸入框先失去焦點而存檔
+        trash.addEventListener('click', () => { finished = true; trash.remove(); removeTodo(todo); });
+        box.after(trash);
         box.focus();
         let finished = false;
         const finish = async save => {
@@ -1746,7 +1711,7 @@
       const hint = document.getElementById('appsAdminHint');
       const doneBtn = document.getElementById('appsDoneBtn');
       const CACHE_KEY = 'clc_dx04_apps';
-      const MIN_SLOTS = 8, MAX_APPS = 40, LONG_PRESS_MS = 550;
+      const MIN_SLOTS = 8, MAX_APPS = 40;
       const DEFAULT_APPS = [
         { id: 'ya', site: 'ya', name: 'CLC YA', url: 'https://clc-dx04.pages.dev/ya/', icon: '/ya/apple-touch-icon.png' },
         { id: 'sr', site: 'sr', name: 'CLC SR', url: 'https://clc-dx04.pages.dev/sr/', icon: '/sr/apple-touch-icon.png' }
@@ -1758,7 +1723,7 @@
         if (Array.isArray(cached)) apps = cached;
       } catch (_) {}
 
-      const isAdmin = () => !!window.isAdmin;
+      const isAdmin = () => !!window.isSuperuser; // 只有 Superuser 可以編輯分站入口
       // 只接受 http(s) 或站內路徑，避免 javascript: 之類的連結。
       function safeUrl(value) {
         const v = String(value || '').trim();
@@ -1921,134 +1886,38 @@
         return img;
       }
 
+      // 格子（長按晃動、拖到空格、互換位置）用三站共用的 clc-slot-grid.js；只有 Superuser 可以編輯。
+      function renderTile(app, editing) {
+        const a = document.createElement('a');
+        a.className = 'app-tile';
+        const link = linkFor(app);
+        a.href = link.href;
+        if (link.newTab) { a.target = '_blank'; a.rel = 'noopener'; }
+        a.title = app.name;
+        a.setAttribute('aria-label', editing ? '編輯 ' + app.name : app.name);
+        a.dataset.appId = app.id;
+        a.append(logo(app));
+        return a;
+      }
+      let addPos = null;
+      const slots = window.clcSlotGrid(grid, {
+        minSlots: MIN_SLOTS, cellClass: 'app-cell', emptyClass: 'app-slot', removeClass: 'app-remove',
+        doneButton: doneBtn,
+        canEdit: isAdmin,
+        getItems: () => apps,
+        renderTile,
+        save: persist,
+        error: err => alert('排列儲存失敗：' + errorText(err)),
+        onAdd: pos => { addPos = pos; openAdd(); },
+        onEdit: id => openEdit(id),
+        onRemove: id => removeApp(id)
+      });
       function render() {
-        const admin = isAdmin();
-        if (!admin) editing = false;
-        grid.classList.toggle('is-editing', editing);
-        grid.replaceChildren();
-        apps.forEach((app, i) => {
-          const cell = document.createElement('div');
-          cell.className = 'app-cell';
-          cell.dataset.sortId = app.id;
-          cell.draggable = admin;
-          cell.style.setProperty('--jiggle-delay', (-(i % 3) * 0.11) + 's');
-          const a = document.createElement('a');
-          a.className = 'app-tile';
-          a.draggable = admin;
-          const link = linkFor(app);
-          a.href = link.href;
-          if (link.newTab) { a.target = '_blank'; a.rel = 'noopener'; }
-          a.title = app.name;
-          a.setAttribute('aria-label', editing ? '編輯 ' + app.name : app.name);
-          a.dataset.appId = app.id;
-          a.append(logo(app));
-          cell.append(a);
-          if (admin) {
-            const handle = document.createElement('button');
-            handle.type = 'button'; handle.className = 'reorder-handle'; handle.textContent = '⠿';
-            handle.title = '';
-            handle.setAttribute('aria-label', '拖曳排序：' + app.name);
-            cell.append(handle);
-          }
-          if (editing) {
-            const rm = document.createElement('button');
-            rm.type = 'button';
-            rm.className = 'app-remove';
-            rm.dataset.removeId = app.id;
-            rm.setAttribute('aria-label', '移除 ' + app.name);
-            rm.innerHTML = '<span aria-hidden="true"></span>';
-            cell.append(rm);
-          }
-          grid.append(cell);
-        });
-        const total = Math.max(MIN_SLOTS, Math.ceil((apps.length + (admin && apps.length < MAX_APPS ? 1 : 0)) / 4) * 4);
-        for (let i = apps.length; i < total; i++) {
-          if (admin) {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.className = 'app-slot is-admin';
-            b.textContent = '+';
-            b.title = '新增分站';
-            b.setAttribute('aria-label', '新增分站');
-            b.dataset.add = '1';
-            grid.append(b);
-          } else {
-            const d = document.createElement('div');
-            d.className = 'app-slot';
-            d.setAttribute('aria-hidden', 'true');
-            d.textContent = '+';
-            grid.append(d);
-          }
-        }
-        hint.classList.toggle('hidden', !admin || editing);
-        doneBtn.classList.toggle('hidden', !editing);
+        slots.render();
+        hint.classList.add('hidden');
         queueIconRefresh();
       }
-      function setEditing(on) {
-        if (on && !isAdmin()) return;
-        if (editing === on) return;
-        editing = on;
-        if (on && navigator.vibrate) navigator.vibrate(15);
-        render();
-      }
-      doneBtn.addEventListener('click', () => setEditing(false));
-      document.addEventListener('keydown', e => { if (e.key === 'Escape' && editing && !document.querySelector('dialog[open]')) setEditing(false); });
-      // 點分站區以外的地方結束編輯（和 iPhone 一樣）
-      document.addEventListener('pointerdown', e => {
-        if (editing && !e.target.closest('#siteGrid, #appsDoneBtn, dialog')) setEditing(false);
-      });
-
-      window.clcReorder(grid, {
-        item: '.app-cell', grid: true, allowed: () => isAdmin(), start: () => cancelPress(), hold: () => setEditing(true),
-        async move(from, to, after) {
-          const moving = apps.find(a => a.id === from);
-          if (!moving || !apps.some(a => a.id === to)) return;
-          const next = apps.filter(a => a.id !== from);
-          next.splice(next.findIndex(a => a.id === to) + (after ? 1 : 0), 0, moving);
-          await persist(next);
-        },
-        error: err => alert('排序儲存失敗：' + errorText(err))
-      });
-
-      // ---------- 長按進入編輯模式 ----------
-      let press = null, suppressClick = false;
-      grid.addEventListener('pointerdown', e => {
-        if (!isAdmin() || editing || (e.pointerType === 'mouse' && e.button !== 0)) return;
-        const target = e.target.closest('.app-cell, .app-slot.is-admin');
-        if (!target) return;
-        target.classList.add('app-pressing');
-        press = {
-          target, x: e.clientX, y: e.clientY,
-          timer: setTimeout(() => {
-            target.classList.remove('app-pressing');
-            suppressClick = true;
-            press = null;
-            setEditing(true);
-          }, LONG_PRESS_MS)
-        };
-      });
-      function cancelPress() {
-        if (!press) return;
-        clearTimeout(press.timer);
-        press.target.classList.remove('app-pressing');
-        press = null;
-      }
-      grid.addEventListener('pointermove', e => {
-        if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) cancelPress();
-      });
-      ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => grid.addEventListener(t, cancelPress));
-      // 長按放開後的那一下點擊不算（若瀏覽器沒送出點擊，短時間後自動恢復）
-      document.addEventListener('pointerup', () => { if (suppressClick) setTimeout(() => { suppressClick = false; }, 350); });
-      grid.addEventListener('click', e => {
-        if (suppressClick) { e.preventDefault(); e.stopPropagation(); suppressClick = false; return; }
-        const rm = e.target.closest('.app-remove');
-        if (rm) { e.preventDefault(); removeApp(rm.dataset.removeId); return; }
-        if (e.target.closest('.app-slot.is-admin')) { e.preventDefault(); openAdd(); return; }
-        const cell = e.target.closest('.app-cell');
-        const tile = cell && cell.querySelector('.app-tile');
-        if (tile && editing) { e.preventDefault(); openEdit(tile.dataset.appId); }
-      }, true);
-      grid.addEventListener('contextmenu', e => { if (isAdmin() && e.target.closest('.app-tile, .app-slot')) e.preventDefault(); });
+      const withPos = () => window.clcSlotGridNormalize(apps);
 
       // ---------- 儲存 ----------
       async function persist(next) {
@@ -2070,7 +1939,7 @@
       async function removeApp(id) {
         const app = apps.find(a => a.id === id);
         if (!app || !confirm('從總控台移除「' + app.name + '」？')) return;
-        try { await persist(apps.filter(a => a.id !== id)); }
+        try { await persist(withPos().filter(a => a.id !== id)); }
         catch (err) { console.warn('分站移除失敗', err); alert(errorText(err)); }
       }
       async function siteInfo(url, fresh = false) {
@@ -2124,7 +1993,9 @@
           embeddable: info.embeddable === true
         };
         try {
-          await persist(apps.concat(item));
+          const base = withPos();
+          if (Number.isInteger(addPos) && !base.some(a => a.pos === addPos)) item.pos = addPos;
+          await persist(base.concat(item));
           addDialog.close();
         } catch (err) {
           console.warn('分站新增失敗', err);
@@ -2201,7 +2072,7 @@
           const patch = { name, url, icon, iconMode: editingIconMode };
           if (refetchedEmbeddable !== null && !old.site) patch.embeddable = refetchedEmbeddable;
           else if (url !== old.url) delete old.embeddable;
-          await persist(apps.map(a => a.id === old.id ? Object.assign({}, old, patch) : a));
+          await persist(withPos().map(a => a.id === old.id ? Object.assign({}, a, patch) : a));
           dialog.close();
         } catch (err) {
           console.warn('分站儲存失敗', err);

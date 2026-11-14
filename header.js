@@ -409,3 +409,102 @@ function toggleTheme() {
 }
 
 document.addEventListener('DOMContentLoaded', renderHeaderComponent);
+
+// ---------- 長按 Header（電腦按右鍵）：複製網址、在新視窗開啟（DX04、YA、SR 三站相同） ----------
+// Logo、按鈕、選單上不會跳出（維持原本功能）。DX04 裡開啟的外部網站，用的是那個網站自己的網址。
+(function () {
+  if (window.clcHeaderMenuInstalled) return;
+  window.clcHeaderMenuInstalled = true;
+  const EXCLUDE = '#clcLogoWrap, a, button, input, select, textarea, label, #adminDropdown, #siteSwitcher, #clcLoginPrompt';
+  const LONG_PRESS = 550;
+  const st = document.createElement('style');
+  st.textContent = `
+    #clc-header { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+    .clc-hmenu { position:fixed; z-index:2147483600; min-width:190px; padding:6px; border-radius:14px; background:#161924; border:1px solid rgba(255,255,255,.1); box-shadow:0 18px 40px rgba(0,0,0,.45); font:14px/1.3 Arial,"Microsoft JhengHei",sans-serif; }
+    .clc-hmenu button { display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border:0; border-radius:9px; background:transparent; color:#f1f5f9; font:inherit; font-weight:700; text-align:left; cursor:pointer; }
+    .clc-hmenu button:hover, .clc-hmenu button:focus-visible { background:rgba(255,255,255,.08); outline:none; }
+    .clc-hmenu-toast { position:fixed; left:50%; top:64px; transform:translateX(-50%); z-index:2147483600; padding:9px 16px; border-radius:9999px; background:#007E8A; color:#fff; font:700 13.5px/1.2 Arial,sans-serif; box-shadow:0 10px 30px rgba(0,0,0,.35); pointer-events:none; }
+  `;
+  (document.head || document.documentElement).appendChild(st);
+
+  // 目前這一頁「原本網站」的網址：DX04 裡的外部網站取內嵌網站的網址，其他直接用這一頁。
+  function pageUrl() {
+    const frame = document.getElementById('appFrame');
+    if (frame && !frame.classList.contains('hidden') && (frame.dataset.src || frame.getAttribute('src'))) {
+      try { const href = frame.contentWindow.location.href; if (href && href !== 'about:blank') return href; } catch (_) {}
+      return new URL(frame.dataset.src || frame.getAttribute('src'), location.href).href;
+    }
+    return location.href;
+  }
+  let menu = null, toastTimer = null;
+  function closeMenu() { if (menu) { menu.remove(); menu = null; } }
+  function toast(msg) {
+    document.querySelectorAll('.clc-hmenu-toast').forEach(el => el.remove());
+    const t = document.createElement('div');
+    t.className = 'clc-hmenu-toast'; t.setAttribute('role', 'status'); t.textContent = msg;
+    document.body.appendChild(t);
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.remove(), 1800);
+  }
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (_) {}
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+      document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand('copy'); ta.remove(); return ok;
+    } catch (_) { return false; }
+  }
+  function openWindow(url) {
+    const w = Math.min(1280, (screen.availWidth || 1280) - 40), h = Math.min(900, (screen.availHeight || 900) - 60);
+    const left = Math.max(0, ((screen.availWidth || w) - w) / 2), top = Math.max(0, ((screen.availHeight || h) - h) / 2);
+    const win = window.open(url, '_blank', `popup,width=${w},height=${h},left=${left},top=${top}`);
+    if (win) { try { win.opener = null; } catch (_) {} }
+    else toast('瀏覽器擋住了新視窗，請允許彈出視窗。');
+  }
+  function showMenu(x, y) {
+    closeMenu();
+    const url = pageUrl();
+    menu = document.createElement('div');
+    menu.className = 'clc-hmenu'; menu.setAttribute('role', 'menu');
+    menu.innerHTML = '<button type="button" role="menuitem" data-act="copy">📋 複製網址</button><button type="button" role="menuitem" data-act="open">🪟 在新視窗開啟</button>';
+    menu.addEventListener('click', async e => {
+      const b = e.target.closest('button'); if (!b) return;
+      closeMenu();
+      if (b.dataset.act === 'copy') toast(await copyText(url) ? '已複製網址' : '無法複製，請手動複製網址列');
+      else openWindow(url);
+    });
+    document.body.appendChild(menu);
+    const r = menu.getBoundingClientRect();
+    menu.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px';
+    menu.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
+    menu.querySelector('button').focus({ preventScroll: true });
+    if (navigator.vibrate) navigator.vibrate(10);
+  }
+  const inHeader = t => t && t.closest && t.closest('#clc-header') && !t.closest(EXCLUDE);
+
+  // 電腦：右鍵
+  document.addEventListener('contextmenu', e => {
+    if (!inHeader(e.target)) return;
+    e.preventDefault();
+    showMenu(e.clientX, e.clientY);
+  });
+  // 手機：長按
+  let press = null, suppressClickUntil = 0;
+  document.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1 || !inHeader(e.target)) return;
+    const t = e.touches[0];
+    press = { x: t.clientX, y: t.clientY, timer: setTimeout(() => { if (!press) return; suppressClickUntil = Date.now() + 700; showMenu(press.x, press.y + 12); press = null; }, LONG_PRESS) };
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!press) return;
+    const t = e.touches[0];
+    if (Math.hypot(t.clientX - press.x, t.clientY - press.y) > 10) { clearTimeout(press.timer); press = null; }
+  }, { passive: true });
+  ['touchend', 'touchcancel'].forEach(type => document.addEventListener(type, () => { if (press) { clearTimeout(press.timer); press = null; } }, { passive: true }));
+  document.addEventListener('click', e => { if (Date.now() < suppressClickUntil && !(menu && menu.contains(e.target))) { e.preventDefault(); e.stopPropagation(); } }, true);
+  // 關閉：點旁邊、Esc、捲動、縮放視窗
+  document.addEventListener('pointerdown', e => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+  window.addEventListener('scroll', closeMenu, { passive: true });
+  window.addEventListener('resize', closeMenu);
+})();

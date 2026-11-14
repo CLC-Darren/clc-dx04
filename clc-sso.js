@@ -179,7 +179,7 @@
     const dirtyForms = new Set();
     const canSwipe = () => !navigating && innerWidth <= 1023 && !!window.isSuperuser &&
       !document.documentElement.classList.contains('dx-locked') &&
-      !document.querySelector('dialog[open], .todo-edit, .reorder-source, .reorder-floating, .is-dragging, #siteGrid.is-editing, #homeApps.is-editing') &&
+      !document.querySelector('dialog[open], .todo-edit, .reorder-source, .reorder-floating, .is-dragging, #siteGrid.is-editing, #homeApps.is-editing, .slot-grid.is-editing, .slot-floating, .clc-hmenu') &&
       !Array.from(dirtyForms).some(form => form.isConnected && Array.from(form.elements).some(field => {
         if (field.disabled || ['submit', 'button', 'reset'].includes(field.type)) return false;
         if (['checkbox', 'radio'].includes(field.type)) return field.checked !== field.defaultChecked;
@@ -192,13 +192,10 @@
         }
         return 'defaultValue' in field && field.value !== field.defaultValue;
       }));
-    // YA、SR：整個畫面都能滑（左右各留 10% 給瀏覽器的返回手勢）；連結與首頁圖示上也能滑，輕點照常開啟。
-    // DX04：維持原本範圍（上方標題區＋卡片之間的空隙），避免和待辦、拖曳排序衝突。
-    const subSite = () => currentSite() !== 0;
+    // 三站都是整個畫面都能滑（Header 除外；左右各留 10% 給瀏覽器的返回手勢）。
+    // 從連結、App 圖示、待辦上開始滑也可以：輕點照常、長按照常（拖曳排序開始後就不會切站）。
     function blocked(node) {
-      const controls = subSite()
-        ? 'button:not(.ha-tile), input, textarea, select, dialog, [role="dialog"], [contenteditable="true"], .ha-menu, .ha-remove, .ha-slot.is-admin, .drag-handle, .reorder-handle, iframe, video, audio'
-        : 'a, button, input, textarea, select, form, dialog, [role="dialog"], [contenteditable="true"], .todo-row, .app-cell, .drag-handle, .reorder-handle, iframe, video, audio';
+      const controls = 'button:not(.ha-tile), input, textarea, select, dialog, [role="dialog"], [contenteditable="true"], .ha-menu, .slot-remove, .slot-empty.is-admin, .todo-trash, .drag-handle, .reorder-handle, iframe, video, audio';
       if (node.closest(controls)) return true;
       for (let el = node; el && el !== document.body; el = el.parentElement) {
         if (el.scrollWidth > el.clientWidth + 4 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
@@ -207,27 +204,6 @@
     }
     const routes = ['/', '/ya/', '/sr/'], labels = ['DX04', 'YA', 'SR'];
     const currentSite = () => /^\/ya(?:\/|$)/.test(location.pathname) ? 1 : /^\/sr(?:\/|$)/.test(location.pathname) ? 2 : 0;
-    function inTopZone(y) {
-      if (scrollY > 8) return false;
-      const heading = document.querySelector('#dx-swipe-zone') || document.querySelector('main h1')?.parentElement;
-      const header = document.getElementById('clc-header');
-      const bottom = heading ? heading.getBoundingClientRect().bottom + 12 : header?.getBoundingClientRect().bottom || 0;
-      return y >= 0 && y <= bottom;
-    }
-    function inCardGap(x, y) {
-      const grid = document.getElementById('dashGrid');
-      if (!grid) return false;
-      const bounds = grid.getBoundingClientRect();
-      if (x < bounds.left || x > bounds.right) return false;
-      const cards = Array.from(grid.querySelectorAll(':scope > [data-widget]'))
-        .map(el => el.getBoundingClientRect())
-        .filter(rect => rect.width > 0 && rect.height > 0)
-        .sort((a, b) => a.top - b.top);
-      return cards.some((card, i) => {
-        const next = cards[i + 1];
-        return next && next.top > card.bottom && y > card.bottom && y < next.top;
-      });
-    }
     function makeVisual(dx) {
       const next = (currentSite() + (dx < 0 ? 1 : 2)) % routes.length;
       if (visual) {
@@ -276,8 +252,8 @@
       restore(); gesture = null;
       if (e.touches.length !== 1 || !canSwipe() || blocked(e.target)) return;
       const t = e.touches[0];
-      if ((!subSite() && !inTopZone(t.clientY) && !inCardGap(t.clientX, t.clientY)) || t.clientX < innerWidth * .1 || t.clientX > innerWidth * .9) return;
-      if (subSite() && t.clientY <= (document.getElementById('clc-header')?.getBoundingClientRect().bottom || 0)) return;
+      if (t.clientX < innerWidth * .1 || t.clientX > innerWidth * .9) return;
+      if (t.clientY <= (document.getElementById('clc-header')?.getBoundingClientRect().bottom || 0)) return;
       gesture = { id:t.identifier, x:t.clientX, y:t.clientY, at:performance.now(), horizontal:false, dx:0 };
     }, { passive:true });
     document.addEventListener('touchmove', e => {
