@@ -118,7 +118,7 @@ window.clcReorder = function (container, options) {
     const next = item(e.target); if (!next) return;
     const touch = e.touches[0];
     source = next; pointer = { touch: true, id: touch.identifier, x: touch.clientX, y: touch.clientY, armed: false, moved: false };
-    holdTimer = setTimeout(begin, 400);
+    holdTimer = setTimeout(begin, 600); // 長按 0.6 秒才浮起，避免誤觸
   }, { passive: true });
   container.addEventListener('touchmove', e => {
     if (!pointer?.touch) return;

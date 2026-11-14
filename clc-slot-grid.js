@@ -35,13 +35,13 @@
       @keyframes clcSlotJiggle { 0%,100% { transform:rotate(-2deg); } 50% { transform:rotate(2deg); } }
       @media (prefers-reduced-motion: reduce) { .slot-grid.is-editing .slot-cell > :first-child { animation:none; } }
       .slot-cell.slot-pressing > :first-child { transform:scale(.92); transition:transform .45s; }
-      .slot-cell.slot-source { opacity:.3; }
+      .slot-cell.slot-source { opacity:.2; }
       .slot-grid .slot-target { outline:2px solid #00A3B4; outline-offset:3px; border-radius:22%; }
-      .slot-floating { position:fixed; margin:0; pointer-events:none; z-index:2147483646; will-change:transform; }
-      .slot-floating > :first-child { animation:none !important; transform:scale(1.08) rotate(-1.5deg); box-shadow:0 22px 45px rgba(0,0,0,.35),0 6px 14px rgba(0,0,0,.2); transition:transform .15s ease-out; }
+      .slot-floating { position:fixed !important; margin:0 !important; pointer-events:none; z-index:2147483646; will-change:transform; aspect-ratio:auto !important; }
+      .slot-floating > :first-child { animation:none !important; transform:translateY(-10px) scale(1.22) rotate(-3deg); transition:transform .18s cubic-bezier(.2,.8,.3,1.2); }
       .slot-floating.slot-landing > :first-child { transform:scale(1) rotate(0); box-shadow:none; transition:transform .16s ease-out, box-shadow .16s; }
       .slot-empty.slot-pressing { transform:scale(.92); transition:transform .45s; }
-      .slot-floating .slot-remove { display:none; }
+      .slot-floating .slot-remove { display:none !important; }
       .slot-done { margin:14px auto 0; display:block; padding:8px 22px; border-radius:9999px; background:#007E8A; color:#fff; font-weight:700; font-size:14px; border:0; cursor:pointer; }
       .slot-done[hidden] { display:none; }
     `;
@@ -67,7 +67,7 @@
   window.clcSlotGridNormalize = normalize;
 
   window.clcSlotGrid = function (grid, o) {
-    const LONG_PRESS = 500, MOVE_TOL = 9;
+    const LONG_PRESS = 700, MOVE_TOL = 9; // 長按 0.7 秒，避免誤觸
     let editing = false, items = [], saving = false;
     let g = null;              // 目前的手勢
     let suppressClickUntil = 0;
@@ -95,6 +95,7 @@
       if (admin && items.length >= total) total += cols; // 管理時至少留一格空格可新增
       total = Math.ceil(total / cols) * cols;
       grid.classList.toggle('is-editing', editing);
+      const floating = Array.from(grid.querySelectorAll(':scope > .slot-floating')); // 落位動畫中的卡片保留
       grid.replaceChildren();
       for (let pos = 0; pos < total; pos++) {
         const it = byPos.get(pos);
@@ -120,6 +121,7 @@
           grid.append(d);
         }
       }
+      floating.forEach(f => grid.appendChild(f));
       done.hidden = !editing;
     }
     function removeButton(it) {
@@ -158,9 +160,12 @@
       f.classList.remove('slot-pressing', 'slot-source');
       f.classList.add('slot-floating', 'reorder-floating');
       f.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+      ['data-slot', 'data-id', 'data-sort-id'].forEach(a => f.removeAttribute(a));
       f.setAttribute('aria-hidden', 'true');
       f.style.left = r.left + 'px'; f.style.top = r.top + 'px'; f.style.width = r.width + 'px'; f.style.height = r.height + 'px';
-      document.body.appendChild(f);
+      f.classList.add('slot-landing'); // 先跟原本一樣大，下一格畫面再「彈起來」
+      grid.appendChild(f); // 放在格子裡面，才會套到各站 App 的樣式（position:fixed 不影響排版）
+      requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('slot-landing')));
       cell.classList.add('slot-source');
       g.dragging = true; g.float = f; g.origin = { x: r.left, y: r.top };
       if (!editing) setEditing(true);
