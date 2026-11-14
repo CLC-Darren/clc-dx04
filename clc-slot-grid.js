@@ -158,7 +158,7 @@
       const cell = g.cell, r = cell.getBoundingClientRect();
       const f = cell.cloneNode(true);
       f.classList.remove('slot-pressing', 'slot-source');
-      f.classList.add('slot-floating', 'reorder-floating');
+      f.classList.add('slot-floating'); // 不用 reorder-floating（那是今日待辦的卡片外框樣式）
       f.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
       ['data-slot', 'data-id', 'data-sort-id'].forEach(a => f.removeAttribute(a));
       f.setAttribute('aria-hidden', 'true');
