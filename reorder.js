@@ -129,6 +129,8 @@ window.clcReorder = function (container, options) {
       return;
     }
     if (e.cancelable) e.preventDefault();
+    // 長按後手指小幅晃動（8px 內）不算移動，放開才能出現「−」。
+    if (!pointer.moved && Math.hypot(touch.clientX - pointer.x, touch.clientY - pointer.y) < 8) return;
     move(touch.clientX, touch.clientY);
   }, { passive: false });
   container.addEventListener('touchend', e => {

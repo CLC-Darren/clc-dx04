@@ -164,6 +164,8 @@
       if (!editing) setEditing(true);
     }
     function moveDrag(x, y) {
+      if (!g.moved && Math.hypot(x - g.x, y - g.y) < MOVE_TOL) return; // 手指小幅晃動不算移動
+      g.moved = true;
       g.float.style.transform = `translate3d(${x - g.x}px,${y - g.y}px,0)`;
       const t = cellAt(x, y);
       if (g.target !== t) {
@@ -235,6 +237,7 @@
         cell.classList.remove('slot-pressing');
         suppressClickUntil = Date.now() + 600;
         setEditing(true);
+        startDrag(); // 長按一到就浮起來（跟今日待辦一樣），放開沒移動就落回原位
       }, LONG_PRESS);
     }
     function move(e, x, y) {
