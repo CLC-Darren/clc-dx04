@@ -61,8 +61,16 @@ function injectSso(res, key) {
   const type = res.headers.get('content-type') || '';
   if (res.status !== 200 || type.indexOf('text/html') === -1 || typeof HTMLRewriter === 'undefined') return res;
   return new HTMLRewriter().on('head', {
-    element(el) { el.append(`<script src="/clc-sso.js?v=20261115" data-clc-site="${key}" defer></script>`, { html: true }); }
+    element(el) { el.append(`<script src="/clc-sso.js?v=20261115" data-clc-site="${key}" defer></script>` + LF_BACK, { html: true }); }
   }).transform(res);
+}
+
+// 從 LinFamily 點進來時顯示「‹ LinFamily」返回鈕（DX04 本身與各分站的 HTML 都插入）。
+const LF_BACK = '<script src="/lf-back.js?v=1" defer></script>';
+function injectLfBack(res) {
+  const type = res.headers.get('content-type') || '';
+  if (res.status !== 200 || type.indexOf('text/html') === -1 || typeof HTMLRewriter === 'undefined') return res;
+  return new HTMLRewriter().on('head', { element(el) { el.append(LF_BACK, { html: true }); } }).transform(res);
 }
 
 /* ---------- /api/site-info：讀取任一網站的名稱與 App 圖示（總控台「分站入口」新增時使用） ----------
@@ -422,7 +430,7 @@ export default {
     }
 
     if (env.ASSETS && env.ASSETS.fetch) {
-      return env.ASSETS.fetch(request);
+      return injectLfBack(await env.ASSETS.fetch(request));
     }
     return new Response('Not found', { status: 404 });
   }
