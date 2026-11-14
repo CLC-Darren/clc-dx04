@@ -289,10 +289,13 @@ async function siteInfo(target, ancestorOrigin) {
 
 async function handleSiteInfo(request, ctx) {
   const json = (body, status = 200, cache = 'no-store') => new Response(JSON.stringify(body), {
-    status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': cache }
+    status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': cache, 'access-control-allow-origin': '*' }
   });
   if (request.method !== 'GET') return json({ ok: false, error: 'method' }, 405);
   const reqUrl = new URL(request.url);
+  // 其他網站（例如 LinFamily）也可以呼叫；embeddable 以呼叫端網域判斷能否被它內嵌。
+  let ancestor = reqUrl.origin;
+  try { const o = request.headers.get('origin'); if (o && /^https?:\/\//.test(o)) ancestor = new URL(o).origin; } catch (_) {}
   let raw = (reqUrl.searchParams.get('url') || '').trim();
   if (raw && !/^https?:\/\//i.test(raw)) raw = 'https://' + raw;
   let target;
@@ -301,11 +304,11 @@ async function handleSiteInfo(request, ctx) {
   target.hash = '';
 
   const cache = typeof caches !== 'undefined' ? caches.default : null;
-  const cacheKey = new Request(reqUrl.origin + '/api/site-info?v=3&url=' + encodeURIComponent(target.href));
+  const cacheKey = new Request(reqUrl.origin + '/api/site-info?v=3&url=' + encodeURIComponent(target.href) + (ancestor === reqUrl.origin ? '' : '&anc=' + encodeURIComponent(ancestor)));
   const fresh = reqUrl.searchParams.get('refresh') === '1';
   if (cache && !fresh) { const hit = await cache.match(cacheKey); if (hit) return hit; }
   try {
-    const info = await siteInfo(target, reqUrl.origin);
+    const info = await siteInfo(target, ancestor);
     const out = json(info, 200, 'public, max-age=' + (info.icon ? 86400 : 300));
     if (cache && ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, out.clone()));
     return out;
