@@ -89,7 +89,7 @@ function renderHeaderComponent() {
     const style = document.createElement('style');
     style.id = 'clc-header-fixed-style';
     style.textContent = `
-      html.dark #clc-header .clc-ic-moon, html:not(.dark) #clc-header .clc-ic-sun { display: none; }
+      html.dark #clc-header .clc-ic-moon, html:not(.dark) #clc-header .clc-ic-sun { display: none; } /* 深色時顯示「☀️ 切換淺色」，淺色時顯示「🌙 切換深色」 */
       #clc-header { box-sizing: border-box !important; border-bottom-width: 1px !important; }
       #clc-header > div { width: 100% !important; height: 46px !important; min-height: 46px !important; padding: 0 14px !important; box-sizing: border-box !important; display: flex !important; align-items: center !important; justify-content: space-between !important; }
       #clc-header .logo-badge { font-size: 13.5px; height: 34px; line-height: 34px; box-sizing: border-box; padding: 0 12px; border-radius: 9px; font-weight: 800; background: #007E8A; color: white; display: inline-flex; align-items: center; text-decoration: none; letter-spacing: .05em; }
@@ -159,12 +159,11 @@ function renderHeaderComponent() {
           <div id="adminDropdown" class="hidden absolute right-0 bg-white dark:bg-[#161924] shadow-2xl border border-slate-200 dark:border-white/10 z-50 text-left">
             <div id="adminEmailDisplay" class="font-bold text-slate-400 border-b border-slate-100 dark:border-white/5 truncate">管理員已登入</div>
             <a href="admin-users.html" class="block font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition">👤 權限管理</a>
-            <button type="button" onclick="clcEnterGuestView()" class="w-full text-left font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition">🙈 以未登入使用者身份檢視</button>
+            <button type="button" onclick="toggleTheme()" class="w-full text-left font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition"><span class="clc-ic-sun">☀️ 切換淺色</span><span class="clc-ic-moon">🌙 切換深色</span></button>
             <div class="border-t border-slate-100 dark:border-white/5"></div>
             <button onclick="handleAdminLogout()" class="w-full text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 font-bold transition">🚪 登出管理員</button>
           </div>
         </div>
-        <button onclick="toggleTheme()" aria-label="切換深淺模式" class="header-btn bg-slate-200/70 hover:bg-slate-300/70 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-300/60 dark:border-white/10 transition active:scale-95"><span class="clc-ic-moon">🌙</span><span class="clc-ic-sun">☀️</span></button>
       </div>
     </div>
   `;
