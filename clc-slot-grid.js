@@ -27,7 +27,9 @@
     st.id = 'clcSlotGridStyle';
     st.textContent = `
       .slot-cell { position:relative; aspect-ratio:1; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
-      .slot-cell img { pointer-events:none; -webkit-user-drag:none; }
+      .slot-cell img { pointer-events:none; }
+      /* iPhone：長按連結時不要讓系統接手（連結拖曳、預覽、選字），App 才能浮起來 */
+      .slot-cell, .slot-cell * { -webkit-user-drag:none; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
       .slot-grid.is-editing .slot-cell { touch-action:none; cursor:grab; }
       .slot-grid.is-editing .slot-cell > :first-child { animation:clcSlotJiggle .32s ease-in-out infinite; animation-delay:var(--jiggle-delay,0s); }
       @keyframes clcSlotJiggle { 0%,100% { transform:rotate(-2deg); } 50% { transform:rotate(2deg); } }
@@ -210,12 +212,13 @@
       if (g.dragging) endDrag(false); else g = null;
     }
     function begin(e, x, y, touch) {
+      if (g && (!g.cell.isConnected || Date.now() - g.at > 8000)) { cancelGesture(); g = null; } // 上一次手勢沒收尾就重設
       if (saving || !canEdit() || g) return;
       if (e.target.closest('.slot-remove')) return;
       const empty = e.target.closest('.slot-empty.is-admin');
       if (empty && grid.contains(empty)) {
         if (editing) return; // 晃動中點一下「＋」就新增
-        g = { cell: empty, empty: true, x, y, touch, held: false, dragging: false, target: null };
+        g = { cell: empty, empty: true, x, y, touch, at: Date.now(), held: false, dragging: false, target: null };
         empty.classList.add('slot-pressing');
         g.timer = setTimeout(() => {
           if (!g || !g.empty) return;
@@ -229,7 +232,7 @@
       }
       const cell = e.target.closest('.slot-cell');
       if (!cell || !grid.contains(cell)) return;
-      g = { cell, x, y, touch, held: false, dragging: false, editingAtStart: editing, target: null };
+      g = { cell, x, y, touch, at: Date.now(), held: false, dragging: false, editingAtStart: editing, target: null };
       cell.classList.add('slot-pressing');
       g.timer = setTimeout(() => {
         if (!g) return;
@@ -272,13 +275,14 @@
       if (e.touches.length !== 1) { cancelGesture(); return; }
       const t = e.touches[0]; begin(e, t.clientX, t.clientY, true);
     }, { passive: true });
-    grid.addEventListener('touchmove', e => {
+    // 放在 document：就算手指下的元素被換掉，也一定收得到結束事件。
+    document.addEventListener('touchmove', e => {
       if (!g || !g.touch) return;
       const t = e.touches[0];
       if (move(e, t.clientX, t.clientY) && e.cancelable) e.preventDefault();
     }, { passive: false });
-    grid.addEventListener('touchend', end);
-    grid.addEventListener('touchcancel', cancelGesture);
+    document.addEventListener('touchend', e => { if (g && g.touch) end(); });
+    document.addEventListener('touchcancel', () => { if (g && g.touch) cancelGesture(); });
     // 手機長按不要跳出系統選單；電腦右鍵照常（可以「在新分頁開啟」）。
     let lastTouch = 0;
     grid.addEventListener('touchstart', () => { lastTouch = Date.now(); }, { passive: true, capture: true });
