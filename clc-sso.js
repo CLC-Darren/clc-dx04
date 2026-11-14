@@ -179,7 +179,7 @@
     const dirtyForms = new Set();
     const canSwipe = () => !navigating && innerWidth <= 1023 && !!window.isSuperuser &&
       !document.documentElement.classList.contains('dx-locked') &&
-      !document.querySelector('dialog[open], .todo-edit, .reorder-source, .reorder-floating, .is-dragging, #siteGrid.is-editing') &&
+      !document.querySelector('dialog[open], .todo-edit, .reorder-source, .reorder-floating, .is-dragging, #siteGrid.is-editing, #homeApps.is-editing') &&
       !Array.from(dirtyForms).some(form => form.isConnected && Array.from(form.elements).some(field => {
         if (field.disabled || ['submit', 'button', 'reset'].includes(field.type)) return false;
         if (['checkbox', 'radio'].includes(field.type)) return field.checked !== field.defaultChecked;
@@ -192,8 +192,14 @@
         }
         return 'defaultValue' in field && field.value !== field.defaultValue;
       }));
+    // YA、SR：整個畫面都能滑（左右各留 10% 給瀏覽器的返回手勢）；連結與首頁圖示上也能滑，輕點照常開啟。
+    // DX04：維持原本範圍（上方標題區＋卡片之間的空隙），避免和待辦、拖曳排序衝突。
+    const subSite = () => currentSite() !== 0;
     function blocked(node) {
-      if (node.closest('a, button, input, textarea, select, form, dialog, [role="dialog"], [contenteditable="true"], .todo-row, .app-cell, .drag-handle, .reorder-handle, iframe, video, audio')) return true;
+      const controls = subSite()
+        ? 'button:not(.ha-tile), input, textarea, select, dialog, [role="dialog"], [contenteditable="true"], .ha-menu, .ha-remove, .ha-slot.is-admin, .drag-handle, .reorder-handle, iframe, video, audio'
+        : 'a, button, input, textarea, select, form, dialog, [role="dialog"], [contenteditable="true"], .todo-row, .app-cell, .drag-handle, .reorder-handle, iframe, video, audio';
+      if (node.closest(controls)) return true;
       for (let el = node; el && el !== document.body; el = el.parentElement) {
         if (el.scrollWidth > el.clientWidth + 4 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
       }
@@ -270,7 +276,8 @@
       restore(); gesture = null;
       if (e.touches.length !== 1 || !canSwipe() || blocked(e.target)) return;
       const t = e.touches[0];
-      if ((!inTopZone(t.clientY) && !inCardGap(t.clientX, t.clientY)) || t.clientX < innerWidth * .1 || t.clientX > innerWidth * .9) return;
+      if ((!subSite() && !inTopZone(t.clientY) && !inCardGap(t.clientX, t.clientY)) || t.clientX < innerWidth * .1 || t.clientX > innerWidth * .9) return;
+      if (subSite() && t.clientY <= (document.getElementById('clc-header')?.getBoundingClientRect().bottom || 0)) return;
       gesture = { id:t.identifier, x:t.clientX, y:t.clientY, at:performance.now(), horizontal:false, dx:0 };
     }, { passive:true });
     document.addEventListener('touchmove', e => {
