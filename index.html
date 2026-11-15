@@ -5,7 +5,7 @@
   <link rel="stylesheet" href="/light-theme.css?v=3">
   <script src="/login-gate.js?v=welcome-unified-1"></script>
   <script src="/reorder.js?v=drag-lift-6"></script>
-  <script src="/clc-slot-grid.js?v=20261115g"></script>
+  <script src="/js/clc-slot-grid.js?v=20261115g"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>CLC DX04 | 總控台</title>
@@ -1709,7 +1709,7 @@
     // 分站入口：清單存在 Firestore dx04_settings/apps（所有裝置共用），本機另存一份快取讓畫面先出來。
     // 管理員：長按任一格進入「編輯模式」（像 iPhone 主畫面）→ 按「−」移除、按「＋」貼網址新增、點 Logo 改名稱或圖示。
     // 名稱與 Logo 由 /api/site-info 自動抓（和手機「加入主畫面」相同來源）。
-    // 開啟方式：YA、SR 用 CLC_SITES 網址（和左上角 Logo 站台選單相同）；其他網站在 DX04 Header 底下的 app.html 內開啟。
+    // 開啟方式：YA、SR 用 CLC_SITES 網址（和左上角 Logo 站台選單相同）；其他網站在 DX04 Header 底下的 open.html 內開啟。
     (function () {
       const grid = document.getElementById('siteGrid');
       const hint = document.getElementById('appsAdminHint');
@@ -1779,7 +1779,7 @@
         if (!url) return { href: '#', newTab: false };
         if (isSameSite(url)) return { href: url, newTab: false };
         if (embeddableOf(app) === false) return { href: url, newTab: true };
-        return { href: '/app.html?id=' + encodeURIComponent(app.id), newTab: false };
+        return { href: '/open.html?id=' + encodeURIComponent(app.id), newTab: false };
       }
       function hrefFor(app) { return linkFor(app).href; }
       // 字母圖示（同 LinFamily）：彩色圓角方塊＋名稱第一個字（中文一個字、英文最多兩個字母）
@@ -1898,7 +1898,7 @@
         return img;
       }
 
-      // 格子（長按晃動、拖到空格、互換位置）用三站共用的 clc-slot-grid.js；只有 Superuser 可以編輯。
+      // 格子（長按晃動、拖到空格、互換位置）用四站共用的 js/clc-slot-grid.js；只有 Superuser 可以編輯。
       function renderTile(app, editing) {
         const a = document.createElement('a');
         a.className = 'app-tile';
