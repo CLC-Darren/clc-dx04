@@ -813,42 +813,24 @@
     </div>
   </main>
 
-  <!-- 分站新增：只要貼網址（僅管理員） -->
-  <dialog id="appAddDialog" class="app-dialog rounded-3xl p-0 w-[min(92vw,420px)] bg-white dark:bg-[#161924] text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-white/10">
-    <form id="appAddForm" class="p-6 flex flex-col gap-4">
-      <h2 class="text-xl font-extrabold text-slate-900 dark:text-white">新增分站</h2>
-      <label class="flex flex-col gap-1.5 text-sm font-bold text-slate-600 dark:text-slate-300">網址
-        <input id="appAddUrl" required autocomplete="off" inputmode="url" enterkeyhint="go" class="app-input" placeholder="https://…">
-      </label>
-      <p class="text-xs text-slate-500 dark:text-brand-muted -mt-2">名稱和 Logo 會自動從網站抓取，之後可在編輯模式點 Logo 修改。</p>
-      <p id="appAddError" class="hidden text-sm text-rose-600 dark:text-rose-400"></p>
-      <div class="flex items-center justify-end gap-2 pt-1">
-        <button type="button" id="appAddCancelBtn" class="h-11 px-4 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5">取消</button>
-        <button type="submit" id="appAddSaveBtn" class="h-11 px-5 rounded-xl font-bold bg-[#007E8A] hover:bg-[#006C77] text-white disabled:opacity-60">新增</button>
-      </div>
-    </form>
-  </dialog>
-
-  <!-- 分站編輯：名稱、網址、Logo（僅管理員，編輯模式下點 Logo） -->
+  <!-- 新增／修改 App（同 LinFamily）：網址 → 名稱 → 圖示（僅 Superuser） -->
   <dialog id="appDialog" class="app-dialog rounded-3xl p-0 w-[min(92vw,420px)] bg-white dark:bg-[#161924] text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-white/10">
-    <form id="appForm" class="p-6 flex flex-col gap-4">
-      <div class="flex items-center gap-4">
-        <div id="appIconPreview" class="app-preview"></div>
-        <h2 class="text-xl font-extrabold text-slate-900 dark:text-white">編輯分站</h2>
-      </div>
-      <label class="flex flex-col gap-1.5 text-sm font-bold text-slate-600 dark:text-slate-300">名稱
-        <input id="appName" required maxlength="30" autocomplete="off" class="app-input">
-      </label>
+    <form id="appForm" class="p-6 flex flex-col gap-4" novalidate>
+      <h2 id="appTitle" class="text-xl font-extrabold text-slate-900 dark:text-white">新增 App</h2>
       <label class="flex flex-col gap-1.5 text-sm font-bold text-slate-600 dark:text-slate-300">網址
-        <input id="appUrl" required autocomplete="off" inputmode="url" class="app-input">
+        <input id="appUrl" autocomplete="off" inputmode="url" class="app-input" placeholder="https://…">
+      </label>
+      <label class="flex flex-col gap-1.5 text-sm font-bold text-slate-600 dark:text-slate-300">名稱
+        <input id="appName" maxlength="30" autocomplete="off" class="app-input" placeholder="貼上網址後自動抓取，可修改">
       </label>
       <div class="flex flex-col gap-1.5">
-        <label for="appIcon" class="text-sm font-bold text-slate-600 dark:text-slate-300">Logo 圖片網址</label>
-        <div class="flex gap-2">
-          <input id="appIcon" autocomplete="off" inputmode="url" class="app-input flex-1 min-w-0">
-          <button type="button" id="appRefetchBtn" class="h-11 px-3 rounded-xl text-sm font-bold text-[#007E8A] dark:text-[#00A3B4] border border-slate-200 dark:border-white/10 whitespace-nowrap">重新抓取</button>
+        <label for="appIcon" class="text-sm font-bold text-slate-600 dark:text-slate-300">圖示</label>
+        <div class="flex gap-2 items-center">
+          <div id="appIconPreview" class="app-preview"></div>
+          <input id="appIcon" autocomplete="off" inputmode="url" class="app-input flex-1 min-w-0" placeholder="自動抓取；也可填圖片網址">
         </div>
       </div>
+      <p id="appStatus" class="hidden text-xs text-slate-500 dark:text-brand-muted -mt-2"></p>
       <p id="appFormError" class="hidden text-sm text-rose-600 dark:text-rose-400"></p>
       <div class="flex items-center justify-end gap-2 pt-1">
         <button type="button" id="appCancelBtn" class="h-11 px-4 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5">取消</button>
@@ -1800,10 +1782,14 @@
         return { href: '/app.html?id=' + encodeURIComponent(app.id), newTab: false };
       }
       function hrefFor(app) { return linkFor(app).href; }
+      // 字母圖示（同 LinFamily）：彩色圓角方塊＋名稱第一個字（中文一個字、英文最多兩個字母）
+      const MONO_COLORS = ['#4E8B7E', '#B5835A', '#5F77A8', '#A8607A', '#4F8FA0', '#7E6FAE', '#6E8B4E'];
       function initials(name) {
         const n = String(name || '').replace(/^CLC\s+/i, '').trim();
-        return (n.slice(0, 2) || '?').toUpperCase();
+        if (/[\u3400-\u9fff]/.test(n[0] || '')) return n[0];
+        return ((n.replace(/[^A-Za-z0-9]/g, '').slice(0, 2) || n[0] || '?').replace(/^./, c => c.toUpperCase()));
       }
+      function monoColor(name) { let h = 0; for (const c of String(name || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return MONO_COLORS[h % MONO_COLORS.length]; }
       const ICON_CACHE_KEY = 'clc_dx04_auto_icons_v1';
       const ICON_DAY = 86400000, ICON_RETRY = 15 * 60000;
       let iconCache = {};
@@ -1889,6 +1875,7 @@
           const span = document.createElement('span');
           span.className = 'app-fallback';
           span.textContent = initials(app.name);
+          span.style.background = monoColor(app.name);
           return span;
         };
         if (!icon) return fallback();
@@ -1903,6 +1890,9 @@
             iconCache[key] = { icon: '', checkedAt: Date.now(), nextCheckAt: 0 };
             rememberIcons(); queueIconRefresh();
           }
+        }, { once: true });
+        img.addEventListener('load', () => { // 圖太小（< 96px）會糊 → 用字母圖示
+          if (img.naturalWidth && img.naturalWidth < 96 && !/\.svg(\?|$)/i.test(icon)) img.replaceWith(fallback());
         }, { once: true });
         img.src = icon;
         return img;
@@ -1930,7 +1920,7 @@
         renderTile,
         save: persist,
         error: err => alert('排列儲存失敗：' + errorText(err)),
-        onAdd: pos => { addPos = pos; openAdd(); },
+        onAdd: pos => { addPos = pos; openEdit(null); },
         onEdit: id => openEdit(id),
         onRemove: id => removeApp(id)
       });
@@ -1979,55 +1969,8 @@
         return { url, name: host || url, icon: '', embeddable: false };
       }
 
-      // ---------- 新增（只要貼網址） ----------
-      const addDialog = document.getElementById('appAddDialog');
-      const addForm = document.getElementById('appAddForm');
-      const addUrl = document.getElementById('appAddUrl');
-      const addErr = document.getElementById('appAddError');
-      const addBtn = document.getElementById('appAddSaveBtn');
-      function showAddError(msg) { addErr.textContent = msg; addErr.classList.toggle('hidden', !msg); }
-      function openAdd() {
-        if (!isAdmin()) return;
-        addUrl.value = '';
-        showAddError('');
-        addBtn.disabled = false;
-        addBtn.textContent = '新增';
-        addDialog.showModal();
-        addUrl.focus();
-      }
-      document.getElementById('appAddCancelBtn').addEventListener('click', () => addDialog.close());
-      addDialog.addEventListener('click', e => { if (e.target === addDialog) addDialog.close(); });
-      addForm.addEventListener('submit', async e => {
-        e.preventDefault();
-        const url = normalizeInputUrl(addUrl.value);
-        if (!url) return showAddError('網址格式不正確，例如 https://example.com');
-        if (apps.length >= MAX_APPS) return showAddError('最多 ' + MAX_APPS + ' 個分站。');
-        addBtn.disabled = true;
-        addBtn.textContent = '讀取中…';
-        showAddError('');
-        const info = await siteInfo(url);
-        const item = {
-          id: 'app_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-          name: String(info.name || '').slice(0, 30) || url,
-          url: safeUrl(info.url) || url,
-          icon: safeUrl(info.icon) || '',
-          iconMode: 'auto',
-          embeddable: info.embeddable === true
-        };
-        try {
-          const base = withPos();
-          if (Number.isInteger(addPos) && !base.some(a => a.pos === addPos)) item.pos = addPos;
-          await persist(base.concat(item));
-          addDialog.close();
-        } catch (err) {
-          console.warn('分站新增失敗', err);
-          showAddError(errorText(err));
-          addBtn.disabled = false;
-          addBtn.textContent = '新增';
-        }
-      });
-
-      // ---------- 編輯（編輯模式下點 Logo）：改名稱、換圖示 ----------
+      // ---------- 新增／修改 App（同 LinFamily）：網址 → 名稱 → 圖示 ----------
+      // 貼上網址後自動抓名稱、圖示、能否內嵌；使用者改過的值不會被自動抓取覆蓋；抓不到圖示就用字母圖示。
       const dialog = document.getElementById('appDialog');
       const form = document.getElementById('appForm');
       const fName = document.getElementById('appName');
@@ -2035,69 +1978,93 @@
       const fIcon = document.getElementById('appIcon');
       const preview = document.getElementById('appIconPreview');
       const errEl = document.getElementById('appFormError');
+      const statusEl = document.getElementById('appStatus');
       const saveBtn = document.getElementById('appSaveBtn');
-      const refetchBtn = document.getElementById('appRefetchBtn');
-      let editingId = null, refetchedEmbeddable = null, editingIconMode = 'manual';
+      let editingId = null, auto = {}, fetchSeq = 0, fetchTimer = 0;
       function showError(msg) { errEl.textContent = msg; errEl.classList.toggle('hidden', !msg); }
-      function updatePreview() { preview.replaceChildren(logo({ name: fName.value, icon: fIcon.value })); }
+      function setStatus(msg) { statusEl.textContent = msg; statusEl.classList.toggle('hidden', !msg); }
+      function updatePreview() { preview.replaceChildren(logo({ name: fName.value, icon: fIcon.value, iconMode: 'manual' })); }
       function openEdit(id) {
-        const app = apps.find(a => a.id === id);
-        if (!app || !isAdmin()) return;
-        editingId = id;
-        refetchedEmbeddable = null;
-        fName.value = app.name;
-        fUrl.value = app.site ? hrefFor(app) : app.url;
-        fUrl.readOnly = !!app.site;
-        fUrl.title = app.site ? 'YA、SR 的網址跟著 header.js 的 CLC_SITES' : '';
-        editingIconMode = manualIcon(app) ? 'manual' : 'auto';
-        fIcon.value = displayedIcon(app);
-        updatePreview();
-        showError('');
+        if (!isAdmin()) return;
+        const app = id ? apps.find(a => a.id === id) : null;
+        if (id && !app) return;
+        editingId = app ? app.id : null;
+        if (app) addPos = null;
+        document.getElementById('appTitle').textContent = app ? '修改 App' : '新增 App';
+        fUrl.value = app ? (app.site ? hrefFor(app) : app.url) : '';
+        fUrl.readOnly = !!(app && app.site);
+        fUrl.title = app && app.site ? 'YA、SR 的網址跟著 header.js 的 CLC_SITES' : '';
+        fName.value = app ? app.name : '';
+        const icon = app ? displayedIcon(app) : '';
+        fIcon.value = icon;
+        // 自動抓的圖示視為「自動」，之後網站換圖會跟著更新；使用者自己填的才是「手動」。
+        auto = { name: '', icon: app && !manualIcon(app) ? icon : '', url: app ? safeUrl(app.url) : '', embeddable: null };
+        showError(''); setStatus('');
         saveBtn.disabled = false;
-        dialog.showModal();
-      }
-      fIcon.addEventListener('input', () => { editingIconMode = 'manual'; updatePreview(); });
-      fName.addEventListener('input', updatePreview);
-      refetchBtn.addEventListener('click', async () => {
-        const url = fUrl.readOnly ? new URL(fUrl.value, location.href).href : normalizeInputUrl(fUrl.value);
-        if (!url) return showError('網址格式不正確。');
-        refetchBtn.disabled = true;
-        refetchBtn.textContent = '讀取中…';
-        const info = await siteInfo(url, true);
-        editingIconMode = 'auto';
-        const refreshedKey = safeUrl(url);
-        if (refreshedKey) {
-          iconCache[refreshedKey] = { icon:safeUrl(info.icon) || '', checkedAt:Date.now(), nextCheckAt:Date.now() + (info.icon ? ICON_DAY : ICON_RETRY) };
-          rememberIcons();
-        }
-        refetchedEmbeddable = typeof info.embeddable === 'boolean' ? info.embeddable : null;
-        fIcon.value = info.icon || '';
-        if (info.name && !fUrl.readOnly) fName.value = String(info.name).slice(0, 30);
         updatePreview();
-        refetchBtn.disabled = false;
-        refetchBtn.textContent = '重新抓取';
-      });
+        dialog.showModal();
+        (app ? fName : fUrl).focus();
+      }
+      async function fetchInfo() {
+        if (fUrl.readOnly) return;
+        const url = normalizeInputUrl(fUrl.value);
+        if (!url || url === auto.url) return;
+        auto.url = url; auto.embeddable = null;
+        if (isSameSite(url)) return;
+        const seq = ++fetchSeq; setStatus('讀取網站名稱與圖示…');
+        const info = await siteInfo(url);
+        if (seq !== fetchSeq) return;
+        setStatus(info.ok ? '' : '讀取不到網站資訊，請自行填寫（圖示可留空）。');
+        if (typeof info.embeddable === 'boolean' && info.ok) auto.embeddable = info.embeddable;
+        const name = String(info.name || '').trim().slice(0, 30), icon = info.ok && !isGoogleIcon(info.icon) ? safeUrl(info.icon) : '';
+        if (name && (!fName.value.trim() || fName.value === auto.name)) { fName.value = name; auto.name = name; }
+        if (!fIcon.value.trim() || fIcon.value === auto.icon) { fIcon.value = icon; auto.icon = icon; }
+        updatePreview();
+      }
+      fUrl.addEventListener('input', () => { clearTimeout(fetchTimer); fetchTimer = setTimeout(fetchInfo, 600); });
+      fUrl.addEventListener('change', fetchInfo);
+      fIcon.addEventListener('input', updatePreview);
+      fName.addEventListener('input', updatePreview);
       document.getElementById('appCancelBtn').addEventListener('click', () => dialog.close());
       dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
       form.addEventListener('submit', async e => {
         e.preventDefault();
-        const old = apps.find(a => a.id === editingId);
-        if (!old) return dialog.close();
-        const name = fName.value.trim().slice(0, 30);
-        const url = old.site ? old.url : normalizeInputUrl(fUrl.value);
+        const old = editingId ? apps.find(a => a.id === editingId) : null;
+        if (!fUrl.readOnly && normalizeInputUrl(fUrl.value) !== auto.url) { clearTimeout(fetchTimer); await fetchInfo(); }
+        const url = old && old.site ? old.url : normalizeInputUrl(fUrl.value);
         const icon = safeUrl(fIcon.value);
-        if (!name) return showError('請輸入名稱。');
-        if (!url) return showError('網址格式不正確。');
+        if (!url) return showError('網址格式不正確，例如 https://example.com');
         if (fIcon.value.trim() && !icon) return showError('圖示網址格式不正確。');
+        if (!old && apps.length >= MAX_APPS) return showError('最多 ' + MAX_APPS + ' 個 App。');
+        let name = fName.value.trim().slice(0, 30);
+        if (!name) { try { name = new URL(url).hostname.replace(/^www\./, '').slice(0, 30); } catch (_) { name = url.slice(0, 30); } }
+        const iconMode = !icon || icon === auto.icon ? 'auto' : 'manual';
+        if (iconMode === 'auto' && auto.icon && safeUrl(url)) {
+          iconCache[safeUrl(url)] = { icon, checkedAt: Date.now(), nextCheckAt: Date.now() + ICON_DAY };
+          rememberIcons();
+        }
         saveBtn.disabled = true;
+        const patch = { name, url, icon, iconMode };
+        if (auto.embeddable !== null && !(old && old.site)) patch.embeddable = auto.embeddable;
+        const base = withPos();
+        let next;
+        if (old) {
+          next = base.map(a => {
+            if (a.id !== old.id) return a;
+            const n = Object.assign({}, a, patch);
+            if (auto.embeddable === null && url !== old.url) delete n.embeddable;
+            return n;
+          });
+        } else {
+          const item = Object.assign({ id: 'app_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) }, patch);
+          if (Number.isInteger(addPos) && !base.some(a => a.pos === addPos)) item.pos = addPos;
+          next = base.concat(item);
+        }
         try {
-          const patch = { name, url, icon, iconMode: editingIconMode };
-          if (refetchedEmbeddable !== null && !old.site) patch.embeddable = refetchedEmbeddable;
-          else if (url !== old.url) delete old.embeddable;
-          await persist(withPos().map(a => a.id === old.id ? Object.assign({}, a, patch) : a));
+          await persist(next);
           dialog.close();
         } catch (err) {
-          console.warn('分站儲存失敗', err);
+          console.warn('App 儲存失敗', err);
           showError(errorText(err));
           saveBtn.disabled = false;
         }
