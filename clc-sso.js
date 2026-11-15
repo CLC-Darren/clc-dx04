@@ -314,6 +314,10 @@
       const fast = !!g && Math.abs(g.dx) >= 28 && performance.now() - g.at < 320; // 快速一撥也算
       if (!g || !g.horizontal || !canSwipe() || (!fast && Math.abs(g.dx) < Math.max(40, innerWidth * .11))) { cancel(); return; }
       gesture = null;
+      commit(g.dx);
+    }, { passive:true });
+    function commit(dx) { // dx < 0：往右邊的站（下一站）；dx > 0：往左邊的站（上一站）
+      const g = { dx };
       makeVisual(g.dx); navigating = true;
       const next = visual.next;
       const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -323,7 +327,43 @@
       document.body.style.transform = `translate3d(${g.dx < 0 ? -innerWidth : innerWidth}px,0,0)`;
       visual.layer.style.transform = 'translate3d(0,0,0)';
       setTimeout(() => { location.assign(routes[next]); }, reduced ? 0 : 210);
-    }, { passive:true });
+    }
+
+    // 電腦版：滑鼠移到畫面左右邊緣，才淡淡出現 ‹ › 箭頭，點了換站（跟手機左右滑同一套順序與動畫）。
+    // 平常完全看不到、也點不到（pointer-events:none），不影響畫面其他內容。
+    if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      const canArrow = () => !navigating && !!window.isSuperuser &&
+        !document.documentElement.classList.contains('dx-locked') &&
+        !document.querySelector('dialog[open], .is-dragging, #siteGrid.is-editing, #homeApps.is-editing, .slot-grid.is-editing, .slot-floating, .clc-hmenu');
+      const mk = (side, dx) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'clc-edge-arrow'; b.textContent = side === 'left' ? '‹' : '›';
+        b.style.cssText = `position:fixed;top:50%;${side}:12px;transform:translateY(-50%);z-index:2147482000;width:44px;height:64px;border:0;border-radius:14px;` +
+          'background:rgba(15,23,42,.35);color:#fff;font:400 34px/1 Arial,sans-serif;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s,background .15s;';
+        b.addEventListener('mouseenter', () => { b.style.background = 'rgba(15,23,42,.6)'; });
+        b.addEventListener('mouseleave', () => { b.style.background = 'rgba(15,23,42,.35)'; });
+        b.addEventListener('click', () => { if (canArrow()) { hide(); commit(dx); } });
+        document.documentElement.appendChild(b);
+        return b;
+      };
+      const left = mk('left', 1), right = mk('right', -1);
+      const label = () => {
+        const i = currentSite();
+        left.setAttribute('aria-label', '切換到 ' + labels[(i + 2) % 3]); left.title = labels[(i + 2) % 3];
+        right.setAttribute('aria-label', '切換到 ' + labels[(i + 1) % 3]); right.title = labels[(i + 1) % 3];
+      };
+      const show = (b, on) => { b.style.opacity = on ? '.75' : '0'; b.style.pointerEvents = on ? 'auto' : 'none'; };
+      const hide = () => { show(left, false); show(right, false); };
+      const EDGE = 72; // 離邊緣多少 px 內才出現
+      document.addEventListener('mousemove', e => {
+        if (!canArrow()) return hide();
+        label();
+        show(left, e.clientX <= EDGE);
+        show(right, e.clientX >= innerWidth - EDGE);
+      }, { passive:true });
+      document.documentElement.addEventListener('mouseleave', hide);
+      window.addEventListener('pageshow', hide);
+    }
     document.addEventListener('touchcancel', cancel, { passive:true });
     window.addEventListener('pageshow', () => { navigating = false; gesture = null; restore(); });
 

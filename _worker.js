@@ -62,7 +62,7 @@ function injectSso(res, key) {
   const type = res.headers.get('content-type') || '';
   if (res.status !== 200 || type.indexOf('text/html') === -1 || typeof HTMLRewriter === 'undefined') return res;
   return new HTMLRewriter().on('head', {
-    element(el) { el.append(`<script src="/clc-sso.js?v=20261116-nodot" data-clc-site="${key}" defer></script>` + LF_BACK, { html: true }); }
+    element(el) { el.append(`<script src="/clc-sso.js?v=20261116-arrows" data-clc-site="${key}" defer></script>` + LF_BACK, { html: true }); }
   }).transform(res);
 }
 
