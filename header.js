@@ -419,10 +419,19 @@ document.addEventListener('DOMContentLoaded', renderHeaderComponent);
   const st = document.createElement('style');
   st.textContent = `
     #clc-header { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
-    .clc-hmenu { position:fixed; z-index:2147483600; min-width:200px; padding:4px; border-radius:8px; background:#fff; color:#1a1a1a; border:1px solid rgba(0,0,0,.12); box-shadow:0 8px 24px rgba(0,0,0,.18); font:14px/20px "Segoe UI",Arial,sans-serif; }
+    .clc-hmenu { position:fixed; z-index:2147483600; width:280px; max-width:calc(100vw - 16px); padding:4px; border-radius:8px; background:#fff; color:#1a1a1a; border:1px solid rgba(0,0,0,.12); box-shadow:0 8px 24px rgba(0,0,0,.18); font:14px/20px "Segoe UI",Arial,sans-serif; }
     html.dark .clc-hmenu { background:#2c2c2c; color:#fff; border-color:rgba(255,255,255,.1); box-shadow:0 8px 24px rgba(0,0,0,.5); }
     .clc-hmenu button { display:block; width:100%; padding:6px 12px; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; text-align:left; cursor:default; }
     .clc-hmenu button:hover, .clc-hmenu button:focus-visible { background:rgba(0,0,0,.06); outline:none; }
+    .clc-hmenu .clc-hmenu-copy { display:flex; align-items:center; gap:12px; }
+    .clc-hmenu .clc-hmenu-copy > span:first-child { flex:none; }
+    .clc-hmenu .clc-hmenu-url { flex:1; min-width:0; overflow:hidden; white-space:nowrap; font-size:12px; opacity:.55; }
+    .clc-hmenu .clc-hmenu-url.is-run { -webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent); mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent); }
+    .clc-hmenu .clc-hmenu-url > span { display:inline-block; }
+    .clc-hmenu .clc-hmenu-url.is-run > span { animation:clc-hmenuMarq linear infinite; }
+    .clc-hmenu .clc-hmenu-url.is-run > span > span { padding-right:3em; }
+    @keyframes clc-hmenuMarq { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+    @media (prefers-reduced-motion: reduce) { .clc-hmenu .clc-hmenu-url.is-run > span { animation:none; } }
     html.dark .clc-hmenu button:hover, html.dark .clc-hmenu button:focus-visible { background:rgba(255,255,255,.08); }
     .clc-hmenu-toast { position:fixed; left:50%; top:60px; transform:translateX(-50%); z-index:2147483600; padding:6px 14px; border-radius:6px; background:#2c2c2c; color:#fff; font:13px/18px "Segoe UI",Arial,sans-serif; box-shadow:0 6px 18px rgba(0,0,0,.3); pointer-events:none; }
   `;
@@ -463,12 +472,22 @@ document.addEventListener('DOMContentLoaded', renderHeaderComponent);
     if (win) { try { win.opener = null; } catch (_) {} }
     else toast('Pop-up blocked');
   }
+  // 「Copy link」後面顯示這一頁的網址；太長時像跑馬灯一樣流過去（選單大小固定）。
+  function urlMarquee(box, url) {
+    const v = box.querySelector('.clc-hmenu-url'); if (!v) return;
+    const text = url.replace(/^https?:\/\//, ''), inner = document.createElement('span'), a = document.createElement('span');
+    a.textContent = text; inner.append(a); v.replaceChildren(inner);
+    if (inner.scrollWidth <= v.clientWidth) return;
+    const b = document.createElement('span'); b.textContent = text; b.setAttribute('aria-hidden', 'true');
+    inner.append(b); v.classList.add('is-run');
+    inner.style.animationDuration = Math.max(6, text.length * 0.22) + 's';
+  }
   function showMenu(x, y) {
     closeMenu();
     const url = pageUrl();
     menu = document.createElement('div');
     menu.className = 'clc-hmenu'; menu.setAttribute('role', 'menu');
-    menu.innerHTML = '<button type="button" role="menuitem" data-act="copy">Copy link</button><button type="button" role="menuitem" data-act="open">Open in new window</button>';
+    menu.innerHTML = '<button type="button" role="menuitem" data-act="copy" class="clc-hmenu-copy"><span>Copy link</span><span class="clc-hmenu-url"></span></button><button type="button" role="menuitem" data-act="open">Open in new window</button>';
     menu.addEventListener('click', async e => {
       const b = e.target.closest('button'); if (!b) return;
       closeMenu();
@@ -476,6 +495,7 @@ document.addEventListener('DOMContentLoaded', renderHeaderComponent);
       else openWindow(url);
     });
     document.body.appendChild(menu);
+    urlMarquee(menu, url);
     const r = menu.getBoundingClientRect();
     menu.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px';
     menu.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
