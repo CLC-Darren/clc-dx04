@@ -748,7 +748,94 @@
 
     <div id="dx-swipe-zone" class="space-y-1.5">
       <p class="text-xs lg:text-sm font-bold tracking-[0.3em] text-[#007E8A] dark:text-[#00A3B4] uppercase">CLC Control Panel</p>
-      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Good Morning DX04</h1>
+      <h1 id="dx-greeting" class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Hello, DX04</h1>
+      <script>
+        // 依時段隨機挑一句問候語；{n} 換成登入者名字（未登入或「以未登入身份檢視」時顯示 DX04）。
+        // 想換句子直接改下面清單即可，每段放幾句都行。
+        (function () {
+          const POOLS = {
+            early: [ // 05:00–07:59
+              "You're up early, {n}", "Early bird, huh, {n}?", "Up before the sun, {n}?",
+              "Up and at 'em, {n}", "Morning, {n}. Quiet start to the day"
+            ],
+            morning: [ // 08:00–11:59
+              "Good morning, {n}", "Morning, {n}! Coffee first?", "Rise and shine, {n}",
+              "Morning, {n}. What's on deck today?", "Hey {n}, ready to roll?", "Fresh start, {n}. Let's go"
+            ],
+            lunch: [ // 12:00–13:59
+              "Lunchtime, {n}", "Have you eaten yet, {n}?", "Time to refuel, {n}",
+              "Afternoon, {n}. Lunch first?", "Take a break, {n}. You've earned it"
+            ],
+            afternoon: [ // 14:00–17:59
+              "Good afternoon, {n}", "Hey {n}, how's the day going?", "Afternoon, {n}. Keep it rolling",
+              "Coffee break, {n}?", "Home stretch, {n}", "Still going strong, {n}?"
+            ],
+            evening: [ // 18:00–21:59
+              "Good evening, {n}", "Evening, {n}. Long day?", "Nice work today, {n}",
+              "Had dinner yet, {n}?", "Time to wind down, {n}?", "Evening, {n}. Take it easy"
+            ],
+            late: [ // 22:00–00:59
+              "Working late, {n}?", "Still at it, {n}?", "Burning the midnight oil, {n}?",
+              "Wrapping up soon, {n}?", "Long night, {n}?", "Don't stay up too late, {n}"
+            ],
+            night: [ // 01:00–04:59
+              "Still up, {n}?", "Still working late, {n}?", "Can't sleep, {n}?",
+              "Hey there, night owl", "Shouldn't you be in bed, {n}?", "It's late, {n}. Get some rest soon"
+            ]
+          };
+          // 特定日子額外加入的句子（和原本的混在一起抽）
+          const EXTRA = {
+            weekendMorning: ["Happy {d}, {n}", "Enjoy your {d}, {n}"],
+            mondayMorning: ["Happy Monday, {n}", "New week, {n}. Let's do this"],
+            fridayAfternoon: ["Almost the weekend, {n}", "Happy Friday, {n}"],
+            sundayEvening: ["Ready for the week, {n}?"]
+          };
+          const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+          function slotOf(h) {
+            if (h >= 5 && h < 8) return 'early';
+            if (h >= 8 && h < 12) return 'morning';
+            if (h >= 12 && h < 14) return 'lunch';
+            if (h >= 14 && h < 18) return 'afternoon';
+            if (h >= 18 && h < 22) return 'evening';
+            if (h >= 22 || h < 1) return 'late';
+            return 'night';
+          }
+          function poolFor(now) {
+            const slot = slotOf(now.getHours()), day = now.getDay();
+            let list = POOLS[slot].slice();
+            if ((slot === 'early' || slot === 'morning') && (day === 0 || day === 6)) list = list.concat(EXTRA.weekendMorning);
+            if ((slot === 'early' || slot === 'morning') && day === 1) list = list.concat(EXTRA.mondayMorning);
+            if ((slot === 'lunch' || slot === 'afternoon') && day === 5) list = list.concat(EXTRA.fridayAfternoon);
+            if (slot === 'evening' && day === 0) list = list.concat(EXTRA.sundayEvening);
+            return { key: slot + day, list: list, dayName: DAYS[day] };
+          }
+          function userName() {
+            const u = window.auth && window.auth.currentUser;
+            if (!u || window.clcGuestView) return 'DX04';
+            const n = (u.displayName || '').trim().split(/\s+/)[0];
+            return n || 'DX04';
+          }
+          const el = document.getElementById('dx-greeting');
+          let curKey = '', curLine = '';
+          function render(force) {
+            const p = poolFor(new Date());
+            if (force || p.key !== curKey) { // 進入新時段才重抽，同一時段內不會一直跳
+              curKey = p.key;
+              curLine = p.list[Math.floor(Math.random() * p.list.length)].replace('{d}', p.dayName);
+            }
+            const text = curLine.replace('{n}', userName());
+            if (el && el.textContent !== text) el.textContent = text;
+          }
+          render(true);
+          setInterval(function () { render(false); }, 60000);
+          window.addEventListener('clc-admin-changed', function () { render(false); });
+          document.addEventListener('visibilitychange', function () { if (!document.hidden) render(false); });
+          (function hook(tries) {
+            if (window.auth && window.auth.onAuthStateChanged) window.auth.onAuthStateChanged(function () { render(false); });
+            else if (tries < 50) setTimeout(function () { hook(tries + 1); }, 200);
+          })(0);
+        })();
+      </script>
     </div>
 
     <!-- 手機單欄、電腦雙欄；區塊拖曳排序保存在目前瀏覽器 -->
