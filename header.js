@@ -447,6 +447,16 @@ document.addEventListener('DOMContentLoaded', renderHeaderComponent);
     }
     return location.href;
   }
+  // Copy link 用各站「原本的網址」：DX 底下的 /ya/、/sr/ 換回 YA、SR 自己的網域；/lf/ 本來就只在 DX 底下，維持不變。
+  const ORIGINAL_HOSTS = { ya: 'https://clc-ya-portal.pages.dev', sr: 'https://clc-sr-portal.pages.dev' };
+  function originalUrl(href) {
+    try {
+      const u = new URL(href, location.href);
+      const m = u.hostname === 'clc-dx04.pages.dev' && u.pathname.match(/^\/(ya|sr)(\/.*)?$/i);
+      if (m) return ORIGINAL_HOSTS[m[1].toLowerCase()] + (m[2] || '/') + u.search + u.hash;
+      return u.href;
+    } catch (_) { return href; }
+  }
   let menu = null, toastTimer = null;
   function closeMenu() { if (menu) { menu.remove(); menu = null; } }
   function toast(msg) {
@@ -484,18 +494,18 @@ document.addEventListener('DOMContentLoaded', renderHeaderComponent);
   }
   function showMenu(x, y) {
     closeMenu();
-    const url = pageUrl();
+    const url = pageUrl(), link = originalUrl(url);
     menu = document.createElement('div');
     menu.className = 'clc-hmenu'; menu.setAttribute('role', 'menu');
     menu.innerHTML = '<button type="button" role="menuitem" data-act="copy" class="clc-hmenu-copy"><span>Copy link</span><span class="clc-hmenu-url"></span></button><button type="button" role="menuitem" data-act="open">Open in new window</button>';
     menu.addEventListener('click', async e => {
       const b = e.target.closest('button'); if (!b) return;
       closeMenu();
-      if (b.dataset.act === 'copy') toast(await copyText(url) ? 'Link copied' : 'Couldn\'t copy link');
+      if (b.dataset.act === 'copy') toast(await copyText(link) ? 'Link copied' : 'Couldn\'t copy link');
       else openWindow(url);
     });
     document.body.appendChild(menu);
-    urlMarquee(menu, url);
+    urlMarquee(menu, link);
     const r = menu.getBoundingClientRect();
     menu.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px';
     menu.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
