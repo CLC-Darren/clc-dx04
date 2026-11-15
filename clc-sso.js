@@ -339,7 +339,7 @@
         const b = document.createElement('button');
         b.type = 'button'; b.className = 'clc-edge-arrow'; b.textContent = side === 'left' ? '‹' : '›';
         // 貼齊畫面邊緣、只有內側圓角，像從邊緣拉出來的小分頁；出現時從邊緣滑出
-        b.style.cssText = `position:fixed;top:50%;${side}:0;transform:translate(${side === 'left' ? '-100%' : '100%'},-50%);z-index:2147482000;width:40px;height:72px;border:0;` +
+        b.style.cssText = `position:fixed;top:60px;${side}:0;transform:translate(${side === 'left' ? '-100%' : '100%'},0);z-index:2147482000;width:40px;height:72px;border:0;` +
           `border-radius:${side === 'left' ? '0 14px 14px 0' : '14px 0 0 14px'};padding:0;` +
           'background:rgba(15,23,42,.35);color:#fff;font:400 34px/1 Arial,sans-serif;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s ease-out,background .15s;';
         b.dataset.side = side;
@@ -357,7 +357,8 @@
       };
       const show = (b, on) => {
         b.style.opacity = on ? '.75' : '0'; b.style.pointerEvents = on ? 'auto' : 'none';
-        b.style.transform = `translate(${on ? '0' : (b.dataset.side === 'left' ? '-100%' : '100%')},-50%)`;
+        b.style.transform = `translate(${on ? '0' : (b.dataset.side === 'left' ? '-100%' : '100%')},0)`;
+        if (on) b.style.top = ((document.getElementById('clc-header')?.getBoundingClientRect().bottom || 48) + 10) + 'px'; // Header 下方
       };
       const hide = () => { show(left, false); show(right, false); };
       const EDGE = 72; // 離邊緣多少 px 內才出現
@@ -368,6 +369,15 @@
         show(right, e.clientX >= innerWidth - EDGE);
       }, { passive:true });
       document.documentElement.addEventListener('mouseleave', hide);
+      // 鍵盤 ← →：換到左邊／右邊的站（正在輸入文字、按著 Ctrl／Alt／⌘／Shift 時不作用）
+      document.addEventListener('keydown', e => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        if (e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || e.isComposing) return;
+        const t = e.target;
+        if (t && t.closest && t.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="slider"], [role="tablist"], [role="listbox"], [role="menu"]')) return;
+        if (!canArrow()) return;
+        e.preventDefault(); hide(); commit(e.key === 'ArrowLeft' ? 1 : -1);
+      });
       window.addEventListener('pageshow', hide);
     }
     document.addEventListener('touchcancel', cancel, { passive:true });
