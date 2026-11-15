@@ -2,7 +2,9 @@
  * CLC 共用「主畫面格子」(DX04、YA、SR 三站同一份程式；三站各放一份相同的檔案)
  * 像手機主畫面：每個 App 記住自己在第幾格（pos），中間可以留空格。
  * - 長按 App → 進入編輯（晃動）。晃動時：拖曳到空格＝移過去；拖到另一個 App 上＝互換位置；
- *   按「−」刪除、點 App 修改、按「完成」或點旁邊結束。
+ *   按「−」刪除、點 App 修改。
+ * - 移動與刪除先暫存在畫面上，按「完成」才儲存；按「取消」、點旁邊或 Esc 則全部還原。
+ *   （新增／修改 App 的對話框按儲存就會直接存檔，不在暫存範圍內。）
  *   新增：長按空格「＋」（晃動中點一下也可以），不容易誤觸。
  * - 長按後手指不放直接拖，也可以（跟手機一樣）。
  * - 只有 canEdit() 為 true 的人（Superuser）能編輯。
@@ -14,8 +16,8 @@
  *     canEdit: () => bool,
  *     getItems: () => items,             // 每個 item 至少要有 id；pos 可省略（會依序補上）
  *     renderTile: (item, editing) => Element,
- *     save: async items => {},           // 移動後的新清單（含 pos）
- *     onAdd: pos => {}, onEdit: id => {}, onRemove: id => {},
+ *     save: async items => {},           // 按「完成」時的新清單（含 pos，已扣掉刪除的）
+ *     onAdd: pos => {}, onEdit: id => {},
  *     onEditingChange: editing => {}
  *   });
  *   g.render(); g.setEditing(false); g.isEditing();
@@ -44,6 +46,11 @@
       .slot-floating .slot-remove { display:none !important; }
       .slot-done { margin:14px auto 0; display:block; padding:8px 22px; border-radius:9999px; background:#007E8A; color:#fff; font-weight:700; font-size:14px; border:0; cursor:pointer; }
       .slot-done[hidden] { display:none; }
+      .slot-actions { display:flex; justify-content:center; gap:10px; margin-top:14px; }
+      .slot-actions .slot-done { margin:0; }
+      .slot-actions[hidden], .slot-cancel[hidden] { display:none !important; }
+      .slot-cancel { padding:8px 18px; border-radius:9999px; background:transparent; color:inherit; font-weight:700; font-size:14px; border:1px solid rgba(148,163,184,.55); cursor:pointer; }
+      .slot-cancel:hover { background:rgba(148,163,184,.15); }
     `;
     (document.head || document.documentElement).appendChild(st);
   }
@@ -69,16 +76,29 @@
   window.clcSlotGrid = function (grid, o) {
     const LONG_PRESS = 700, MOVE_TOL = 9; // 長按 0.7 秒，避免誤觸
     let editing = false, items = [], saving = false;
+    let pending = null;        // 編輯中暫存的變更：{ removed: Set(id), pos: Map(id → 格子) }，按「完成」才儲存
     let g = null;              // 目前的手勢
     let suppressClickUntil = 0;
     grid.classList.add('slot-grid');
-    let done = o.doneButton;
+    let done = o.doneButton, actions = null;
+    const cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.className = 'slot-cancel'; cancel.textContent = '取消'; cancel.hidden = true;
     if (!done) {
       done = document.createElement('button');
-      done.type = 'button'; done.className = 'slot-done'; done.textContent = '完成'; done.hidden = true;
-      grid.after(done);
+      done.type = 'button'; done.className = 'slot-done'; done.textContent = '完成';
+      actions = document.createElement('div');
+      actions.className = 'slot-actions'; actions.hidden = true;
+      actions.append(cancel, done);
+      grid.after(actions);
+    } else {
+      done.before(cancel);
     }
-    done.addEventListener('click', () => setEditing(false));
+    done.addEventListener('click', () => finishEditing(true));
+    cancel.addEventListener('click', () => finishEditing(false));
+    function showButtons() {
+      done.hidden = !editing; cancel.hidden = !editing;
+      if (actions) actions.hidden = !editing;
+    }
 
     const canEdit = () => !!o.canEdit();
     function columns() {
@@ -86,8 +106,8 @@
     }
     function render() {
       if (g && g.dragging) return; // 拖曳中不要重建
-      if (!canEdit()) editing = false;
-      items = normalize(o.getItems() || []);
+      if (!canEdit()) { editing = false; pending = null; }
+      items = currentItems();
       const admin = canEdit(), cols = columns();
       const byPos = new Map(items.map(it => [it.pos, it]));
       const maxPos = items.reduce((m, it) => Math.max(m, it.pos), -1);
@@ -122,7 +142,36 @@
         }
       }
       floating.forEach(f => grid.appendChild(f));
-      done.hidden = !editing;
+      showButtons();
+    }
+    // 目前畫面上的清單：原本的資料，再套用編輯中暫存的移動與刪除。
+    function currentItems() {
+      const raw = o.getItems() || [];
+      if (!pending) return normalize(raw);
+      const base = raw.map(it => Object.assign({}, it)); // 先不整理位置：編輯中新增的 App 才能保有選定的空格
+      const kept = base.filter(it => !pending.removed.has(it.id));
+      const moved = kept.filter(it => pending.pos.has(it.id)).map(it => Object.assign({}, it, { pos: pending.pos.get(it.id) }));
+      const rest = kept.filter(it => !pending.pos.has(it.id));
+      return normalize(moved.concat(rest)); // 有移動的先占位，其他重疊的自動往後補
+    }
+    function sameItems(a, b) {
+      if (a.length !== b.length) return false;
+      const m = new Map(a.map(it => [it.id, it.pos]));
+      return b.every(it => m.has(it.id) && m.get(it.id) === it.pos);
+    }
+    // 結束編輯：commit = true 按「完成」才儲存；否則還原成編輯前的樣子。
+    async function finishEditing(commit) {
+      if (!editing) return;
+      const next = currentItems();
+      const changed = commit && pending && !sameItems(normalize(o.getItems() || []), next);
+      pending = null;
+      setEditing(false);
+      if (!changed || saving || !canEdit()) { render(); return; }
+      saving = true;
+      items = next;
+      try { await o.save(next); }
+      catch (err) { console.warn('儲存失敗', err); o.error?.(err); }
+      finally { saving = false; render(); }
     }
     function removeButton(it) {
       const rm = document.createElement('button');
@@ -137,13 +186,14 @@
       on = !!on && canEdit();
       if (editing === on) return;
       editing = on;
+      pending = on ? { removed: new Set(), pos: new Map() } : null; // 不是按「完成」結束的，暫存一律丟掉
       grid.classList.toggle('is-editing', editing);
       grid.querySelectorAll('.slot-cell').forEach(cell => {
         const rm = cell.querySelector('.slot-remove');
         if (editing && !rm) { const it = items.find(x => x.id === cell.dataset.id); if (it) cell.append(removeButton(it)); }
         if (!editing && rm) rm.remove();
       });
-      done.hidden = !editing;
+      showButtons();
       if (on && navigator.vibrate) navigator.vibrate(15);
       o.onEditingChange?.(editing);
     }
@@ -194,12 +244,11 @@
       if (from === to) return;
       const moving = items.find(it => it.pos === from), other = items.find(it => it.pos === to);
       if (!moving) return;
-      const next = items.map(it => it === moving ? Object.assign({}, it, { pos: to }) : it === other ? Object.assign({}, it, { pos: from }) : it);
-      saving = true;
-      items = next;
-      try { await o.save(next); }
-      catch (err) { console.warn('排列儲存失敗', err); o.error?.(err); }
-      finally { saving = false; render(); }
+      // 只暫存，按「完成」才儲存。
+      if (!pending) pending = { removed: new Set(), pos: new Map() };
+      pending.pos.set(moving.id, to);
+      if (other) pending.pos.set(other.id, from);
+      render();
     }
     // 放開時卡片滑進格子再消失（跟今日待辦一樣）
     function land(f, rect, origin) {
@@ -299,15 +348,19 @@
     grid.addEventListener('click', e => {
       if (Date.now() < suppressClickUntil) { e.preventDefault(); e.stopImmediatePropagation(); return; }
       const rm = e.target.closest('.slot-remove');
-      if (rm) { e.preventDefault(); e.stopImmediatePropagation(); o.onRemove?.(rm.dataset.removeId); return; }
+      if (rm) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        if (pending) { pending.removed.add(rm.dataset.removeId); render(); } // 只暫存，按「完成」才儲存
+        return;
+      }
       const empty = e.target.closest('.slot-empty.is-admin');
       if (empty) { e.preventDefault(); e.stopImmediatePropagation(); if (editing) o.onAdd?.(Number(empty.dataset.slot)); return; }
       const cell = e.target.closest('.slot-cell');
       if (cell && editing) { e.preventDefault(); e.stopImmediatePropagation(); o.onEdit?.(cell.dataset.id); }
     }, true);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && editing && !document.querySelector('dialog[open]')) setEditing(false); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && editing && !document.querySelector('dialog[open]')) finishEditing(false); });
     document.addEventListener('pointerdown', e => {
-      if (editing && !g && !grid.contains(e.target) && e.target !== done && !e.target.closest('dialog')) setEditing(false);
+      if (editing && !g && !grid.contains(e.target) && e.target !== done && e.target !== cancel && !e.target.closest('dialog')) finishEditing(false);
     });
     let rt = null, lastCols = 0;
     window.addEventListener('resize', () => {
@@ -315,6 +368,6 @@
       rt = setTimeout(() => { const c = columns(); if (c !== lastCols) { lastCols = c; render(); } }, 120);
     });
     lastCols = columns();
-    return { render, setEditing, isEditing: () => editing, items: () => items };
+    return { render, setEditing, finishEditing, isEditing: () => editing, items: () => items };
   };
 })();
