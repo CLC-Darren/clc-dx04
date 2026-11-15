@@ -126,7 +126,7 @@
     returningToLogin = true;
     await logoutAll();
     // 使用根目錄，不能留在 /ya/ 或 /sr/ 的公開首頁。
-    window.location.replace('/');
+    window.location.replace(siteKey === 'lf' ? '/lf/' : '/'); // LinFamily 回自己的首頁
   }
 
   // Worker 插入的是 defer script，分站原本的 header.js 已完成載入。
@@ -174,7 +174,7 @@
 
   // Same-origin DX04 / YA / SR cycling. No preloading or extra data listeners.
   function installSiteSwipe() {
-    if (window.top !== window) return;
+    if (window.top !== window || siteKey === 'lf') return; // LinFamily 不加入 DX04／YA／SR 左右滑切站
     let gesture = null, visual = null, navigating = false;
     const dirtyForms = new Set();
     const canSwipe = () => !navigating && innerWidth <= 1023 && !!window.isSuperuser &&
@@ -291,6 +291,6 @@
   }
   installSiteSwipe();
 
-  window.CLCSSO = { saveGoogleIdToken, logoutAll, readToken };
+  window.CLCSSO = { saveGoogleIdToken, logoutAll, readToken, signInSite };
   if (siteKey) runSite();
 })();

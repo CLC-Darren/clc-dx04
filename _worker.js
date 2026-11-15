@@ -61,12 +61,12 @@ function injectSso(res, key) {
   const type = res.headers.get('content-type') || '';
   if (res.status !== 200 || type.indexOf('text/html') === -1 || typeof HTMLRewriter === 'undefined') return res;
   return new HTMLRewriter().on('head', {
-    element(el) { el.append(`<script src="/clc-sso.js?v=20261115" data-clc-site="${key}" defer></script>` + LF_BACK, { html: true }); }
+    element(el) { el.append(`<script src="/clc-sso.js?v=20261115lf" data-clc-site="${key}" defer></script>` + LF_BACK, { html: true }); }
   }).transform(res);
 }
 
 // 從 LinFamily 點進來時顯示「‹ LinFamily」返回鈕（DX04 本身與各分站的 HTML 都插入）。
-const LF_BACK = '<script src="/lf-back.js?v=1" defer></script>';
+const LF_BACK = '<script src="/lf-back.js?v=2" defer></script>';
 function injectLfBack(res) {
   const type = res.headers.get('content-type') || '';
   if (res.status !== 200 || type.indexOf('text/html') === -1 || typeof HTMLRewriter === 'undefined') return res;

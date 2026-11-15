@@ -9,7 +9,7 @@
     }
     home = sessionStorage.getItem(K) || '';
   } catch (_) {}
-  if (!home || window.top !== window) return;
+  if (!home || window.top !== window || /^\/lf(\/|$)/.test(location.pathname)) return; // LinFamily 自己的頁面不顯示
   function add() {
     if (document.getElementById('lfBackBtn')) return;
     var a = document.createElement('a');
