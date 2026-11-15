@@ -11,7 +11,8 @@
 
 const SITES = {
   ya: 'https://clc-ya-portal.pages.dev',
-  sr: 'https://clc-sr-portal.pages.dev'
+  sr: 'https://clc-sr-portal.pages.dev',
+  lf: 'https://linfamily.pages.dev' // LinFamily（不在左右滑切站裡）
 };
 
 function matchSite(pathname) {
