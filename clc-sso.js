@@ -17,6 +17,9 @@
   const STORE = 'firebaseLocalStorage';
   const FB = 'https://www.gstatic.com/firebasejs/10.8.0/';
   const DX04_API_KEY = 'AIzaSyDbLv-XgOD7Q3J_wl81eXOuK9rqNAdzxM8'; // 判斷 DX04 是否已登入（公開值）
+  const LF_API_KEY = 'AIzaSyBPcURIjgwtEVi_nTaZT569e_nwJb4IsUs';   // LinFamily（主站，/lf/）
+  // 主站：LinFamily 為主、DX04 也可。任一主站已登入且憑證有效，其他站自動登入。
+  const primaryLoggedIn = async () => await hasAuthUser(LF_API_KEY) || await hasAuthUser(DX04_API_KEY);
   const script = document.currentScript;
   const siteKey = script && script.dataset ? (script.dataset.clcSite || '') : '';
 
@@ -142,8 +145,10 @@
 
   async function runSite() {
     if (window.top !== window) return; // 被嵌入 iframe 時由外層頁面處理
+    if (!siteKey && document.readyState !== 'complete') await new Promise(r => addEventListener('load', r, { once: true })); // 等 header.js 設好 firebaseConfig
     let site;
-    try {
+    if (!siteKey) site = { name: 'DX04', firebase: window.firebaseConfig }; // DX04 本身也可以由 LinFamily 帶入登入
+    else try {
       const res = await fetch('/' + siteKey + '/clc-site.json', { cache: 'no-store' });
       if (!res.ok) return;
       site = await res.json();
@@ -152,12 +157,12 @@
     if (!config || !config.apiKey) return;
 
     let had = await hasAuthUser(config.apiKey);
-    if (!had && await hasAuthUser(DX04_API_KEY)) {
-      // 只在 DX04 已登入時才嘗試自動登入或提示，不打擾一般訪客。
+    if (!had && await primaryLoggedIn()) {
+      // 只在主站（LinFamily 或 DX04）已登入時才嘗試自動登入或提示，不打擾一般訪客。
       const name = site.name || '本站';
       const tok = readToken();
       if (!tok) {
-        notice(`DX04 的登入憑證已過期（超過 1 小時），無法自動登入 ${name}。請按右上角 🔐 登入一次，或回 DX04 登出後重新登入。`);
+        notice(`共用登入憑證已過期（超過 1 小時），無法自動登入 ${name}。請按右上角 🔐 登入一次，或回 LinFamily 登出後重新登入。`);
       } else {
         const err = await signInSite(config, tok);
         if (!err) had = true;
@@ -292,5 +297,5 @@
   installSiteSwipe();
 
   window.CLCSSO = { saveGoogleIdToken, logoutAll, readToken, signInSite };
-  if (siteKey) runSite();
+  runSite();
 })();
