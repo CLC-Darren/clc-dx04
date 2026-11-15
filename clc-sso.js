@@ -338,8 +338,11 @@
       const mk = (side, dx) => {
         const b = document.createElement('button');
         b.type = 'button'; b.className = 'clc-edge-arrow'; b.textContent = side === 'left' ? '‹' : '›';
-        b.style.cssText = `position:fixed;top:50%;${side}:12px;transform:translateY(-50%);z-index:2147482000;width:44px;height:64px;border:0;border-radius:14px;` +
-          'background:rgba(15,23,42,.35);color:#fff;font:400 34px/1 Arial,sans-serif;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s,background .15s;';
+        // 貼齊畫面邊緣、只有內側圓角，像從邊緣拉出來的小分頁；出現時從邊緣滑出
+        b.style.cssText = `position:fixed;top:50%;${side}:0;transform:translate(${side === 'left' ? '-100%' : '100%'},-50%);z-index:2147482000;width:40px;height:72px;border:0;` +
+          `border-radius:${side === 'left' ? '0 14px 14px 0' : '14px 0 0 14px'};padding:0;` +
+          'background:rgba(15,23,42,.35);color:#fff;font:400 34px/1 Arial,sans-serif;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s ease-out,background .15s;';
+        b.dataset.side = side;
         b.addEventListener('mouseenter', () => { b.style.background = 'rgba(15,23,42,.6)'; });
         b.addEventListener('mouseleave', () => { b.style.background = 'rgba(15,23,42,.35)'; });
         b.addEventListener('click', () => { if (canArrow()) { hide(); commit(dx); } });
@@ -352,7 +355,10 @@
         left.setAttribute('aria-label', '切換到 ' + labels[(i + 2) % 3]); left.title = labels[(i + 2) % 3];
         right.setAttribute('aria-label', '切換到 ' + labels[(i + 1) % 3]); right.title = labels[(i + 1) % 3];
       };
-      const show = (b, on) => { b.style.opacity = on ? '.75' : '0'; b.style.pointerEvents = on ? 'auto' : 'none'; };
+      const show = (b, on) => {
+        b.style.opacity = on ? '.75' : '0'; b.style.pointerEvents = on ? 'auto' : 'none';
+        b.style.transform = `translate(${on ? '0' : (b.dataset.side === 'left' ? '-100%' : '100%')},-50%)`;
+      };
       const hide = () => { show(left, false); show(right, false); };
       const EDGE = 72; // 離邊緣多少 px 內才出現
       document.addEventListener('mousemove', e => {
