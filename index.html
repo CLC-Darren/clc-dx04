@@ -277,8 +277,9 @@
       let returningFromSite = false;
       try {
         const previous = new URL(document.referrer);
-        returningFromSite = previous.origin === location.origin && /^\/(ya|sr)(\/|$)/.test(previous.pathname);
+        returningFromSite = previous.origin === location.origin && /^\/(ya|sr|lf)(\/|$)/.test(previous.pathname); // 從 YA、SR、LF 進來不播片頭
       } catch (_) {}
+      if (/[?&]lfhome=/.test(location.search)) returningFromSite = true; // 從 LF 的 App 格子開進來
       try {
         if (sessionStorage.getItem(welcomeSessionKey) === '1' || returningFromSite) {
           sessionStorage.setItem(welcomeSessionKey, '1');
