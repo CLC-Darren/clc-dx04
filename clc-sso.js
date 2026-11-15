@@ -17,11 +17,18 @@
   const STORE = 'firebaseLocalStorage';
   const FB = 'https://www.gstatic.com/firebasejs/10.8.0/';
   const DX04_API_KEY = 'AIzaSyDbLv-XgOD7Q3J_wl81eXOuK9rqNAdzxM8'; // 判斷 DX04 是否已登入（公開值）
-  const LF_API_KEY = 'AIzaSyBPcURIjgwtEVi_nTaZT569e_nwJb4IsUs';   // LinFamily（主站，/lf/）
-  // 主站：LinFamily 為主、DX04 也可。任一主站已登入且憑證有效，其他站自動登入。
-  const primaryLoggedIn = async () => await hasAuthUser(LF_API_KEY) || await hasAuthUser(DX04_API_KEY);
   const script = document.currentScript;
   const siteKey = script && script.dataset ? (script.dataset.clcSite || '') : '';
+  // 層級：登入只往下帶，不往上帶；登出則任一站登出、全部登出。
+  //   LF（最高）→ DX → YA、SR。之後在 LF 底下新增的站，在 PARENT 加一行即可（例如 xx: 'lf'）。
+  const PARENT = { dx: 'lf', ya: 'dx', sr: 'dx' };
+  const API_KEYS = { lf: 'AIzaSyBPcURIjgwtEVi_nTaZT569e_nwJb4IsUs', dx: DX04_API_KEY }; // 有下層的站才需要（公開值）
+  const me = siteKey || 'dx';
+  const ancestors = []; for (let k = PARENT[me]; k; k = PARENT[k]) ancestors.push(k);
+  async function ancestorLoggedIn() {
+    for (const k of ancestors) if (API_KEYS[k] && await hasAuthUser(API_KEYS[k])) return true;
+    return false;
+  }
 
   function decodeJwt(token) {
     const part = String(token || '').split('.')[1] || '';
@@ -32,7 +39,7 @@
   function saveGoogleIdToken(idToken) {
     try {
       const p = decodeJwt(idToken);
-      localStorage.setItem(TOKEN_KEY, JSON.stringify({ t: idToken, exp: p.exp * 1000, email: p.email || '' }));
+      localStorage.setItem(TOKEN_KEY, JSON.stringify({ t: idToken, exp: p.exp * 1000, email: p.email || '', src: me })); // src：在哪一站登入的
     } catch (e) { console.warn('[CLC SSO] 無法保存登入憑證', e); }
   }
 
@@ -157,10 +164,11 @@
     if (!config || !config.apiKey) return;
 
     let had = await hasAuthUser(config.apiKey);
-    if (!had && await primaryLoggedIn()) {
-      // 只在主站（LinFamily 或 DX04）已登入時才嘗試自動登入或提示，不打擾一般訪客。
+    if (!had && await ancestorLoggedIn()) {
+      // 只在上層站已登入時才嘗試自動登入或提示，不打擾一般訪客。
       const name = site.name || '本站';
-      const tok = readToken();
+      let tok = readToken();
+      if (tok && !ancestors.includes(tok.src || 'dx')) tok = null; // 只接受上層站發的憑證
       if (!tok) {
         notice(`共用登入憑證已過期（超過 1 小時），無法自動登入 ${name}。請按右上角 🔐 登入一次，或回 LinFamily 登出後重新登入。`);
       } else {
