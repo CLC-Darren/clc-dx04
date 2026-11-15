@@ -273,7 +273,8 @@
       restore(); gesture = null;
       if (e.touches.length !== 1 || !canSwipe() || blocked(e.target)) return;
       const t = e.touches[0];
-      if (t.clientX < innerWidth * .1 || t.clientX > innerWidth * .9) return;
+      const edge = Math.max(16, innerWidth * .05); // 只留很窄的邊給系統返回手勢
+      if (t.clientX < edge || t.clientX > innerWidth - edge) return;
       if (t.clientY <= (document.getElementById('clc-header')?.getBoundingClientRect().bottom || 0)) return;
       gesture = { id:t.identifier, x:t.clientX, y:t.clientY, at:performance.now(), horizontal:false, dx:0 };
     }, { passive:true });
@@ -283,8 +284,8 @@
       const t = e.touches[0], dx = t.clientX - gesture.x, dy = t.clientY - gesture.y;
       if (t.identifier !== gesture.id) { cancel(); return; }
       if (!gesture.horizontal) {
-        if (Math.abs(dy) > 16 && Math.abs(dy) >= Math.abs(dx)) { cancel(); return; }
-        if (Math.abs(dx) < 12 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+        if (Math.abs(dy) > 22 && Math.abs(dy) > Math.abs(dx) * 1.2) { cancel(); return; } // 明顯在上下捲動才放棄
+        if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
         gesture.horizontal = true;
       }
       gesture.dx = dx;
@@ -293,8 +294,8 @@
     }, { passive:false });
     document.addEventListener('touchend', () => {
       const g = gesture;
-      const fast = !!g && Math.abs(g.dx) >= 40 && performance.now() - g.at < 260; // 快速一撥也算
-      if (!g || !g.horizontal || !canSwipe() || performance.now() - g.at > 900 || (!fast && Math.abs(g.dx) < Math.max(56, innerWidth * .15))) { cancel(); return; }
+      const fast = !!g && Math.abs(g.dx) >= 28 && performance.now() - g.at < 320; // 快速一撥也算
+      if (!g || !g.horizontal || !canSwipe() || (!fast && Math.abs(g.dx) < Math.max(40, innerWidth * .11))) { cancel(); return; }
       gesture = null;
       makeVisual(g.dx); navigating = true;
       const next = visual.next;

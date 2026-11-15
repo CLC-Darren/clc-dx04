@@ -10,7 +10,12 @@
       source.replaceWith(script);
     });
   }
-  window.clcSetGateAccess = function (active) {
+  // 還在確認登入狀態時（例如從 YA、SR 滑過來），只顯示黑底，不先閃出「DX04」登入字樣。
+  document.documentElement.classList.add('dx-auth-pending');
+  const resolved = () => document.documentElement.classList.remove('dx-auth-pending');
+  setTimeout(resolved, 4000); // 網路很慢時，最多等 4 秒就顯示登入入口
+  window.clcSetGateAccess = function (active, final) {
+    if (final !== false) resolved();
     allowed = !!active;
     document.documentElement.classList.toggle('dx-locked', !allowed);
     const gate = document.getElementById('dx-login-gate');

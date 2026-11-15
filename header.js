@@ -201,7 +201,7 @@ function applyAdminState(active, email, notify = true, viewer = false) {
     }
   }
 
-  if (window.clcSetGateAccess) window.clcSetGateAccess(active);
+  if (window.clcSetGateAccess) window.clcSetGateAccess(active, notify); // notify=false 是確認中的暫時狀態
 
   if (notify) {
     window.dispatchEvent(new CustomEvent('clc-admin-changed', {
