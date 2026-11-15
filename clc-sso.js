@@ -24,6 +24,12 @@
   const PARENT = { dx: 'lf', ya: 'dx', sr: 'dx' };
   const API_KEYS = { lf: 'AIzaSyBPcURIjgwtEVi_nTaZT569e_nwJb4IsUs', dx: DX04_API_KEY }; // 有下層的站才需要（公開值）
   const me = siteKey || 'dx';
+  // 已登入的小黃點不顯示（登入後圖示已經變成皇冠，黃點沒有其他意義）。四站都會載入這個檔，所以 DX、YA、SR 一起生效。
+  try {
+    const st = document.createElement('style');
+    st.textContent = '#adminActiveDot { display:none !important; }';
+    (document.head || document.documentElement).appendChild(st);
+  } catch (_) {}
   // 安裝鈕依層級：同一個分頁「最先進入」的站才顯示安裝鈕。
   // 例：從 LF 進 DX、YA、SR → 只有 LF 有；直接開 DX 再進 YA、SR → 只有 DX 有；直接開 YA 或 SR → 它們自己有。
   try {
