@@ -53,6 +53,32 @@
     try { return encode(cropToCanvas(img, (w - s) / 2, (h - s) / 2, s, SIZE)); } finally { URL.revokeObjectURL(img.src); }
   };
 
+  // 螢幕截圖：請使用者選一個畫面／視窗／分頁，抓一張畫面就停止分享（電腦版瀏覽器才有）
+  const canCapture = () => !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !window.matchMedia('(pointer: coarse)').matches;
+  async function captureScreen() {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    try {
+      const v = document.createElement('video');
+      v.muted = true; v.playsInline = true; v.srcObject = stream;
+      await v.play();
+      await new Promise(r => setTimeout(r, 250)); // 等畫面穩定
+      const c = document.createElement('canvas');
+      c.width = v.videoWidth; c.height = v.videoHeight;
+      c.getContext('2d').drawImage(v, 0, 0);
+      const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+      return new File([blob], 'screenshot.png', { type: 'image/png' });
+    } finally { stream.getTracks().forEach(t => t.stop()); }
+  }
+  // 讀剪貼簿裡的圖片（Win＋Shift＋S、⌘＋Ctrl＋Shift＋4 截的圖）
+  async function clipboardImage() {
+    const items = await navigator.clipboard.read();
+    for (const it of items) {
+      const type = it.types.find(t => /^image\//.test(t));
+      if (type) { const b = await it.getType(type); return new File([b], 'clipboard', { type }); }
+    }
+    throw new Error('剪貼簿裡沒有圖片，請先截圖。');
+  }
+
   const CAMERA = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>';
   const CROSS = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
@@ -66,6 +92,13 @@
       .clc-up-btn[hidden]{display:none}
       .clc-up-clear{width:32px;height:32px;border-radius:50%;border:0;opacity:.6}
       dialog.clc-drop{outline:3px dashed #007E8A;outline-offset:-6px}
+      .clc-up-menu{position:fixed;z-index:2147483647;min-width:180px;padding:6px;border-radius:12px;background:#fff;color:#1f2937;box-shadow:0 10px 30px rgba(0,0,0,.25);border:1px solid rgba(0,0,0,.08)}
+      .clc-up-menu[hidden]{display:none}
+      .clc-up-menu button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;font-size:14px;font-weight:600;text-align:left;cursor:pointer;white-space:nowrap}
+      .clc-up-menu button:hover,.clc-up-menu button:focus-visible{background:rgba(0,0,0,.06);outline:none}
+      .clc-up-menu small{margin-left:auto;font-size:11px;opacity:.5;font-weight:500}
+      html.dark .clc-up-menu{background:#1f2230;color:#e5e7eb;border-color:rgba(255,255,255,.1)}
+      html.dark .clc-up-menu button:hover{background:rgba(255,255,255,.08)}
       .clc-crop{border:0;padding:0;margin:auto;width:min(100vw,420px);max-width:100vw;max-height:100dvh;background:#111;color:#fff;border-radius:18px;overflow:hidden;font-family:"CLC Arial",Arial,"Microsoft JhengHei",sans-serif}
       .clc-crop::backdrop{background:rgba(0,0,0,.7)}
       @media (max-width:480px){.clc-crop{width:100vw;height:100dvh;border-radius:0}.clc-crop-in{justify-content:center}}
@@ -220,7 +253,40 @@
       } catch (e) { onError && onError(e.message || '圖片處理失敗。'); }
       finally { if (img) URL.revokeObjectURL(img.src); }
     };
-    btn.addEventListener('click', () => input.click());
+    // 📷：電腦版跳出小選單（螢幕截圖／貼上截圖／上傳檔案）；手機直接開相簿
+    const menu = document.createElement('div');
+    menu.className = 'clc-up-menu'; menu.hidden = true; menu.setAttribute('role', 'menu');
+    const opts = [];
+    if (canCapture()) opts.push(['shot', '🖥️', '螢幕截圖']);
+    if (!coarse && navigator.clipboard && navigator.clipboard.read) opts.push(['paste', '📋', '貼上剪貼簿的圖片', '⌘/Ctrl+V']);
+    opts.push(['file', '📁', '上傳檔案']);
+    menu.innerHTML = opts.map(([k, i, t, h]) => `<button type="button" role="menuitem" data-up="${k}"><span aria-hidden="true">${i}</span>${t}${h ? `<small>${h}</small>` : ''}</button>`).join('');
+    dialog.appendChild(menu); // 放在對話框裡，才會在最上層
+    const closeMenu = () => { menu.hidden = true; };
+    btn.addEventListener('click', e => {
+      if (opts.length === 1) return input.click();
+      e.stopPropagation();
+      if (!menu.hidden) return closeMenu();
+      const r = btn.getBoundingClientRect();
+      menu.hidden = false;
+      const mw = menu.offsetWidth, mh = menu.offsetHeight;
+      menu.style.left = Math.max(8, Math.min(window.innerWidth - mw - 8, r.right - mw)) + 'px';
+      menu.style.top = (r.bottom + 6 + mh > window.innerHeight ? r.top - mh - 6 : r.bottom + 6) + 'px';
+      menu.querySelector('button').focus();
+    });
+    menu.addEventListener('click', async e => {
+      const b = e.target.closest('[data-up]'); if (!b) return;
+      e.stopPropagation(); closeMenu();
+      if (b.dataset.up === 'file') return input.click();
+      try { take(b.dataset.up === 'shot' ? await captureScreen() : await clipboardImage()); }
+      catch (err) {
+        if (err && err.name === 'NotAllowedError') return; // 使用者取消選擇畫面或不允許讀剪貼簿
+        onError && onError(b.dataset.up === 'shot' ? '無法擷取螢幕畫面，請改用「貼上剪貼簿的圖片」或「上傳檔案」。' : (err && /[\u4e00-\u9fff]/.test(err.message) ? err.message : '讀不到剪貼簿的圖片，請在視窗裡按 Ctrl／⌘＋V 貼上。'));
+      }
+    });
+    dialog.addEventListener('click', e => { if (!menu.hidden && !menu.contains(e.target)) closeMenu(); });
+    dialog.addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.hidden) { e.preventDefault(); closeMenu(); btn.focus(); } });
+    dialog.addEventListener('close', closeMenu);
     clear.addEventListener('click', () => onClear && onClear());
     input.addEventListener('change', () => { if (input.files && input.files[0]) take(input.files[0]); input.value = ''; });
     const hasFiles = e => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
