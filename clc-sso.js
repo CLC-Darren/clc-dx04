@@ -378,7 +378,9 @@
     if (window.top !== window || siteKey === 'lf') return; // LinFamily 不加入 DX04／YA／SR 左右滑切站
     let gesture = null, visual = null, navigating = false;
     const dirtyForms = new Set();
-    const canSwipe = () => !navigating && innerWidth <= 1023 && !!window.isSuperuser &&
+    // 只在 DX、YA、SR 各自的首頁可以換站；子頁（例如 /sr/events/…、/ya/hymn-lyrics.html、admin-xxx.html）不能左右滑、沒有箭頭、鍵盤 ← → 也不換站
+    const isHome = () => /^\/(?:(?:ya|sr)\/)?(?:index\.html)?$/.test(location.pathname);
+    const canSwipe = () => isHome() && !navigating && innerWidth <= 1023 && !!window.isSuperuser &&
       !document.documentElement.classList.contains('dx-locked') &&
       !document.querySelector('dialog[open], .todo-edit, .reorder-source, .reorder-floating, .is-dragging, #siteGrid.is-editing, #homeApps.is-editing, .slot-grid.is-editing, .slot-floating, .clc-hmenu') &&
       !Array.from(dirtyForms).some(form => form.isConnected && Array.from(form.elements).some(field => {
@@ -495,8 +497,6 @@
     // 電腦版：滑鼠移到畫面左右邊緣，才淡淡出現 ‹ › 箭頭，點了換站（跟手機左右滑同一套順序與動畫）。
     // 平常完全看不到、也點不到（pointer-events:none），不影響畫面其他內容。
     if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
-      // 只在 DX、YA、SR 各自的首頁出現；進到子頁（例如 /ya/hymn-lyrics.html、admin-xxx.html）就沒有箭頭，鍵盤 ← → 也不換站
-      const isHome = () => /^\/(?:(?:ya|sr)\/)?(?:index\.html)?$/.test(location.pathname);
       const canArrow = () => isHome() && !navigating && !!window.isSuperuser &&
         !document.documentElement.classList.contains('dx-locked') &&
         !document.querySelector('dialog[open], .is-dragging, #siteGrid.is-editing, #homeApps.is-editing, .slot-grid.is-editing, .slot-floating, .clc-hmenu');
