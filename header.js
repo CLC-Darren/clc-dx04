@@ -349,6 +349,8 @@ async function triggerAdminLogin(options = {}) {
     const loginRole = await window.clcGetAdminRole(result.user);
     if (loginRole) {
       applyAdminState(true, email, true, loginRole === 'viewer');
+      // 同時把 YA、SR 登入成同一個帳號（clc-sso.js；同步完成前畫面暫停操作）
+      if (window.CLCSSO && window.CLCSSO.syncDown) await window.CLCSSO.syncDown();
       if (!options.quiet) alert(loginRole === 'viewer' ? `歡迎，${result.user.displayName || email}！目前為唯讀檢視權限。` : `歡迎回來，管理員 ${result.user.displayName || email}！`);
     } else {
       await window.auth.signOut();

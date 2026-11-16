@@ -122,7 +122,7 @@
 
   // 用 DX04 的 Google 憑證登入分站的 Firebase（另一份獨立的 SDK，不會干擾分站自己的 Firebase）。
   // 登入結果寫進瀏覽器後，分站自己的 Firebase 會自動讀到。
-  async function signInSite(config, tok) {
+  async function signInSiteNow(config, tok) {
     const appMod = await import(FB + 'firebase-app.js');
     const authMod = await import(FB + 'firebase-auth.js');
     const existing = appMod.getApps().find(a => a.name === '[DEFAULT]');
@@ -139,6 +139,130 @@
     } finally {
       if (!existing) { try { await appMod.deleteApp(app); } catch (_) {} }
     }
+  }
+
+  // 同一頁面同時只跑一個登入（Firebase 的 [DEFAULT] App 一次只能有一個），其餘排隊。
+  let signChain = Promise.resolve();
+  function signInSite(config, tok) {
+    const p = signChain.then(() => signInSiteNow(config, tok));
+    signChain = p.catch(() => {});
+    return p;
+  }
+
+  // ---------- 登入當下一次把下層各站登好 ----------
+  //   在 LF 登入 → DX、YA、SR 一起登入；在 DX 登入 → YA、SR 一起登入。
+  //   下層站已經是同一個帳號就跳過；是別的帳號就換成這次登入的帳號。
+  //   同步期間整個畫面暫停操作（顯示「登入中」），完成才放行，避免同步到一半就切站造成錯亂。
+  const DX_CONFIG = { // DX04 的 Firebase 設定（公開值，與 header.js 相同），LF 頁面替 DX 登入時使用
+    apiKey: DX04_API_KEY, authDomain: 'clc-dx04.firebaseapp.com', projectId: 'clc-dx04',
+    storageBucket: 'clc-dx04.firebasestorage.app', messagingSenderId: '333844280279',
+    appId: '1:333844280279:web:84e6f122ae00bf010dd192'
+  };
+  const LABELS = { lf: 'LinFamily', dx: 'DX', ya: 'YA', sr: 'SR' };
+  const BUSY_KEY = 'clc_sso_busy'; // 同步中的記號（其他分頁打開下層站時先等同步完成）
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  function descendantsOf(k) {
+    const out = [];
+    (function walk(p) { Object.keys(PARENT).forEach(c => { if (PARENT[c] === p) { out.push(c); walk(c); } }); })(k);
+    return out;
+  }
+  async function siteConfig(k) {
+    if (k === 'dx') return { name: 'DX04', firebase: (!siteKey && window.firebaseConfig) || DX_CONFIG };
+    try {
+      const res = await fetch('/' + k + '/clc-site.json', { cache: 'no-store' });
+      return res.ok ? await res.json() : null;
+    } catch (_) { return null; }
+  }
+  // 某站目前登入的 Email（沒登入回傳空字串）
+  async function authEmail(apiKey) {
+    const key = AUTH_PREFIX + apiKey + ':[DEFAULT]';
+    const r = await withStore('readonly', s => s.get(key));
+    let v = r && r.result ? r.result.value : null;
+    if (!v) { try { v = JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) {} }
+    return v ? String(v.email || '?').toLowerCase() : '';
+  }
+  function setBusy(on) {
+    try { on ? localStorage.setItem(BUSY_KEY, String(Date.now() + 20000)) : localStorage.removeItem(BUSY_KEY); } catch (_) {}
+  }
+  async function waitIdle() { // 最多等 20 秒（記號本身 20 秒後也會自動失效）
+    for (;;) {
+      let until = 0;
+      try { until = Number(localStorage.getItem(BUSY_KEY)) || 0; } catch (_) {}
+      if (until <= Date.now()) return;
+      await sleep(200);
+    }
+  }
+  function withTimeout(p, ms) { return Promise.race([p, sleep(ms).then(() => 'timeout')]); }
+
+  // 暫停整個畫面的操作；0.2 秒內完成就不顯示任何東西，超過才出現「登入中」。
+  function blockScreen(names) {
+    const evs = ['click', 'dblclick', 'auxclick', 'contextmenu', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'keydown', 'keyup', 'submit'];
+    const stop = e => { e.stopImmediatePropagation(); if (e.cancelable) e.preventDefault(); };
+    evs.forEach(t => window.addEventListener(t, stop, { capture: true, passive: false }));
+    let el = null;
+    const timer = setTimeout(() => {
+      if (!document.body) return;
+      el = document.createElement('div');
+      el.id = 'clc-sso-busy';
+      el.setAttribute('role', 'alert'); el.setAttribute('aria-busy', 'true');
+      el.style.cssText = 'position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:rgba(9,10,15,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);';
+      el.innerHTML = '<style>@keyframes clcSsoSpin{to{transform:rotate(360deg)}}</style>' +
+        '<div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-radius:16px;background:#161924;color:#f1f5f9;border:1px solid rgba(255,255,255,.12);box-shadow:0 12px 40px rgba(0,0,0,.45);font:14px/1.5 Arial,&quot;Microsoft JhengHei&quot;,sans-serif;">' +
+        '<span style="width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(255,255,255,.25);border-top-color:#00A3B4;animation:clcSsoSpin .8s linear infinite;"></span>' +
+        '<span></span></div>';
+      el.querySelector('div > span:last-child').textContent = '正在同步登入 ' + names.join('、') + '…';
+      document.body.appendChild(el);
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+      evs.forEach(t => window.removeEventListener(t, stop, { capture: true }));
+      if (el) el.remove();
+    };
+  }
+
+  let syncing = null;
+  function syncDown() {
+    if (syncing) return syncing;
+    syncing = (async () => {
+      if (window.top !== window) return;
+      const tok = readToken();
+      if (!tok || shareBlocked()) return;
+      if (tok.src !== me && !ancestors.includes(tok.src || 'dx')) return; // 只用自己或上層站發的憑證（登入只往下帶）
+      const targets = descendantsOf(me);
+      if (!targets.length) return;
+      const release = blockScreen(targets.map(k => LABELS[k] || k.toUpperCase()));
+      setBusy(true);
+      const failed = [];
+      try {
+        const want = String(tok.email || '').toLowerCase();
+        const sdk = Promise.all([import(FB + 'firebase-app.js'), import(FB + 'firebase-auth.js')]).catch(() => null); // 先下載，和下面同時進行
+        const list = await Promise.all(targets.map(async k => {
+          const site = await siteConfig(k);
+          const config = site && site.firebase;
+          if (!config || !config.apiKey) return { k, bad: true };
+          return { k, config, same: !!want && (await authEmail(config.apiKey)) === want };
+        }));
+        await withTimeout(sdk, 8000);
+        for (const it of list) {
+          if (it.bad) { failed.push(LABELS[it.k] || it.k); continue; }
+          if (it.same) continue; // 已經是同一個帳號
+          const err = await withTimeout(signInSite(it.config, tok), 8000);
+          if (err) failed.push(LABELS[it.k] || it.k);
+        }
+      } catch (e) {
+        console.warn('[CLC SSO] 同步登入失敗', e);
+      } finally {
+        setBusy(false);
+        release();
+      }
+      if (failed.length) notice(`${failed.join('、')} 沒有自動登入成功，打開時請按右上角 🔐 登入。`);
+    })().finally(() => { syncing = null; });
+    return syncing;
+  }
+  // 登入成功後呼叫：保存憑證並立刻同步下層各站。
+  function shareLogin(idToken) {
+    saveGoogleIdToken(idToken);
+    return syncDown();
   }
 
   // 畫面下方的簡短提示，點一下或 10 秒後消失。
@@ -188,6 +312,7 @@
     const config = site && site.firebase;
     if (!config || !config.apiKey) return;
 
+    await waitIdle(); // 其他分頁正在同步登入：等它完成再判斷
     let had = await hasAuthUser(config.apiKey);
     if (!had && !shareBlocked() && await ancestorLoggedIn()) {
       // 只在上層站已登入時才嘗試自動登入或提示，不打擾一般訪客。
@@ -198,7 +323,7 @@
         notice(`共用登入憑證已過期（超過 1 小時），無法自動登入 ${name}。請按右上角 🔐 登入一次，或回 LinFamily 登出後重新登入。`);
       } else {
         const err = await signInSite(config, tok);
-        if (!err) had = true;
+        if (!err) { had = true; await syncDown(); } // 例：DX 由 LF 帶入登入後，順便把 YA、SR 也登好
         else notice(`自動登入 ${name} 失敗，請按右上角 🔐 登入。（${err}）`);
       }
     }
@@ -386,6 +511,6 @@
   }
   installSiteSwipe();
 
-  window.CLCSSO = { saveGoogleIdToken, blockShare, logoutAll, readToken, signInSite };
+  window.CLCSSO = { saveGoogleIdToken, shareLogin, syncDown, blockShare, logoutAll, readToken, signInSite };
   runSite();
 })();
