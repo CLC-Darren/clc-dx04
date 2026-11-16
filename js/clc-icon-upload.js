@@ -253,13 +253,13 @@
       } catch (e) { onError && onError(e.message || '圖片處理失敗。'); }
       finally { if (img) URL.revokeObjectURL(img.src); }
     };
-    // 📷：電腦版跳出小選單（螢幕截圖／貼上截圖／上傳檔案）；手機直接開相簿
+    // 📷：電腦版跳出小選單（上傳檔案／螢幕截圖／貼上剪貼簿的圖片）；手機直接開相簿
     const menu = document.createElement('div');
     menu.className = 'clc-up-menu'; menu.hidden = true; menu.setAttribute('role', 'menu');
     const opts = [];
+    opts.push(['file', '📁', '上傳檔案']);
     if (canCapture()) opts.push(['shot', '🖥️', '螢幕截圖']);
     if (!coarse && navigator.clipboard && navigator.clipboard.read) opts.push(['paste', '📋', '貼上剪貼簿的圖片', '⌘/Ctrl+V']);
-    opts.push(['file', '📁', '上傳檔案']);
     menu.innerHTML = opts.map(([k, i, t, h]) => `<button type="button" role="menuitem" data-up="${k}"><span aria-hidden="true">${i}</span>${t}${h ? `<small>${h}</small>` : ''}</button>`).join('');
     dialog.appendChild(menu); // 放在對話框裡，才會在最上層
     const closeMenu = () => { menu.hidden = true; };
