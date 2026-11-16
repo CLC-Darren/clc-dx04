@@ -180,6 +180,8 @@ function applyAdminState(active, email, notify = true, viewer = false) {
   const superuser = window.isAdmin && window.ADMIN_WHITELIST.includes(String(email || '').toLowerCase());
   window.currentAdminRole = active ? (viewerOnly ? 'viewer' : (superuser ? 'superuser' : 'admin')) : '';
   window.isSuperuser = superuser;
+  // 已登入但不是 Superuser：不分享登入給 YA、SR（跨站登入只給 Superuser）
+  if (active && !superuser && window.CLCSSO && window.CLCSSO.blockShare) window.CLCSSO.blockShare();
   if (!superuser) {
     const switcher = document.getElementById('siteSwitcher');
     if (switcher) switcher.classList.add('hidden');
@@ -341,16 +343,19 @@ async function triggerAdminLogin(options = {}) {
   const provider = new firebase.auth.GoogleAuthProvider();
   try {
     const result = await window.auth.signInWithPopup(provider);
-    // 保存 Google 身分憑證，供掛在 DX04 底下的分站自動登入（clc-sso.js）。
-    if (window.CLCSSO && result.credential && result.credential.idToken) {
-      window.CLCSSO.saveGoogleIdToken(result.credential.idToken);
-    }
     const email = result.user.email.toLowerCase();
     const loginRole = await window.clcGetAdminRole(result.user);
     if (loginRole) {
       applyAdminState(true, email, true, loginRole === 'viewer');
-      // 同時把 YA、SR 登入成同一個帳號（clc-sso.js；同步完成前畫面暫停操作）
-      if (window.CLCSSO && window.CLCSSO.syncDown) await window.CLCSSO.syncDown();
+      // 跨站登入只給 Superuser：保存 Google 憑證並同時把 YA、SR 登入成同一個帳號（clc-sso.js；同步完成前畫面暫停操作）。
+      // Admin、Viewer 不帶到 YA、SR。
+      const idTok = result.credential && result.credential.idToken;
+      if (window.CLCSSO) {
+        if (loginRole === 'admin' && window.ADMIN_WHITELIST.includes(email) && idTok) {
+          window.CLCSSO.saveGoogleIdToken(idTok);
+          if (window.CLCSSO.syncDown) await window.CLCSSO.syncDown();
+        } else if (window.CLCSSO.blockShare) window.CLCSSO.blockShare();
+      }
       if (!options.quiet) alert(loginRole === 'viewer' ? `歡迎，${result.user.displayName || email}！目前為唯讀檢視權限。` : `歡迎回來，管理員 ${result.user.displayName || email}！`);
     } else {
       await window.auth.signOut();

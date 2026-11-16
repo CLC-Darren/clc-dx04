@@ -60,7 +60,7 @@
     } catch (e) { console.warn('[CLC SSO] 無法保存登入憑證', e); }
   }
 
-  // LF 的 User 權限：不分享登入，DX、YA、SR 不自動登入、也不跳提示。
+  // 跨站登入只給 Superuser：其他權限（Admin、Viewer、User）登入時呼叫，下層站不自動登入、也不跳提示。
   function blockShare() {
     try { localStorage.setItem(TOKEN_KEY, JSON.stringify({ noshare: true, src: me })); } catch (_) {}
   }
