@@ -6,6 +6,7 @@
   <script src="/login-gate.js?v=20261115-pending"></script>
   <script src="/reorder.js?v=drag-lift-6"></script>
   <script src="/js/clc-slot-grid.js?v=20261116a"></script>
+  <script src="/js/clc-icon-upload.js?v=20261116a"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>CLC DX04 | 總控台</title>
@@ -1822,6 +1823,9 @@
         if (v.startsWith('/') && !v.startsWith('//')) return v;
         try { const u = new URL(v); return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : ''; } catch (_) { return ''; }
       }
+      // 圖示可以是網址，或上傳後存成的 data:image（js/clc-icon-upload.js）
+      const isDataIcon = v => !!(window.clcIsDataIcon && window.clcIsDataIcon(v));
+      const safeIcon = v => isDataIcon(v) ? String(v) : safeUrl(v);
       function normalizeInputUrl(value) {
         let v = String(value || '').trim();
         if (!v) return '';
@@ -1900,7 +1904,7 @@
         } catch (_) {}
       }
       function displayedIcon(app) {
-        if (manualIcon(app)) return safeUrl(app.icon);
+        if (manualIcon(app)) return safeIcon(app.icon);
         const cached = iconCache[iconKey(app)];
         if (cached) return safeUrl(cached.icon) || '';
         return isGoogleIcon(app.icon) ? '' : safeUrl(app.icon);
@@ -2067,10 +2071,23 @@
       const errEl = document.getElementById('appFormError');
       const statusEl = document.getElementById('appStatus');
       const saveBtn = document.getElementById('appSaveBtn');
-      let editingId = null, auto = {}, fetchSeq = 0, fetchTimer = 0;
+      let editingId = null, auto = {}, fetchSeq = 0, fetchTimer = 0, uploadedIcon = '';
+      const placeholderIcon = fIcon.placeholder;
+      function setUploaded(icon) {
+        uploadedIcon = icon || '';
+        fIcon.placeholder = uploadedIcon ? '已使用上傳的圖片（填網址可取代）' : placeholderIcon;
+        if (uploader) uploader.setUploaded(!!uploadedIcon);
+      }
       function showError(msg) { errEl.textContent = msg; errEl.classList.toggle('hidden', !msg); }
       function setStatus(msg) { statusEl.textContent = msg; statusEl.classList.toggle('hidden', !msg); }
-      function updatePreview() { preview.replaceChildren(logo({ name: fName.value, icon: fIcon.value, iconMode: 'manual' })); }
+      function updatePreview() { preview.replaceChildren(logo({ name: fName.value, icon: uploadedIcon || fIcon.value, iconMode: 'manual' })); }
+      // 圖示可上傳、拖放或貼上截圖
+      const uploader = window.clcIconUploader ? window.clcIconUploader({
+        dialog, row: preview.parentElement,
+        onIcon: d => { fIcon.value = ''; setUploaded(d); showError(''); updatePreview(); },
+        onClear: () => { setUploaded(''); updatePreview(); },
+        onError: showError
+      }) : null;
       function openEdit(id) {
         if (!isAdmin()) return;
         const app = id ? apps.find(a => a.id === id) : null;
@@ -2083,7 +2100,8 @@
         fUrl.title = app && app.site ? 'YA、SR 的網址跟著 header.js 的 CLC_SITES' : '';
         fName.value = app ? app.name : '';
         const icon = app ? displayedIcon(app) : '';
-        fIcon.value = icon;
+        fIcon.value = isDataIcon(icon) ? '' : icon;
+        setUploaded(isDataIcon(icon) ? icon : '');
         // 自動抓的圖示視為「自動」，之後網站換圖會跟著更新；使用者自己填的才是「手動」。
         auto = { name: '', icon: app && !manualIcon(app) ? icon : '', url: app ? safeUrl(app.url) : '', embeddable: null };
         showError(''); setStatus('');
@@ -2105,27 +2123,29 @@
         if (typeof info.embeddable === 'boolean' && info.ok) auto.embeddable = info.embeddable;
         const name = String(info.name || '').trim().slice(0, 30), icon = info.ok && !isGoogleIcon(info.icon) ? safeUrl(info.icon) : '';
         if (name && (!fName.value.trim() || fName.value === auto.name)) { fName.value = name; auto.name = name; }
-        if (!fIcon.value.trim() || fIcon.value === auto.icon) { fIcon.value = icon; auto.icon = icon; }
+        if (!uploadedIcon && (!fIcon.value.trim() || fIcon.value === auto.icon)) { fIcon.value = icon; auto.icon = icon; }
         updatePreview();
       }
       fUrl.addEventListener('input', () => { clearTimeout(fetchTimer); fetchTimer = setTimeout(fetchInfo, 600); });
       fUrl.addEventListener('change', fetchInfo);
-      fIcon.addEventListener('input', updatePreview);
+      fIcon.addEventListener('input', () => { if (fIcon.value.trim() && uploadedIcon) setUploaded(''); updatePreview(); });
       fName.addEventListener('input', updatePreview);
       document.getElementById('appCancelBtn').addEventListener('click', () => dialog.close());
-      dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
+      // 按下和放開都在框外才關閉（拖曳選字滑出去不會關掉）
+      if (window.clcDialogBackdropClose) window.clcDialogBackdropClose(dialog);
+      else dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
       form.addEventListener('submit', async e => {
         e.preventDefault();
         const old = editingId ? apps.find(a => a.id === editingId) : null;
         if (!fUrl.readOnly && normalizeInputUrl(fUrl.value) !== auto.url) { clearTimeout(fetchTimer); await fetchInfo(); }
         const url = old && old.site ? old.url : normalizeInputUrl(fUrl.value);
-        const icon = safeUrl(fIcon.value);
+        const icon = uploadedIcon || safeUrl(fIcon.value);
         if (!url) return showError('網址格式不正確，例如 https://example.com');
-        if (fIcon.value.trim() && !icon) return showError('圖示網址格式不正確。');
+        if (!uploadedIcon && fIcon.value.trim() && !icon) return showError('圖示網址格式不正確。');
         if (!old && apps.length >= MAX_APPS) return showError('最多 ' + MAX_APPS + ' 個 App。');
         let name = fName.value.trim().slice(0, 30);
         if (!name) { try { name = new URL(url).hostname.replace(/^www\./, '').slice(0, 30); } catch (_) { name = url.slice(0, 30); } }
-        const iconMode = !icon || icon === auto.icon ? 'auto' : 'manual';
+        const iconMode = uploadedIcon ? 'manual' : (!icon || icon === auto.icon ? 'auto' : 'manual');
         if (iconMode === 'auto' && auto.icon && safeUrl(url)) {
           iconCache[safeUrl(url)] = { icon, checkedAt: Date.now(), nextCheckAt: Date.now() + ICON_DAY };
           rememberIcons();
