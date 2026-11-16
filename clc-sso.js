@@ -495,7 +495,9 @@
     // 電腦版：滑鼠移到畫面左右邊緣，才淡淡出現 ‹ › 箭頭，點了換站（跟手機左右滑同一套順序與動畫）。
     // 平常完全看不到、也點不到（pointer-events:none），不影響畫面其他內容。
     if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
-      const canArrow = () => !navigating && !!window.isSuperuser &&
+      // 只在 DX、YA、SR 各自的首頁出現；進到子頁（例如 /ya/hymn-lyrics.html、admin-xxx.html）就沒有箭頭，鍵盤 ← → 也不換站
+      const isHome = () => /^\/(?:(?:ya|sr)\/)?(?:index\.html)?$/.test(location.pathname);
+      const canArrow = () => isHome() && !navigating && !!window.isSuperuser &&
         !document.documentElement.classList.contains('dx-locked') &&
         !document.querySelector('dialog[open], .is-dragging, #siteGrid.is-editing, #homeApps.is-editing, .slot-grid.is-editing, .slot-floating, .clc-hmenu');
       const mk = (side, dx) => {
