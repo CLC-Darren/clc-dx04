@@ -21,10 +21,11 @@
       '#lfHomeBtn.edge-left{width:22px;border-radius:0 22px 22px 0;place-items:center end}' +
       '#lfHomeBtn.edge-right{width:22px;border-radius:22px 0 0 22px;place-items:center start}' +
       '#lfHomeBtn.edge-left svg{transform:translateX(7px)}#lfHomeBtn.edge-right svg{transform:translateX(-7px)}' +
-      '#lfHomeBtn:hover,#lfHomeBtn:focus-visible,#lfHomeBtn.is-active{opacity:.9;outline:none}' +
-      '#lfHomeBtn.edge-left:hover,#lfHomeBtn.edge-left.is-active,#lfHomeBtn.edge-left:focus-visible{width:52px;place-items:center}' +
-      '#lfHomeBtn.edge-right:hover,#lfHomeBtn.edge-right.is-active,#lfHomeBtn.edge-right:focus-visible{width:52px;place-items:center}' +
-      '#lfHomeBtn.edge-left:hover svg,#lfHomeBtn.edge-left.is-active svg,#lfHomeBtn.edge-right:hover svg,#lfHomeBtn.edge-right.is-active svg{transform:none}' +
+      // 拉出來＝圓頭長方形（貼邊那側是平的）；手機只在手指按住時拉出，放開就收回半圓（不用 :hover，避免手機點完一直卡在拉出狀態）
+      '#lfHomeBtn.is-active,#lfHomeBtn:focus-visible{opacity:.9;outline:none}' +
+      '#lfHomeBtn.edge-left.is-active,#lfHomeBtn.edge-right.is-active,#lfHomeBtn.edge-left:focus-visible,#lfHomeBtn.edge-right:focus-visible{width:50px;place-items:center}' +
+      '#lfHomeBtn.is-active svg,#lfHomeBtn:focus-visible svg{transform:none}' +
+      '@media (hover:hover){#lfHomeBtn:hover{opacity:.9}#lfHomeBtn.edge-left:hover,#lfHomeBtn.edge-right:hover{width:50px;place-items:center}#lfHomeBtn:hover svg{transform:none}}' +
       '#lfHomeBtn.is-dragging{transition:opacity .2s;opacity:.9;width:44px;border-radius:22px;place-items:center}#lfHomeBtn.is-dragging svg{transform:none}' +
       '#lfHomeBtn.is-reset{animation:lfHomePing .5s ease}@keyframes lfHomePing{50%{opacity:1;transform:scale(1.15)}}';
     function homeDraggable(a, key) {
