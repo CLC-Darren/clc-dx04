@@ -166,15 +166,16 @@
   async function initSec() {
     if (inited) return; inited = true;
     try { const d = (await window.db.collection('dx04_settings').doc('security').get()).data() || {};
-      $('secSleep').value = String(d.sleepMin || 0); $('secLogout').value = String(d.logoutMin || 0); }
+      $('secSleep').value = String(d.sleepMin || 0); $('secLogout').value = String(d.logoutMin || 0);
+      $('secMSleep').value = String(d.mSleepMin ?? d.sleepMin ?? 0); $('secMLogout').value = String(d.mLogoutMin ?? d.logoutMin ?? 0); }
     catch (err) { $('secMsg').textContent = '讀取失敗：' + err.message; }
   }
   $('secForm').addEventListener('submit', async e => {
     e.preventDefault();
-    const v = { sleepMin: Number($('secSleep').value), logoutMin: Number($('secLogout').value) };
+    const v = { sleepMin: Number($('secSleep').value), logoutMin: Number($('secLogout').value), mSleepMin: Number($('secMSleep').value), mLogoutMin: Number($('secMLogout').value) };
     try {
       await window.db.collection('dx04_settings').doc('security').set(Object.assign({ updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, v));
-      try { localStorage.setItem('clc_security_dx', JSON.stringify(v)); } catch (_) {}
+      try { localStorage.setItem('clc_security_dx', JSON.stringify({ sleepMin: v.sleepMin, logoutMin: v.logoutMin })); localStorage.setItem('clc_security_dx_m', JSON.stringify({ sleepMin: v.mSleepMin, logoutMin: v.mLogoutMin })); } catch (_) {}
       $('secMsg').textContent = '✅ 已儲存，下次打開或 1 分鐘內生效。';
     } catch (err) { $('secMsg').textContent = '儲存失敗（請確認 DX 的 Firestore 規則已更新）：' + err.message; }
   });

@@ -44,11 +44,15 @@
   <form id="secForm" class="rounded-xl border border-slate-700 p-4 space-y-3">
     <h2 class="font-bold">休眠與自動登出（全站、所有使用者）</h2>
     <p class="text-xs text-slate-400">以「最後一次操作」起算；App 關著的時間也算。<b>從 DX（clc-dx04.pages.dev）進來時</b>套用，包含從 DX 點進去的 YA、SR；從 LinFamily 進來時照 LF 的設定；YA、SR 用自己的連結開不受管制。休眠回 DX 的歡迎動畫，登出回 DX。</p>
+    <p class="text-sm font-bold">💻 電腦</p>
     <label class="text-sm block">休眠：多久沒操作就回到動態首頁<select class="field mt-1" id="secSleep"><option value="0">關閉</option><option value="5">5 分鐘</option><option value="10">10 分鐘</option><option value="15">15 分鐘</option><option value="30">30 分鐘</option><option value="60">60 分鐘</option></select></label>
     <label class="text-sm block">自動登出：多久沒操作就全站登出<select class="field mt-1" id="secLogout"><option value="0">關閉</option><option value="30">30 分鐘</option><option value="60">1 小時</option><option value="240">4 小時</option><option value="480">8 小時</option><option value="1440">1 天</option></select></label>
+    <p class="text-sm font-bold pt-2">📱 手機／平板</p>
+    <label class="text-sm block">休眠：多久沒操作就回到動態首頁<select class="field mt-1" id="secMSleep"><option value="0">關閉</option><option value="5">5 分鐘</option><option value="10">10 分鐘</option><option value="15">15 分鐘</option><option value="30">30 分鐘</option><option value="60">60 分鐘</option></select></label>
+    <label class="text-sm block">自動登出：多久沒操作就全站登出<select class="field mt-1" id="secMLogout"><option value="0">關閉</option><option value="30">30 分鐘</option><option value="60">1 小時</option><option value="240">4 小時</option><option value="480">8 小時</option><option value="1440">1 天</option></select></label>
     <button type="submit" class="primary" id="secSave">儲存</button>
     <p id="secMsg" class="text-xs text-slate-400"></p>
   </form>
 </div>
 </main>
-<script src="clc-sso.js?v=20261117-entrysec"></script><script src="header.js?v=20261117-settings2"></script><script src="admin-users.js?v=20261117-settings2"></script></body></html>
+<script src="clc-sso.js?v=20261117-mobilesec"></script><script src="header.js?v=20261117-settings2"></script><script src="admin-users.js?v=20261117-mobilesec"></script></body></html>

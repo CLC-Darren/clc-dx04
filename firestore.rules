@@ -54,8 +54,9 @@ service cloud.firestore {
     match /dx04_settings/{docId} {
       allow get: if docId == 'apps' || docId == 'security'; // security：休眠與自動登出（公開讀取，各站打開時要讀）
       allow create, update: if isAdmin() && bootstrapAdmin() && docId == 'security'
-        && request.resource.data.keys().hasOnly(['sleepMin', 'logoutMin', 'updatedAt'])
-        && request.resource.data.sleepMin is int && request.resource.data.logoutMin is int;
+        && request.resource.data.keys().hasOnly(['sleepMin', 'logoutMin', 'mSleepMin', 'mLogoutMin', 'updatedAt'])
+        && request.resource.data.sleepMin is int && request.resource.data.logoutMin is int
+        && request.resource.data.get('mSleepMin', 0) is int && request.resource.data.get('mLogoutMin', 0) is int; // m＝手機／平板
       allow create, update: if isAdmin() && docId == 'apps'
         && request.resource.data.keys().hasOnly(['items', 'updatedAt', 'updatedBy'])
         && request.resource.data.items is list

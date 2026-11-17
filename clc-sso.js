@@ -564,7 +564,8 @@
       dx: { url: 'https://firestore.googleapis.com/v1/projects/clc-dx04/databases/(default)/documents/dx04_settings/security?key=' + DX04_API_KEY, home: '/' }
     }[entry];
     if (!SRC) return; // YA、SR 獨立開啟：不管制
-    const SEC_KEY = 'clc_security_' + entry, ACT_KEY = 'clc_last_active';
+    const isMobile = /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
+    const SEC_KEY = 'clc_security_' + entry + (isMobile ? '_m' : ''), ACT_KEY = 'clc_last_active';
     let sec = { sleepMin: 0, logoutMin: 0 }, lastWrite = 0, slept = false;
     try { Object.assign(sec, JSON.parse(localStorage.getItem(SEC_KEY) || '{}')); } catch (_) {}
     const lastActive = () => { try { return Number(localStorage.getItem(ACT_KEY) || 0); } catch (_) { return 0; } };
@@ -605,7 +606,11 @@
     fetch(SRC.url).then(r => r.ok ? r.json() : null).then(j => { // 公開讀取，不用登入
       const f = (j && j.fields) || {};
       const n = k => Number((f[k] || {}).integerValue || (f[k] || {}).doubleValue || 0);
-      sec = { sleepMin: n('sleepMin'), logoutMin: n('logoutMin') };
+      const has = k => k in f;
+      // 手機版有自己的設定（mSleepMin／mLogoutMin，0＝不休眠／不登出）；沒設過就沿用電腦版
+      sec = isMobile
+        ? { sleepMin: has('mSleepMin') ? n('mSleepMin') : n('sleepMin'), logoutMin: has('mLogoutMin') ? n('mLogoutMin') : n('logoutMin') }
+        : { sleepMin: n('sleepMin'), logoutMin: n('logoutMin') };
       try { localStorage.setItem(SEC_KEY, JSON.stringify(sec)); } catch (_) {}
     }).catch(() => {});
     check(true).then(() => { lastWrite = 0; touch(); }); // 打開也算一次操作
