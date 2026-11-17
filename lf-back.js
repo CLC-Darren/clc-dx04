@@ -11,48 +11,71 @@
     home = sessionStorage.getItem(K) || '';
   } catch (_) {}
   if (!home || window.top !== window || /^\/lf(\/|$)/.test(location.pathname)) return; // LinFamily 自己的頁面不顯示
-    // 可拖動、自動吸邊、一半藏在畫面外；點一下回 LinFamily。位置記在這個瀏覽器（每站各自記）。
-    var CSS = '#lfHomeBtn{position:fixed;z-index:Z;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;' +
+    // 🏠：可以停在畫面任何地方（圓形）；放在左右邊緣附近會吸附、收成半圓貼邊，碰到時變成圓頭長方形；
+    // 長按（不移動）回到預設位置（左下貼邊）。位置記在這個瀏覽器（每站各自記）。點一下回 LinFamily。
+    var CSS = '#lfHomeBtn{position:fixed;z-index:Z;width:44px;height:44px;border-radius:22px;display:grid;place-items:center;' +
       'background:rgba(28,28,28,.45);color:#fff;opacity:.28;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 2px 8px rgba(0,0,0,.15);' +
-      'cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;' +
-      'transition:opacity .2s,transform .25s ease,left .25s ease,top .25s ease}' +
-      '#lfHomeBtn svg{width:22px;height:22px;display:block;pointer-events:none}' +
-      '#lfHomeBtn.tuck-left{transform:translateX(-50%)}#lfHomeBtn.tuck-right{transform:translateX(50%)}' +
-      '#lfHomeBtn:hover,#lfHomeBtn:focus-visible,#lfHomeBtn.is-active{opacity:.9;transform:none;outline:none}' +
-      '#lfHomeBtn.is-dragging{transition:opacity .2s;opacity:.9;transform:none}';
+      'cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;overflow:hidden;' +
+      'transition:opacity .2s,width .2s ease,border-radius .2s ease,left .25s ease,top .25s ease}' +
+      '#lfHomeBtn svg{width:22px;height:22px;display:block;pointer-events:none;flex:none;transition:transform .2s}' +
+      '#lfHomeBtn.edge-left{width:22px;border-radius:0 22px 22px 0;place-items:center end}' +
+      '#lfHomeBtn.edge-right{width:22px;border-radius:22px 0 0 22px;place-items:center start}' +
+      '#lfHomeBtn.edge-left svg{transform:translateX(7px)}#lfHomeBtn.edge-right svg{transform:translateX(-7px)}' +
+      '#lfHomeBtn:hover,#lfHomeBtn:focus-visible,#lfHomeBtn.is-active{opacity:.9;outline:none}' +
+      '#lfHomeBtn.edge-left:hover,#lfHomeBtn.edge-left.is-active,#lfHomeBtn.edge-left:focus-visible{width:52px;place-items:center}' +
+      '#lfHomeBtn.edge-right:hover,#lfHomeBtn.edge-right.is-active,#lfHomeBtn.edge-right:focus-visible{width:52px;place-items:center}' +
+      '#lfHomeBtn.edge-left:hover svg,#lfHomeBtn.edge-left.is-active svg,#lfHomeBtn.edge-right:hover svg,#lfHomeBtn.edge-right.is-active svg{transform:none}' +
+      '#lfHomeBtn.is-dragging{transition:opacity .2s;opacity:.9;width:44px;border-radius:22px;place-items:center}#lfHomeBtn.is-dragging svg{transform:none}' +
+      '#lfHomeBtn.is-reset{animation:lfHomePing .5s ease}@keyframes lfHomePing{50%{opacity:1;transform:scale(1.15)}}';
     function homeDraggable(a, key) {
-      var SIZE = 44, pos = { side: 'left', y: 0.86 }, start = null, dragged = false;
-      try { var saved = JSON.parse(localStorage.getItem(key) || 'null'); if (saved && (saved.side === 'left' || saved.side === 'right') && saved.y >= 0 && saved.y <= 1) pos = saved; } catch (_) {}
+      var SIZE = 44, SNAP = 40, DEF = { edge: 'left', y: 0.86 };
+      var pos = DEF, start = null, dragged = false, pressT = null, didReset = false;
+      try { var sv = JSON.parse(localStorage.getItem(key) || 'null'); if (sv && sv.y >= 0 && sv.y <= 1 && (sv.edge === 'left' || sv.edge === 'right' || (sv.edge === '' && sv.x >= 0 && sv.x <= 1))) pos = sv; } catch (_) {}
+      function clampTop(cy) { return Math.min(innerHeight - SIZE - 8, Math.max(8, cy - SIZE / 2)); }
       function place() {
-        var top = Math.min(innerHeight - SIZE - 12, Math.max(12, pos.y * innerHeight - SIZE / 2));
-        a.style.top = top + 'px';
-        a.style.left = (pos.side === 'left' ? 0 : innerWidth - SIZE) + 'px';
-        a.classList.toggle('tuck-left', pos.side === 'left');
-        a.classList.toggle('tuck-right', pos.side === 'right');
+        a.classList.toggle('edge-left', pos.edge === 'left');
+        a.classList.toggle('edge-right', pos.edge === 'right');
+        a.style.top = clampTop(pos.y * innerHeight) + 'px';
+        if (pos.edge === 'left') { a.style.left = '0px'; a.style.right = ''; }
+        else if (pos.edge === 'right') { a.style.left = ''; a.style.right = '0px'; }
+        else { a.style.right = ''; a.style.left = Math.min(innerWidth - SIZE - 8, Math.max(8, pos.x * innerWidth - SIZE / 2)) + 'px'; }
       }
+      function save() { try { localStorage.setItem(key, JSON.stringify(pos)); } catch (_) {} }
       place(); addEventListener('resize', place);
+      a.draggable = false; a.style.webkitUserDrag = 'none';
+      a.addEventListener('dragstart', function (e) { e.preventDefault(); }); // 不讓瀏覽器把連結當成拖曳檔案（會中斷拖動）
       a.addEventListener('pointerdown', function (e) {
-        start = { x: e.clientX, y: e.clientY, l: a.offsetLeft, t: a.offsetTop }; dragged = false;
+        var r = a.getBoundingClientRect();
+        start = { x: e.clientX, y: e.clientY, cx: r.left + r.width / 2, cy: r.top + r.height / 2 }; dragged = false; didReset = false;
         a.classList.add('is-active'); try { a.setPointerCapture(e.pointerId); } catch (_) {}
+        clearTimeout(pressT);
+        pressT = setTimeout(function () { // 長按不動：回到預設位置
+          if (!start || dragged) return;
+          didReset = true; pos = DEF; save(); place();
+          a.classList.remove('is-reset'); void a.offsetWidth; a.classList.add('is-reset');
+        }, 650);
       });
       a.addEventListener('pointermove', function (e) {
         if (!start) return;
         var dx = e.clientX - start.x, dy = e.clientY - start.y;
         if (!dragged && Math.sqrt(dx * dx + dy * dy) < 10) return; // 移動超過 10px 才算拖動
-        dragged = true; a.classList.add('is-dragging'); a.classList.remove('tuck-left', 'tuck-right');
-        a.style.left = Math.min(innerWidth - SIZE, Math.max(0, start.l + dx)) + 'px';
-        a.style.top = Math.min(innerHeight - SIZE, Math.max(0, start.t + dy)) + 'px';
+        dragged = true; clearTimeout(pressT);
+        a.classList.add('is-dragging'); a.classList.remove('edge-left', 'edge-right'); a.style.right = '';
+        var cx = Math.min(innerWidth - SIZE / 2, Math.max(SIZE / 2, start.cx + dx)), cy = Math.min(innerHeight - SIZE / 2, Math.max(SIZE / 2, start.cy + dy));
+        a.style.left = (cx - SIZE / 2) + 'px'; a.style.top = (cy - SIZE / 2) + 'px';
       });
       function end() {
         if (!start) return;
-        start = null; a.classList.remove('is-active', 'is-dragging');
+        clearTimeout(pressT); start = null; a.classList.remove('is-active', 'is-dragging');
         if (!dragged) return;
-        pos = { side: a.offsetLeft + SIZE / 2 < innerWidth / 2 ? 'left' : 'right', y: (a.offsetTop + SIZE / 2) / innerHeight };
-        try { localStorage.setItem(key, JSON.stringify(pos)); } catch (_) {}
-        place();
+        var r = a.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        pos = cx < SNAP ? { edge: 'left', y: cy / innerHeight }           // 靠近左右邊緣：吸附貼邊
+          : cx > innerWidth - SNAP ? { edge: 'right', y: cy / innerHeight }
+          : { edge: '', x: cx / innerWidth, y: cy / innerHeight };          // 其他地方：停在原地
+        save(); place();
       }
       a.addEventListener('pointerup', end); a.addEventListener('pointercancel', end);
-      a.addEventListener('click', function (e) { if (dragged) { e.preventDefault(); dragged = false; } }); // 剛拖完不算點擊
+      a.addEventListener('click', function (e) { if (dragged || didReset) { e.preventDefault(); dragged = false; didReset = false; } }); // 拖完、長按重設都不算點擊
       a.addEventListener('contextmenu', function (e) { e.preventDefault(); }); // 手機長按不跳出連結選單
     }
   function add() {
