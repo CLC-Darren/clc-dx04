@@ -18,9 +18,9 @@
       'cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;overflow:hidden;' +
       'transition:opacity .2s,width .2s ease,border-radius .2s ease,left .25s ease,top .25s ease}' +
       '#lfHomeBtn svg{width:22px;height:22px;display:block;pointer-events:none;flex:none;transition:transform .2s}' +
-      '#lfHomeBtn.edge-left{width:22px;border-radius:0 22px 22px 0;place-items:center end}' +
-      '#lfHomeBtn.edge-right{width:22px;border-radius:22px 0 0 22px;place-items:center start}' +
-      '#lfHomeBtn.edge-left svg{transform:translateX(7px)}#lfHomeBtn.edge-right svg{transform:translateX(-7px)}' +
+      '#lfHomeBtn.edge-left{width:22px;border-radius:0 22px 22px 0}' +
+      '#lfHomeBtn.edge-right{width:22px;border-radius:22px 0 0 22px}' +
+      '#lfHomeBtn.edge-left svg{transform:translateX(-11px)}#lfHomeBtn.edge-right svg{transform:translateX(11px)}' + // 收起來時房子正好切在螢幕邊緣，只露出一半
       // 拉出來＝圓頭長方形（貼邊那側是平的）；手機只在手指按住時拉出，放開就收回半圓（不用 :hover，避免手機點完一直卡在拉出狀態）
       '#lfHomeBtn.is-active,#lfHomeBtn:focus-visible{opacity:.9;outline:none}' +
       '#lfHomeBtn.edge-left.is-active,#lfHomeBtn.edge-right.is-active,#lfHomeBtn.edge-left:focus-visible,#lfHomeBtn.edge-right:focus-visible{width:50px;place-items:center}' +

@@ -67,7 +67,7 @@ function injectSso(res, key) {
 }
 
 // 從 LinFamily 點進來時顯示淡淡的圓形 🏠 回首頁鈕（DX04 本身與各分站的 HTML 都插入）。
-const LF_BACK = '<script src="/lf-back.js?v=6" defer></script>';
+const LF_BACK = '<script src="/lf-back.js?v=7" defer></script>';
 function injectLfBack(res) {
   const type = res.headers.get('content-type') || '';
   if (res.status !== 200 || type.indexOf('text/html') === -1 || typeof HTMLRewriter === 'undefined') return res;
