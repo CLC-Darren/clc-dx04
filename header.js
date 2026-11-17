@@ -158,7 +158,8 @@ function renderHeaderComponent() {
           </button>
           <div id="adminDropdown" class="hidden absolute right-0 bg-white dark:bg-[#161924] shadow-2xl border border-slate-200 dark:border-white/10 z-50 text-left">
             <div id="adminEmailDisplay" class="font-bold text-slate-400 border-b border-slate-100 dark:border-white/5 truncate">管理員已登入</div>
-            <a href="admin-users.html" class="block font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition">👤 權限管理</a>
+            <a href="/lf/admin-users.html?back=%2F#security" class="block font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition">⚙️ 全站設定</a>
+            <a href="admin-users.html" class="block font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition">👤 DX 權限管理</a>
             <button type="button" onclick="toggleTheme()" class="w-full text-left font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition"><span class="clc-ic-sun">☀️ 切換淺色</span><span class="clc-ic-moon">🌙 切換深色</span></button>
             <div class="border-t border-slate-100 dark:border-white/5"></div>
             <button onclick="handleAdminLogout()" class="w-full text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 font-bold transition">🚪 登出管理員</button>

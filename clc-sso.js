@@ -551,6 +551,60 @@
   }
   installSiteSwipe();
 
+  // ---------- 全站設定：休眠與自動登出（設定存在 LinFamily 的 linfamily_settings/security，Superuser 在 LF「全站設定」修改） ----------
+  // 以「最後一次操作」起算（四站共用 localStorage clc_last_active），App 關著的時間也算。
+  //  休眠：沒操作超過設定時間 → 回動態首頁（LF：Welcome；DX、YA、SR：DX 的歡迎動畫）。
+  //  自動登出：沒操作超過設定時間 → 全站登出（下次打開時也會先檢查）。
+  function installSecurity() {
+    if (window.top !== window) return;
+    const SEC_KEY = 'clc_security', ACT_KEY = 'clc_last_active';
+    let sec = { sleepMin: 0, logoutMin: 0 }, lastWrite = 0, slept = false;
+    try { Object.assign(sec, JSON.parse(localStorage.getItem(SEC_KEY) || '{}')); } catch (_) {}
+    const lastActive = () => { try { return Number(localStorage.getItem(ACT_KEY) || 0); } catch (_) { return 0; } };
+    function touch() {
+      slept = false;
+      const t = Date.now();
+      if (t - lastWrite < 10000) return; // 最多 10 秒寫一次
+      lastWrite = t; try { localStorage.setItem(ACT_KEY, String(t)); } catch (_) {}
+    }
+    async function anySignedIn() { // 這台裝置有沒有任何一站是登入狀態
+      try { if (Object.keys(localStorage).some(k => k.indexOf(AUTH_PREFIX) === 0)) return true; } catch (_) {}
+      const r = await withStore('readonly', st => st.getAllKeys());
+      return !!(r && Array.isArray(r.result) && r.result.some(k => String(k).indexOf(AUTH_PREFIX) === 0));
+    }
+    const isLF = () => siteKey === 'lf' || /^\/lf(\/|$)/.test(location.pathname);
+    function goSleep() {
+      if (isLF()) { if (typeof window.lfSleep === 'function') window.lfSleep(); else location.assign('/lf/'); return; }
+      try { sessionStorage.removeItem('clc_dx04_welcome_seen_v1'); } catch (_) {}
+      location.assign('/'); // DX 的歡迎動畫
+    }
+    async function check(onLoad) {
+      const la = lastActive(); if (!la) return;
+      const idle = Date.now() - la;
+      if (sec.logoutMin > 0 && idle >= sec.logoutMin * 60000 && await anySignedIn()) {
+        try { localStorage.removeItem(ACT_KEY); } catch (_) {}
+        return returnToLogin();
+      }
+      if (sec.sleepMin > 0 && idle >= sec.sleepMin * 60000) {
+        if (onLoad) { slept = true; return; } // 剛打開的頁面本來就在首頁，不用再跳
+        if (!slept && !document.hidden) { slept = true; goSleep(); }
+      }
+    }
+    // 讀最新設定（公開讀取，不用登入）
+    fetch('https://firestore.googleapis.com/v1/projects/linfamily-31cb6/databases/(default)/documents/linfamily_settings/security?key=' + API_KEYS.lf)
+      .then(r => r.ok ? r.json() : null).then(j => {
+        if (!j || !j.fields) return;
+        const n = f => Number((j.fields[f] || {}).integerValue || (j.fields[f] || {}).doubleValue || 0);
+        sec = { sleepMin: n('sleepMin'), logoutMin: n('logoutMin') };
+        try { localStorage.setItem(SEC_KEY, JSON.stringify(sec)); } catch (_) {}
+      }).catch(() => {});
+    check(true).then(() => { lastWrite = 0; touch(); }); // 打開 App 也算一次操作
+    ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(ev => addEventListener(ev, touch, { passive: true, capture: true }));
+    setInterval(() => { if (!document.hidden) check(false); }, 30000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(false); }); // 從背景回來：超過時間就休眠或登出
+  }
+  installSecurity();
+
   window.CLCSSO = { saveGoogleIdToken, shareLogin, syncDown, blockShare, logoutAll, readToken, signInSite };
   runSite();
 })();
