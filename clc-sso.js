@@ -9,6 +9,8 @@
 */
 (function () {
   'use strict';
+  // 四站一律預留捲軸的位置：有沒有捲軸，右上角按鈕都在同一個地方（電腦版；手機的捲軸不占位不受影響）
+  try { const st = document.createElement('style'); st.textContent = 'html{scrollbar-gutter:stable}'; document.head.appendChild(st); } catch (_) {}
   if (window.CLCSSO) return;
 
   const TOKEN_KEY = 'clc_sso_google';
