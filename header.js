@@ -158,8 +158,7 @@ function renderHeaderComponent() {
           </button>
           <div id="adminDropdown" class="hidden absolute right-0 bg-white dark:bg-[#161924] shadow-2xl border border-slate-200 dark:border-white/10 z-50 text-left">
             <div id="adminEmailDisplay" class="font-bold text-slate-400 border-b border-slate-100 dark:border-white/5 truncate">管理員已登入</div>
-            <a href="/lf/admin-users.html?back=%2F#security" class="block font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition">⚙️ 全站設定</a>
-            <a href="admin-users.html" class="block font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition">👤 DX 權限管理</a>
+            <a href="admin-users.html" class="block font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition">⚙️ 全站設定</a>
             <button type="button" onclick="toggleTheme()" class="w-full text-left font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition"><span class="clc-ic-sun">☀️ 切換淺色</span><span class="clc-ic-moon">🌙 切換深色</span></button>
             <div class="border-t border-slate-100 dark:border-white/5"></div>
             <button onclick="handleAdminLogout()" class="w-full text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 font-bold transition">🚪 登出管理員</button>
@@ -248,6 +247,13 @@ window.auth.onAuthStateChanged(user => {
   clcAdminPermissionUnsubscribe = window.db.collection('admin_users').doc(email).onSnapshot(snap => {
     if (window.auth.currentUser?.uid !== user.uid) return;
     const data = snap.exists ? snap.data() : null;
+    // 強制登出（全站設定 → 權限管理）：記號比這台裝置登入的時間新 → 全站登出
+    let loginAt = 0; try { loginAt = Number(localStorage.getItem('clc_dx_login_at') || 0); if (!loginAt) { loginAt = Date.now(); localStorage.setItem('clc_dx_login_at', String(loginAt)); } } catch (_) {}
+    if (data && data.forceLogoutAt && data.forceLogoutAt.toMillis && data.forceLogoutAt.toMillis() > loginAt) {
+      try { localStorage.removeItem('clc_dx_login_at'); } catch (_) {}
+      (window.CLCSSO && window.CLCSSO.logoutAll ? window.CLCSSO.logoutAll() : Promise.resolve()).finally(() => window.auth.signOut().finally(() => location.replace('/')));
+      return;
+    }
     const allowed = !!(data && (data.role === 'admin' || data.role === 'viewer') && data.active !== false && (!data.email || data.email === email));
     applyAdminState(allowed, allowed ? email : '', true, allowed && data.role === 'viewer');
   }, err => {

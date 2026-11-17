@@ -40,7 +40,7 @@ service cloud.firestore {
       allow create, update: if isAdmin()
         && email == email.lower()
         && !isBootstrapId(email)
-        && request.resource.data.keys().hasOnly(['role', 'active', 'updatedAt', 'email'])
+        && request.resource.data.keys().hasOnly(['role', 'active', 'updatedAt', 'email', 'forceLogoutAt'])
         && request.resource.data.keys().hasAll(['role', 'active'])
         && request.resource.data.role in ['admin', 'viewer']
         && request.resource.data.active is bool;
