@@ -151,7 +151,7 @@
   });
 })();
 
-// ---------- 全站設定：分頁＋休眠與自動登出（設定存在 LinFamily 的 linfamily_settings/security，跟 LF 的全站設定同一份） ----------
+// ---------- 全站設定：分頁＋休眠與自動登出（DX 自己的設定 dx04_settings/security） ----------
 (function () {
   const $ = id => document.getElementById(id);
   const tabs = document.querySelectorAll('.dx-tabs [data-tab]');
@@ -161,33 +161,22 @@
     if (t === 'security') initSec();
   }
   tabs.forEach(b => b.addEventListener('click', () => show(b.dataset.tab)));
-  const LF = { apiKey: 'AIzaSyBPcURIjgwtEVi_nTaZT569e_nwJb4IsUs', authDomain: 'linfamily-31cb6.firebaseapp.com', projectId: 'linfamily-31cb6' };
-  const SUPERS = ['darren710404@gmail.com', 'darren.lin@twclc.org'];
-  let lfApp = null, lfAuth = null, lfDb = null, inited = false;
-  function initSec() {
+  let inited = false;
+  // DX 自己的設定：dx04_settings/security（從 DX 進來的時候套用；從 LF 進來時照 LF 的設定）
+  async function initSec() {
     if (inited) return; inited = true;
-    // 先用公開讀取顯示目前設定
-    fetch('https://firestore.googleapis.com/v1/projects/' + LF.projectId + '/databases/(default)/documents/linfamily_settings/security?key=' + LF.apiKey)
-      .then(r => r.ok ? r.json() : null).then(j => { if (!j || !j.fields) return;
-        const n = f => String(Number((j.fields[f] || {}).integerValue || (j.fields[f] || {}).doubleValue || 0));
-        $('secSleep').value = n('sleepMin'); $('secLogout').value = n('logoutMin'); }).catch(() => {});
-    try { lfApp = firebase.app('lf'); } catch (_) { lfApp = firebase.initializeApp(LF, 'lf'); } // LinFamily 的 Firebase（另開一個，不影響 DX）
-    lfAuth = lfApp.auth(); lfDb = lfApp.firestore();
-    lfAuth.onAuthStateChanged(u => {
-      const ok = !!(u && SUPERS.includes((u.email || '').toLowerCase()));
-      $('secSave').disabled = !ok; $('secLogin').classList.toggle('hidden', ok);
-      $('secMsg').textContent = ok ? '' : '要修改，請先按「用 LinFamily 帳號驗證」，用 Superuser 帳號登入一次。';
-    });
+    try { const d = (await window.db.collection('dx04_settings').doc('security').get()).data() || {};
+      $('secSleep').value = String(d.sleepMin || 0); $('secLogout').value = String(d.logoutMin || 0); }
+    catch (err) { $('secMsg').textContent = '讀取失敗：' + err.message; }
   }
-  $('secLogin').addEventListener('click', () => lfAuth && lfAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => { $('secMsg').textContent = '驗證失敗：' + e.message; }));
   $('secForm').addEventListener('submit', async e => {
     e.preventDefault();
     const v = { sleepMin: Number($('secSleep').value), logoutMin: Number($('secLogout').value) };
     try {
-      await lfDb.collection('linfamily_settings').doc('security').set(Object.assign({ updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, v));
-      try { localStorage.setItem('clc_security', JSON.stringify(v)); } catch (_) {}
-      $('secMsg').textContent = '✅ 已儲存，所有站下次打開或 1 分鐘內生效。';
-    } catch (err) { $('secMsg').textContent = '儲存失敗：' + err.message; }
+      await window.db.collection('dx04_settings').doc('security').set(Object.assign({ updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, v));
+      try { localStorage.setItem('clc_security_dx', JSON.stringify(v)); } catch (_) {}
+      $('secMsg').textContent = '✅ 已儲存，下次打開或 1 分鐘內生效。';
+    } catch (err) { $('secMsg').textContent = '儲存失敗（請確認 DX 的 Firestore 規則已更新）：' + err.message; }
   });
   if (location.hash === '#security') show('security');
 })();

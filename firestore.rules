@@ -52,7 +52,10 @@ service cloud.firestore {
     // ---------- 總控台設定 ----------
     // apps：首頁「分站入口」清單。所有人可讀（首頁要顯示）；只有管理員可新增 / 修改，不可刪除整份文件。
     match /dx04_settings/{docId} {
-      allow get: if docId == 'apps';
+      allow get: if docId == 'apps' || docId == 'security'; // security：休眠與自動登出（公開讀取，各站打開時要讀）
+      allow create, update: if isAdmin() && bootstrapAdmin() && docId == 'security'
+        && request.resource.data.keys().hasOnly(['sleepMin', 'logoutMin', 'updatedAt'])
+        && request.resource.data.sleepMin is int && request.resource.data.logoutMin is int;
       allow create, update: if isAdmin() && docId == 'apps'
         && request.resource.data.keys().hasOnly(['items', 'updatedAt', 'updatedBy'])
         && request.resource.data.items is list
