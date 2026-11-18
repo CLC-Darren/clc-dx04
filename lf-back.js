@@ -1,8 +1,12 @@
 // 從 LinFamily 點進來（網址帶 ?lfhome=…）時，左下角顯示淡淡的圓形 🏠 浮動鈕回 LinFamily 主畫面。同一個分頁內切頁、切分站都會保留。
 // 平常淡淡半透明、吸在左或右邊且一半藏在畫面外；按住可拖動，點一下回 LinFamily。Worker 自動插入各站 HTML。
 (function () {
-  var K = 'lfHome', home = '';
-  try {
+  var script = document.currentScript;
+  var configuredHome = script && script.getAttribute('data-home');
+  var configuredKey = script && script.getAttribute('data-key');
+  if (window.top !== window || (!configuredHome && /^\/lf(\/|$)/.test(location.pathname))) return;
+  var K = 'lfHome', home = configuredHome || '';
+  if (!configuredHome) try {
     var u = new URL(location.href), h = u.searchParams.get('lfhome');
     if (h && /^https?:\/\//i.test(h)) {
       sessionStorage.setItem(K, h);
@@ -10,7 +14,7 @@
     }
     home = sessionStorage.getItem(K) || '';
   } catch (_) {}
-  if (!home || window.top !== window || /^\/lf(\/|$)/.test(location.pathname)) return; // LinFamily 自己的頁面不顯示
+  if (!home) return;
     // 🏠：可以停在畫面任何地方（圓形）；放在左右邊緣附近會吸附、收成半圓貼邊，碰到時變成圓頭長方形；
     // 長按（不移動）回到預設位置（左下貼邊）。位置記在這個瀏覽器（每站各自記）。點一下回 LinFamily。
     var CSS = '#lfHomeBtn{position:fixed;z-index:Z;width:44px;height:44px;border-radius:22px;display:grid;place-items:center;' +
@@ -89,7 +93,9 @@
     a.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg>';
     document.body.appendChild(a);
     var site = /^\/ya(\/|$)/.test(location.pathname) ? 'ya' : /^\/sr(\/|$)/.test(location.pathname) ? 'sr' : 'dx';
-    homeDraggable(a, 'clc_homebtn_' + site);
+    homeDraggable(a, configuredKey || (configuredHome
+      ? 'linfamily_homebtn_' + location.pathname.replace(/[^\w]+/g, '_')
+      : 'clc_homebtn_' + site));
   }
   if (document.body) add(); else document.addEventListener('DOMContentLoaded', add);
 })();
