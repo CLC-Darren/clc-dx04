@@ -9,8 +9,13 @@
 */
 (function () {
   'use strict';
-  // 四站一律預留捲軸的位置：有沒有捲軸，右上角按鈕都在同一個地方（電腦版；手機的捲軸不占位不受影響）
-  try { const st = document.createElement('style'); st.textContent = 'html{scrollbar-gutter:stable}'; document.head.appendChild(st); } catch (_) {}
+  // 共用細捲軸：不預留空白邊條，App／全螢幕隱藏外觀但仍可捲動。
+  if (!window.CLC_SCROLLBARS_INSTALLED && !document.getElementById('clc-scrollbar-loader')) {
+    const scrollbarScript = document.createElement('script');
+    scrollbarScript.id = 'clc-scrollbar-loader';
+    scrollbarScript.src = 'https://linfamily.pages.dev/js/scrollbars.js?v=20261118-1';
+    (document.head || document.documentElement).appendChild(scrollbarScript);
+  }
   if (window.CLCSSO) return;
 
   const TOKEN_KEY = 'clc_sso_google';
