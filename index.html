@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="zh-TW" class="dark dx-locked">
 <head>
-  <link rel="stylesheet" href="/login-gate.css?v=20261115-pending">
+  <link rel="stylesheet" href="/login-gate.css?v=20261119-verse-wait">
   <link rel="stylesheet" href="/light-theme.css?v=3">
-  <script src="/login-gate.js?v=20261119-auto-enter"></script>
+  <script src="/verse-wait.js?v=1"></script>
+  <script src="/login-gate.js?v=20261119-verse-wait"></script>
   <script src="/reorder.js?v=drag-lift-6"></script>
   <script src="/js/clc-slot-grid.js?v=20261117push"></script>
   <script src="/js/clc-icon-upload.js?v=20261116-menu2"></script>
@@ -1468,11 +1469,15 @@
           : '連線失敗，請稍後再試。';
       }
       const col = () => window.db.collection('dx04_todos');
+      let finishTodoWait;
       function subscribe() {
+        finishTodoWait?.();
         if (unsub) { unsub(); unsub = null; }
         todos = [];
         if (!canUse()) { render(); return; }
+        const finish = finishTodoWait = window.clcVerseWait?.();
         unsub = col().limit(500).onSnapshot(snap => {
+          finish?.();
           todos = snap.docs.map(d => {
             const x = d.data();
             return {
@@ -1484,7 +1489,7 @@
           }).filter(x => x.title);
           setStatus('');
           render();
-        }, err => { console.warn('待辦讀取失敗', err); setStatus(errText(err)); render(); });
+        }, err => { finish?.(); console.warn('待辦讀取失敗', err); setStatus(errText(err)); render(); });
       }
       async function addTodo(text) {
         const p = parse(text);
@@ -1786,8 +1791,8 @@
       if (window.isSuperuser) subscribe();
     })();
   </script>
-  <script src="clc-sso.js?v=20261117-gutter"></script>
-  <script src="header.js?v=20261117-settings2"></script>
+  <script src="clc-sso.js?v=20261119-verse-wait"></script>
+  <script src="header.js?v=20261119-verse-wait"></script>
   <script type="text/plain" data-dx-private>
     // 分站入口：清單存在 Firestore dx04_settings/apps（所有裝置共用），本機另存一份快取讓畫面先出來。
     // 管理員：長按任一格進入「編輯模式」（像 iPhone 主畫面）→ 按「−」移除、按「＋」貼網址新增、點 Logo 改名稱或圖示。
@@ -2176,15 +2181,18 @@
       render();
       checkEmbeds();
       window.addEventListener('clc-admin-changed', render);
+      const finish = window.clcVerseWait?.();
       try {
         window.db.collection('dx04_settings').doc('apps').onSnapshot(snap => {
+          finish?.();
           const items = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : DEFAULT_APPS;
           apps = items.filter(a => a && a.id && a.name);
           try { localStorage.setItem(CACHE_KEY, JSON.stringify(apps)); } catch (_) {}
           render();
           checkEmbeds();
-        }, err => console.warn('分站清單讀取失敗（沿用快取或預設）', err));
+        }, err => { finish?.(); console.warn('分站清單讀取失敗（沿用快取或預設）', err); });
       } catch (err) {
+        finish?.();
         console.warn('分站清單無法連線資料庫', err);
       }
     })();

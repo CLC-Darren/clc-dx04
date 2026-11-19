@@ -260,6 +260,9 @@ window.auth.onAuthStateChanged(user => {
     console.warn('無法驗證管理員權限：', err);
     if (window.auth.currentUser?.uid === user.uid) applyAdminState(false, '');
   });
+}, err => {
+  console.warn('無法讀取登入狀態：', err);
+  applyAdminState(false, '');
 });
 
 // Logo：一般使用者單擊立即回首頁；Superuser 第一下先等 280ms，

@@ -12,16 +12,24 @@
   }
   // 還在確認登入狀態時（例如從 YA、SR 滑過來），只顯示黑底，不先閃出「DX04」登入字樣。
   document.documentElement.classList.add('dx-auth-pending');
-  const resolved = () => document.documentElement.classList.remove('dx-auth-pending');
-  setTimeout(resolved, 4000); // 網路很慢時，最多等 4 秒就顯示登入入口
+  let finish = window.clcVerseWait?.();
+  const resolved = () => {
+    document.documentElement.classList.remove('dx-auth-pending');
+    finish?.();
+    finish = undefined;
+  };
+  setTimeout(() => { if (!window.auth) resolved(); }, 4000);
   window.clcSetGateAccess = function (active, final) {
-    if (final !== false) resolved();
+    if (final === false) {
+      document.documentElement.classList.add('dx-auth-pending');
+      finish ||= window.clcVerseWait?.();
+    } else resolved();
     allowed = !!active;
     if (allowed && typeof window.clcDismissWelcome === 'function') window.clcDismissWelcome();
     document.documentElement.classList.toggle('dx-locked', !allowed);
     const gate = document.getElementById('dx-login-gate');
     if (gate) gate.hidden = allowed;
-    if (!allowed && started && !window.clcLogoutPending) { location.replace('/'); return; }
+    if (final !== false && !allowed && started && !window.clcLogoutPending) { location.replace('/'); return; }
     startPrivateScripts();
   };
   async function login(button) {
