@@ -17,6 +17,7 @@
   window.clcSetGateAccess = function (active, final) {
     if (final !== false) resolved();
     allowed = !!active;
+    if (allowed && typeof window.clcDismissWelcome === 'function') window.clcDismissWelcome();
     document.documentElement.classList.toggle('dx-locked', !allowed);
     const gate = document.getElementById('dx-login-gate');
     if (gate) gate.hidden = allowed;
