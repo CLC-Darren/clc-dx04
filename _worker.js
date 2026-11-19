@@ -1,6 +1,6 @@
 /*
   CLC DX04 總控台 - 轉送 Worker（Cloudflare Pages Advanced mode）
-  讓各分站掛在 DX04 同一個網域底下，PWA 才會把它們視為同一個 App：
+  讓各分站掛在 DX04 同一個網域底下，共用登入及站內導覽：
     /ya/*  → https://clc-ya-portal.pages.dev/*
     /sr/*  → https://clc-sr-portal.pages.dev/*
     /api/site-info → 讀取任一網站的名稱與 App 圖示（見下方）
@@ -37,6 +37,12 @@ async function proxy(request, site, url) {
 
   const headers = new Headers(request.headers);
   headers.delete('host');
+  const rewriteManifest = request.method === 'GET' && site.rest === '/manifest.json' &&
+    (site.key === 'ya' || site.key === 'sr');
+  if (rewriteManifest) {
+    headers.delete('if-none-match');
+    headers.delete('if-modified-since');
+  }
   // 分站的上傳 API 會檢查 Origin 必須是自己的網域；從 DX04 發出的請求視同分站本身。
   if (headers.get('origin') === url.origin) headers.set('origin', upstreamBase);
 
@@ -44,6 +50,15 @@ async function proxy(request, site, url) {
   if (request.method !== 'GET' && request.method !== 'HEAD') init.body = request.body;
 
   const upstream = await fetch(upstreamUrl, init);
+
+  // Manifest 的相對 id 以 start_url 的 origin 為基準，並不跟著轉送路徑。
+  // 保留已安裝 LF 的根 id，避免 YA／SR 被當成同一個 App 的品牌更新。
+  if (rewriteManifest && upstream.ok) {
+    const manifest = await upstream.json();
+    return Response.json({ ...manifest, id: site.prefix + '/' }, {
+      headers: { 'Content-Type': 'application/manifest+json', 'Cache-Control': 'no-cache' }
+    });
+  }
 
   const location = upstream.headers.get('location');
   if (!location) return injectSso(upstream, site.key);
