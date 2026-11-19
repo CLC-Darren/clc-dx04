@@ -33,6 +33,12 @@
   ];
 
   let pending = 0, timer, overlay, shownAt, hideTimer;
+  // 攔住底層的滑鼠、觸控和鍵盤操作，直到遮罩移除。
+  const blockedEvents = ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'auxclick', 'contextmenu', 'touchstart', 'touchend', 'keydown', 'keyup', 'submit'];
+  function blockInteraction(event) {
+    if (event.cancelable) event.preventDefault();
+    event.stopImmediatePropagation();
+  }
   window.clcVerseWait = function ({ timeout = 8000 } = {}) {
     clearTimeout(hideTimer);
     if (++pending === 1 && !overlay) {
@@ -53,7 +59,7 @@
         document.body.appendChild(el);
         requestAnimationFrame(() => { if (overlay === el) el.style.opacity = '1'; });
         overlay = el;
-        overlay.style.pointerEvents = 'none';
+        blockedEvents.forEach(type => window.addEventListener(type, blockInteraction, { capture: true, passive: false }));
         shownAt = Date.now();
       }, 200);
     }
@@ -67,6 +73,7 @@
       clearTimeout(timer);
       if (overlay) {
         hideTimer = setTimeout(() => {
+          blockedEvents.forEach(type => window.removeEventListener(type, blockInteraction, true));
           overlay.remove();
           overlay = null;
         }, Math.max(0, 1000 - (Date.now() - shownAt)));

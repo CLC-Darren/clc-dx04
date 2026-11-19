@@ -206,7 +206,7 @@
     const stop = e => { e.stopImmediatePropagation(); if (e.cancelable) e.preventDefault(); };
     evs.forEach(t => window.addEventListener(t, stop, { capture: true, passive: false }));
     let done, released = false;
-    (window.clcVerseWait ? Promise.resolve() : import('/verse-wait.js?v=1')).then(() => {
+    (window.clcVerseWait ? Promise.resolve() : import('/verse-wait.js?v=2')).then(() => {
       if (!released) done = window.clcVerseWait?.({ timeout: 0 });
     }).catch(() => {});
     return () => {
