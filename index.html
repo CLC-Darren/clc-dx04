@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/login-gate.css?v=20261115-pending">
   <link rel="stylesheet" href="/light-theme.css?v=3">
-  <script src="/login-gate.js?v=20261115-pending"></script>
+  <script src="/login-gate.js?v=20261119-auto-enter"></script>
   <script src="/reorder.js?v=drag-lift-6"></script>
   <script src="/js/clc-slot-grid.js?v=20261117push"></script>
   <script src="/js/clc-icon-upload.js?v=20261116-menu2"></script>
@@ -257,6 +257,7 @@
       opacity: 1 !important;
       transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1) !important;
     }
+    html.dx-auth-pending > #dx04-welcome-overlay { opacity:0 !important; pointer-events:none !important; transition:none !important; }
     html > #dx04-welcome-overlay.is-leaving {
       opacity: 0 !important;
       pointer-events: none !important;
@@ -273,20 +274,7 @@
     (function () {
       if (document.getElementById('dx04-welcome-overlay')) return;
 
-      // 同一視窗只顯示一次；這個記號只控制片頭，不代表登入或授權。
-      const welcomeSessionKey = 'clc_dx04_welcome_seen_v1';
-      let returningFromSite = false;
-      try {
-        const previous = new URL(document.referrer);
-        returningFromSite = previous.origin === location.origin && /^\/(ya|sr)(\/|$)/.test(previous.pathname);
-      } catch (_) {}
-      try {
-        if (sessionStorage.getItem(welcomeSessionKey) === '1' || returningFromSite) {
-          sessionStorage.setItem(welcomeSessionKey, '1');
-          return;
-        }
-      } catch (_) { if (returningFromSite) return; }
-
+      // 歡迎頁由實際登入權限決定，不以片頭播放紀錄判斷。
       // 直接掛載在 <html>（document.documentElement），繞過 html.dx-locked 對 <body> 的隱藏規則
       const overlay = document.createElement('div');
       overlay.id = 'dx04-welcome-overlay';
@@ -301,7 +289,6 @@
 
       const ctx = canvas.getContext('2d', { alpha: false });
       if (!ctx) { overlay.remove(); return; }
-      try { sessionStorage.setItem(welcomeSessionKey, '1'); } catch (_) {}
 
       const DURATION = 10.0;          // 單次完整動畫長度（秒）
       const PALETTE = {
@@ -708,14 +695,22 @@
         const authorized = await window.clcEnterWelcome();
         entering = false;
         if (!authorized) return;
+        dismissWelcome(false);
+      }
+
+      function dismissWelcome(immediate) {
+        if (entered) return;
         entered = true;
         cancelAnimationFrame(rafId);
         window.removeEventListener('resize', onResize);
+        if (immediate) { overlay.remove(); return; }
         overlay.classList.add('is-leaving');
         setTimeout(() => {
           if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
         }, 460);
       }
+
+      window.clcDismissWelcome = () => dismissWelcome(true);
 
       function onResize() {
         if (entered) return;
