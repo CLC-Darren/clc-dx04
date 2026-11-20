@@ -260,7 +260,10 @@ window.auth.onAuthStateChanged(user => {
     let loginAt = 0; try { loginAt = Number(localStorage.getItem('clc_dx_login_at') || 0); if (!loginAt) { loginAt = Date.now(); localStorage.setItem('clc_dx_login_at', String(loginAt)); } } catch (_) {}
     if (data && data.forceLogoutAt && data.forceLogoutAt.toMillis && data.forceLogoutAt.toMillis() > loginAt) {
       try { localStorage.removeItem('clc_dx_login_at'); } catch (_) {}
-      (window.CLCSSO && window.CLCSSO.logoutAll ? window.CLCSSO.logoutAll() : Promise.resolve()).finally(() => window.auth.signOut().finally(() => location.replace('/')));
+      window.auth.signOut().finally(() => {
+        if (window.CLCSSO) return window.CLCSSO.returnToLogin();
+        location.replace('/');
+      });
       return;
     }
     const allowed = !!(data && (data.role === 'admin' || data.role === 'viewer') && data.active !== false && (!data.email || data.email === email));
@@ -399,10 +402,10 @@ async function handleAdminLogout() {
   if (confirm("確定要登出管理員身分嗎？\n（DX04、YA、SR 會一起登出）")) {
     window.clcLogoutPending = true;
     try {
-      if (window.CLCSSO) await window.CLCSSO.logoutAll();
       await window.auth.signOut();
       applyAdminState(false, "");
-      window.location.replace('/');
+      if (window.CLCSSO) await window.CLCSSO.returnToLogin();
+      else window.location.replace('/');
     } catch (error) {
       window.clcLogoutPending = false;
       console.error('登出失敗：', error);

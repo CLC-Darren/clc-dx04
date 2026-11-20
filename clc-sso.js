@@ -26,11 +26,52 @@
   const DX04_API_KEY = 'AIzaSyDbLv-XgOD7Q3J_wl81eXOuK9rqNAdzxM8'; // 判斷 DX04 是否已登入（公開值）
   const script = document.currentScript;
   const siteKey = script && script.dataset ? (script.dataset.clcSite || '') : '';
-  // 層級：登入只往下帶，不往上帶；登出則任一站登出、全部登出。
-  //   LF（最高）→ DX → YA、SR。之後在 LF 底下新增的站，在 PARENT 加一行即可（例如 xx: 'lf'）。
-  const PARENT = { dx: 'lf', ya: 'dx', sr: 'dx' };
-  const API_KEYS = { lf: 'AIzaSyBPcURIjgwtEVi_nTaZT569e_nwJb4IsUs', dx: DX04_API_KEY }; // 有下層的站才需要（公開值）
+  // 登入沿子樹向下同步。休眠與登出後的目的地由分頁入口決定。
+  const SITES = {
+    lf: { label: 'LinFamily', home: '/lf/', project: 'linfamily-31cb6',
+      security: 'linfamily_settings/security', apiKey: 'AIzaSyBPcURIjgwtEVi_nTaZT569e_nwJb4IsUs' },
+    dx: { label: 'DX', parent: 'lf', home: '/', project: 'clc-dx04',
+      security: 'dx04_settings/security', apiKey: DX04_API_KEY },
+    ya: { label: 'YA', parent: 'dx', home: '/ya/' },
+    sr: { label: 'SR', parent: 'dx', home: '/sr/' }
+  };
   const me = siteKey || 'dx';
+  function readEntry() {
+    if (me === 'lf') return { key: 'lf', home: SITES.lf.home };
+    const url = new URL(location.href);
+    const stored = key => { try { return sessionStorage.getItem(key); } catch (_) { return null; } };
+    function lfHome(value) {
+      if (!value) return '';
+      try {
+        const home = new URL(value);
+        const proxyLF = home.origin === url.origin && /^\/lf(?:\/(?:index(?:\.html)?)?)?$/.test(home.pathname);
+        const standaloneLF = home.origin === 'https://linfamily.pages.dev' && /^\/(?:index(?:\.html)?)?$/.test(home.pathname);
+        if (proxyLF || standaloneLF) return home.origin + (proxyLF ? SITES.lf.home : '/');
+      } catch (_) {}
+      return '';
+    }
+    const home = lfHome(url.searchParams.get('lfhome')) || lfHome(stored('lfHome'));
+    const prior = stored('clc_entry_site');
+    const key = home ? 'lf' : Object.hasOwn(SITES, prior) ? prior : me;
+    return { key, home: home || SITES[key].home };
+  }
+  const entry = readEntry();
+  if (window.top === window) {
+    try { sessionStorage.setItem('clc_entry_site', entry.key); } catch (_) {}
+  }
+  const entryURL = new URL(entry.home, location.href);
+  const homeURL = entryURL.origin === location.origin ? entryURL.pathname : entryURL.href;
+  function withEntry(href) {
+    const url = new URL(href, location.href);
+    if (entry.key === 'lf' && url.origin === location.origin && !/^\/lf(\/|$)/.test(url.pathname)) {
+      url.searchParams.set('lfhome', entryURL.href);
+    }
+    return url.href;
+  }
+  // 留在網址裡，使手機重建頁面時仍能還原入口。舊分頁可從 sessionStorage 補回。
+  if (window.top === window && me !== 'lf' && entry.key === 'lf') {
+    try { history.replaceState(history.state, '', withEntry(location.href)); } catch (_) {}
+  }
   // 已登入的小黃點不顯示（登入後圖示已經變成皇冠，黃點沒有其他意義）。四站都會載入這個檔，所以 DX、YA、SR 一起生效。
   try {
     const st = document.createElement('style');
@@ -40,17 +81,19 @@
   // 安裝鈕依層級：同一個分頁「最先進入」的站才顯示安裝鈕。
   // 例：從 LF 進 DX、YA、SR → 只有 LF 有；直接開 DX 再進 YA、SR → 只有 DX 有；直接開 YA 或 SR → 它們自己有。
   try {
-    let entry = sessionStorage.getItem('clc_entry_site');
-    if (!entry) { entry = me; sessionStorage.setItem('clc_entry_site', me); }
-    if (entry !== me) {
+    if (entry.key !== me) {
       const st = document.createElement('style');
       st.textContent = '#installAppBtn, #lfInstallBtn { display:none !important; }';
       (document.head || document.documentElement).appendChild(st);
     }
   } catch (_) {}
-  const ancestors = []; for (let k = PARENT[me]; k; k = PARENT[k]) ancestors.push(k);
+  const ancestors = [];
+  for (let key = SITES[me].parent; key; key = SITES[key].parent) ancestors.push(key);
   async function ancestorLoggedIn() {
-    for (const k of ancestors) if (API_KEYS[k] && await hasAuthUser(API_KEYS[k])) return true;
+    for (const key of ancestors) {
+      const apiKey = SITES[key].apiKey || (await siteConfig(key))?.firebase?.apiKey;
+      if (apiKey && await hasAuthUser(apiKey)) return true;
+    }
     return false;
   }
 
@@ -165,12 +208,11 @@
     storageBucket: 'clc-dx04.firebasestorage.app', messagingSenderId: '333844280279',
     appId: '1:333844280279:web:84e6f122ae00bf010dd192'
   };
-  const LABELS = { lf: 'LinFamily', dx: 'DX', ya: 'YA', sr: 'SR' };
   const BUSY_KEY = 'clc_sso_busy'; // 同步中的記號（其他分頁打開下層站時先等同步完成）
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   function descendantsOf(k) {
     const out = [];
-    (function walk(p) { Object.keys(PARENT).forEach(c => { if (PARENT[c] === p) { out.push(c); walk(c); } }); })(k);
+    (function walk(p) { Object.keys(SITES).forEach(c => { if (SITES[c].parent === p) { out.push(c); walk(c); } }); })(k);
     return out;
   }
   async function siteConfig(k) {
@@ -240,10 +282,10 @@
         }));
         await withTimeout(sdk, 8000);
         for (const it of list) {
-          if (it.bad) { failed.push(LABELS[it.k] || it.k); continue; }
+          if (it.bad) { failed.push(SITES[it.k].label); continue; }
           if (it.same) continue; // 已經是同一個帳號
           const err = await withTimeout(signInSite(it.config, tok), 8000);
-          if (err) failed.push(LABELS[it.k] || it.k);
+          if (err) failed.push(SITES[it.k].label);
         }
       } catch (e) {
         console.warn('[CLC SSO] 同步登入失敗', e);
@@ -280,8 +322,10 @@
     if (returningToLogin) return;
     returningToLogin = true;
     await logoutAll();
-    // 使用根目錄，不能留在 /ya/ 或 /sr/ 的公開首頁。
-    window.location.replace(siteKey === 'lf' ? '/lf/' : '/'); // LinFamily 回自己的首頁
+    if (entry.key === 'lf') {
+      try { sessionStorage.removeItem('linfamily_entered'); } catch (_) {}
+    }
+    window.location.replace(homeURL);
   }
 
   // Worker 插入的是 defer script，分站原本的 header.js 已完成載入。
@@ -458,7 +502,7 @@
       visual.layer.style.transition = transition;
       document.body.style.transform = `translate3d(${g.dx < 0 ? -innerWidth : innerWidth}px,0,0)`;
       visual.layer.style.transform = 'translate3d(0,0,0)';
-      setTimeout(() => { location.assign(routes[next]); }, reduced ? 0 : 210);
+      setTimeout(() => { location.assign(withEntry(routes[next])); }, reduced ? 0 : 210);
     }
 
     // 電腦版：滑鼠移到畫面左右邊緣，才淡淡出現 ‹ › 箭頭，點了換站（跟手機左右滑同一套順序與動畫）。
@@ -522,17 +566,15 @@
   //  從 /lf/ 進來 → 照 LF 的設定（linfamily_settings/security），休眠回 LF 的 Welcome、登出回 LF。
   //  從 /（DX）進來 → 照 DX 的設定（dx04_settings/security），休眠回 DX 的歡迎動畫、登出回 DX。
   //  YA、SR 用自己的連結直接開 → 不受管制。
-  //  以「最後一次操作」起算（localStorage clc_last_active），App 關著的時間也算。
+  // 同入口的分頁共用活動時間，LF 和 DX 分別計時。
   function installSecurity() {
     if (window.top !== window) return;
-    let entry = ''; try { entry = sessionStorage.getItem('clc_entry_site') || ''; } catch (_) {}
-    const SRC = {
-      lf: { url: 'https://firestore.googleapis.com/v1/projects/linfamily-31cb6/databases/(default)/documents/linfamily_settings/security?key=' + API_KEYS.lf, home: '/lf/' },
-      dx: { url: 'https://firestore.googleapis.com/v1/projects/clc-dx04/databases/(default)/documents/dx04_settings/security?key=' + DX04_API_KEY, home: '/' }
-    }[entry];
-    if (!SRC) return; // YA、SR 獨立開啟：不管制
+    const site = SITES[entry.key];
+    if (!site.security) return;
+    const securityURL = `https://firestore.googleapis.com/v1/projects/${site.project}/databases/(default)/documents/${site.security}?key=${site.apiKey}`;
     const isMobile = /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
-    const SEC_KEY = 'clc_security_' + entry + (isMobile ? '_m' : ''), ACT_KEY = 'clc_last_active';
+    const SEC_KEY = 'clc_security_' + entry.key + (isMobile ? '_m' : '');
+    const ACT_KEY = 'clc_last_active_' + entry.key;
     let sec = { sleepMin: 0, logoutMin: 0 }, lastWrite = 0, slept = false;
     try { Object.assign(sec, JSON.parse(localStorage.getItem(SEC_KEY) || '{}')); } catch (_) {}
     const lastActive = () => { try { return Number(localStorage.getItem(ACT_KEY) || 0); } catch (_) { return 0; } };
@@ -549,28 +591,27 @@
     }
     const onLF = () => /^\/lf(\/|$)/.test(location.pathname);
     function goSleep() {
-      if (entry === 'lf') {
+      if (entry.key === 'lf') {
         if (onLF() && typeof window.lfSleep === 'function') return window.lfSleep();
         try { sessionStorage.removeItem('linfamily_entered'); } catch (_) {} // 回到 LF 時停在 Welcome
-        return location.assign('/lf/');
+        return location.assign(homeURL);
       }
       try { sessionStorage.removeItem('clc_dx04_welcome_seen_v1'); } catch (_) {}
-      location.assign('/'); // DX 的歡迎動畫
+      location.assign(homeURL); // DX 的歡迎動畫
     }
     async function check(onLoad) {
       const la = lastActive(); if (!la) return;
       const idle = Date.now() - la;
       if (sec.logoutMin > 0 && idle >= sec.logoutMin * 60000 && await anySignedIn()) {
-        try { localStorage.removeItem(ACT_KEY); sessionStorage.removeItem('linfamily_entered'); } catch (_) {}
-        await logoutAll();
-        return location.replace(SRC.home);
+        try { localStorage.removeItem(ACT_KEY); } catch (_) {}
+        return returnToLogin();
       }
       if (sec.sleepMin > 0 && idle >= sec.sleepMin * 60000) {
         if (onLoad) { slept = true; return; } // 剛打開的頁面本來就在首頁，不用再跳
         if (!slept && !document.hidden) { slept = true; goSleep(); }
       }
     }
-    fetch(SRC.url).then(r => r.ok ? r.json() : null).then(j => { // 公開讀取，不用登入
+    fetch(securityURL).then(r => r.ok ? r.json() : null).then(j => { // 公開讀取，不用登入
       const f = (j && j.fields) || {};
       const n = k => Number((f[k] || {}).integerValue || (f[k] || {}).doubleValue || 0);
       const has = k => k in f;
@@ -587,6 +628,7 @@
   }
   installSecurity();
 
-  window.CLCSSO = { saveGoogleIdToken, shareLogin, syncDown, blockShare, logoutAll, readToken, signInSite };
+  window.CLCSSO = { saveGoogleIdToken, shareLogin, syncDown, blockShare, logoutAll, returnToLogin, readToken, signInSite,
+    entryHome: entry.key === 'lf' && me !== 'lf' ? homeURL : '' };
   runSite();
 })();

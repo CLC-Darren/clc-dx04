@@ -6,7 +6,7 @@
     /api/site-info → 讀取任一網站的名稱與 App 圖示（見下方）
     其他   → DX04 自己的靜態檔
   轉送時會拿掉 /ya、/sr 前綴，分站自己的 _worker.js（/api/...）不用修改。
-  新增分站時只要在 SITES 加一筆。
+  新增分站時，在這裡登記代理網址，並在 clc-sso.js 的 SITES 登記層級。
 */
 
 const SITES = {
@@ -77,12 +77,12 @@ function injectSso(res, key) {
   const type = res.headers.get('content-type') || '';
   if (res.status !== 200 || type.indexOf('text/html') === -1 || typeof HTMLRewriter === 'undefined') return res;
   return new HTMLRewriter().on('head', {
-    element(el) { el.append(`<script src="/clc-sso.js?v=20261120-loading-lock" data-clc-site="${key}" defer></script>` + LF_BACK, { html: true }); }
+    element(el) { el.append(`<script src="/clc-sso.js?v=20261120-entry" data-clc-site="${key}" defer></script>` + LF_BACK, { html: true }); }
   }).transform(res);
 }
 
 // 從 LinFamily 點進來時顯示淡淡的圓形 🏠 回首頁鈕（DX04 本身與各分站的 HTML 都插入）。
-const LF_BACK = '<script src="https://linfamily.pages.dev/js/scrollbars.js?v=20261118-1"></script><script src="/lf-back.js?v=8" defer></script>';
+const LF_BACK = '<script src="https://linfamily.pages.dev/js/scrollbars.js?v=20261118-1"></script><script src="/lf-back.js?v=9" defer></script>';
 function injectLfBack(res) {
   const type = res.headers.get('content-type') || '';
   if (res.status !== 200 || type.indexOf('text/html') === -1 || typeof HTMLRewriter === 'undefined') return res;

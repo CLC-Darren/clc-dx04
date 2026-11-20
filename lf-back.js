@@ -5,15 +5,33 @@
   var configuredHome = script && script.getAttribute('data-home');
   var configuredKey = script && script.getAttribute('data-key');
   if (window.top !== window || (!configuredHome && /^\/lf(\/|$)/.test(location.pathname))) return;
-  var K = 'lfHome', home = configuredHome || '';
-  if (!configuredHome) try {
-    var u = new URL(location.href), h = u.searchParams.get('lfhome');
-    if (h && /^https?:\/\//i.test(h)) {
-      sessionStorage.setItem(K, h);
-      u.searchParams.delete('lfhome'); history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+  var home = configuredHome || window.CLCSSO?.entryHome || '';
+  if (!home) {
+    // DX 也有只載入 Home 的頁面。用同一個入口網址，並支援舊分頁的紀錄。
+    var u = new URL(location.href);
+    function lfHome(value) {
+      try {
+        var target = new URL(value);
+        if (target.origin === u.origin && /^\/lf(?:\/(?:index(?:\.html)?)?)?$/.test(target.pathname)) return target.origin + '/lf/';
+        if (target.origin === 'https://linfamily.pages.dev' && /^\/(?:index(?:\.html)?)?$/.test(target.pathname)) return target.origin + '/';
+      } catch (_) {}
+      return '';
     }
-    home = sessionStorage.getItem(K) || '';
-  } catch (_) {}
+    home = lfHome(u.searchParams.get('lfhome'));
+    if (!home) try {
+      home = lfHome(sessionStorage.getItem('lfHome')) ||
+        (sessionStorage.getItem('clc_entry_site') === 'lf' ? u.origin + '/lf/' : '');
+    } catch (_) {}
+  }
+  if (!configuredHome && home) {
+    var absoluteHome = new URL(home, location.href).href;
+    try { sessionStorage.setItem('lfHome', absoluteHome); } catch (_) {}
+    try {
+      var current = new URL(location.href);
+      current.searchParams.set('lfhome', absoluteHome);
+      history.replaceState(history.state, '', current.href);
+    } catch (_) {}
+  }
   if (!home) return;
     // 🏠：可以停在畫面任何地方（圓形）；放在左右邊緣附近會吸附、收成半圓貼邊，碰到時變成圓頭長方形；
     // 長按（不移動）回到預設位置（左下貼邊）。位置記在這個瀏覽器（每站各自記）。點一下回 LinFamily。
