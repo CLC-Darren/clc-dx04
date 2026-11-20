@@ -5,6 +5,8 @@
   <link rel="stylesheet" href="/light-theme.css?v=3">
   <script src="/verse-wait.js?v=2"></script>
   <script src="/login-gate.js?v=20261119-verse-wait"></script>
+  <link rel="stylesheet" href="/js/dashboard-widgets.css?v=1">
+  <script src="/js/dashboard-widgets.js?v=1"></script>
   <script src="/reorder.js?v=drag-lift-6"></script>
   <script src="/js/clc-slot-grid.js?v=20261117push"></script>
   <script src="/js/clc-icon-upload.js?v=20261116-menu2"></script>
@@ -66,7 +68,7 @@
     /* 待辦勾選圈與 App 格子 */
     .todo-item { display:flex; align-items:flex-start; gap:14px; min-height:44px; padding:8px 4px; cursor:pointer; }
     .todo-text { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
-    .todo-title { font-size:1rem; color:#0f172a; }
+    .todo-title { font-size:1rem; color:#0f172a; white-space:pre-wrap; overflow-wrap:anywhere; }
     .dark .todo-title { color:#fff; }
     .todo-meta { font-size:0.8125rem; color:#64748b; }
     .dark .todo-meta { color:#8A92A6; }
@@ -84,15 +86,7 @@
     .app-fallback { display:grid; place-content:center; background:#007E8A; color:#fff; font-weight:800; font-size:1.5rem; }
     .app-slot { aspect-ratio:1; border-radius:22%; border:2px dashed #cbd5e1; color:#94a3b8; display:grid; place-content:center; font-size:1.75rem; font-weight:300; user-select:none; }
     .dark .app-slot { border-color:#334155; color:#475569; }
-    /* 手機保存上下順序；桌面另存三個位置，預設沿用原版配置。 */
-    @media (min-width: 1024px) {
-      #dashGrid { grid-template-columns:minmax(0,1fr) minmax(0,1.45fr); grid-template-rows:auto 1fr; align-items:stretch; }
-      #dashGrid > [data-desktop-slot="main"] { grid-column:2; grid-row:1 / span 2; }
-      #dashGrid > [data-desktop-slot="top"] { grid-column:1; grid-row:1; }
-      #dashGrid > [data-desktop-slot="bottom"] { grid-column:1; grid-row:2; }
-    }
-    .dash-widget.widget-drop-target { outline:2px solid #00A3B4; outline-offset:4px; }
-    .dash-widget { position:relative; }
+    /* 區塊移動把手 */
     .drag-handle { position:absolute; top:0; left:50%; transform:translateX(-50%); width:56px; height:22px; display:flex; align-items:center; justify-content:center; background:none; border:0; padding:0; cursor:grab; touch-action:none; z-index:2; }
     .drag-handle span { width:36px; height:5px; border-radius:9999px; background:#cbd5e1; }
     .dark .drag-handle span { background:#334155; }
@@ -100,7 +94,6 @@
     .dash-widget.is-dragging { z-index:30; box-shadow:0 18px 40px rgba(0,0,0,.35); transition:none; }
     .dash-widget.is-dragging .drag-handle { cursor:grabbing; }
     .dash-widget.is-dragging .drag-handle span { background:#007E8A; }
-    .dash-widget.is-dragging[data-widget="apps"] { background:transparent; box-shadow:none; }
     body.dash-dragging { user-select:none; -webkit-user-select:none; }
     .app-tile[draggable="true"] { cursor:grab; }
     .app-tile { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
@@ -130,7 +123,7 @@
     .todo-ck-hit .todo-ck { margin-top:0; }
     .todo-text { cursor:text; border-radius:6px; }
     .todo-text:focus-visible { outline:2px solid #00A3B4; outline-offset:2px; }
-    .todo-edit { flex:1; min-width:0; height:36px; margin:-4px 0; padding:0 10px; border-radius:10px; border:1px solid #007E8A; background:transparent; color:inherit; font:inherit; font-size:1rem; outline:none; }
+    .todo-edit { flex:1; min-width:0; min-height:56px; padding:6px 10px; resize:vertical; border-radius:10px; border:1px solid #007E8A; background:transparent; color:inherit; font:inherit; font-size:1rem; outline:none; }
     .todo-title { overflow-wrap:anywhere; }
     .todo-row:has(.todo-ck:checked) .todo-title { text-decoration:line-through; opacity:.5; }
     .todo-meta.is-overdue { color:#ea580c; }
@@ -151,7 +144,7 @@
     @keyframes todoJiggle { 0%,100% { transform:rotate(-.4deg); } 50% { transform:rotate(.4deg); } }
     @media (prefers-reduced-motion: reduce) { .todo-deleting .todo-row { animation:none; } }
     /* 手機：復原列只顯示「復原」 */
-    @media (max-width:1023px), (pointer:coarse) { #todoUndoMessage, #todoUndoButton .undo-en { display:none; } #todoUndoBar { padding:6px 10px !important; } }
+    @media (max-width:1023px), (pointer:coarse) { .todo-undo-message, .todo-undo-bar .undo-en { display:none; } .todo-undo-bar { padding:6px 10px !important; } }
     @media (hover:none), (pointer:coarse), (max-width:1023px) { .todo-row .todo-del { display:none !important; } }
     .todo-group { margin:6px 0 0; font-size:.75rem; font-weight:700; letter-spacing:.05em; color:#64748b; }
     .dark .todo-group { color:#8A92A6; }
@@ -166,7 +159,7 @@
     .todo-mic:hover { color:#007E8A; }
     .todo-mic.is-listening { color:#fff; background:#e11d48; animation:micPulse 1.2s ease-in-out infinite; }
     @keyframes micPulse { 0%,100% { box-shadow:0 0 0 0 rgba(225,29,72,.45); } 50% { box-shadow:0 0 0 8px rgba(225,29,72,0); } }
-    #todoAddInput:disabled { cursor:not-allowed; }
+    .todo-add-input:disabled { cursor:not-allowed; }
     /* 分站編輯模式（iPhone 式：晃動＋「−」） */
     .app-cell { position:relative; aspect-ratio:1; }
     .app-cell .app-tile { width:100%; height:100%; }
@@ -180,9 +173,9 @@
     .reorder-handle { display:none !important; flex:none; min-width:28px; min-height:36px; padding:4px; border:0; background:transparent; color:#8A92A6; cursor:grab; touch-action:none; font:20px/1 Arial; }
     .reorder-handle:active { cursor:grabbing; }
     .reorder-handle:focus-visible { outline:2px solid #007E8A; border-radius:6px; }
-    #appsAdminHint { display:none !important; }
+    .apps-admin-hint { display:none !important; }
     @media (max-width:1023px) {
-      #dashGrid > [data-widget="clock"] { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr); align-items:center; padding:18px 16px; gap:12px; }
+      #dashGrid [data-widget="clock"] > .widget-content { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr); align-items:center; gap:12px; }
       .clock-main { min-width:0; }
       #clockTime { font-size:clamp(34px,9vw,48px); }
       #clockSec { font-size:14px; }
@@ -835,11 +828,11 @@
       </script>
     </div>
 
-    <!-- 手機單欄、電腦雙欄；區塊拖曳排序保存在目前瀏覽器 -->
+    <!-- 區塊版面保存在目前瀏覽器 -->
     <div id="dashGrid" class="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start">
 
       <!-- 時間、日期、天氣 -->
-      <section data-widget="clock" data-desktop-slot="bottom" aria-label="時間與天氣" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-5">
+      <section data-widget="clock" aria-label="時間與天氣" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-5">
         <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
         <div class="clock-main">
           <p class="flex items-baseline gap-1 font-extrabold tracking-tight tabular-nums text-slate-900 dark:text-white"><span id="clockTime" class="text-5xl sm:text-6xl">--:--</span><span id="clockSec" class="text-2xl sm:text-3xl text-slate-400 dark:text-brand-muted">:--</span></p>
@@ -856,16 +849,16 @@
       </section>
 
       <!-- 今日待辦：存在 Firestore dx04_todos（僅 Superuser 可讀寫）；可文字或語音新增、勾選完成、刪除 -->
-      <section data-widget="todo" data-desktop-slot="main" aria-labelledby="todoTitle" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-3">
+      <section data-widget="todo" aria-labelledby="todoTitle" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-3">
         <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
         <div class="flex items-center justify-between gap-3">
           <h2 id="todoTitle" class="text-xl font-extrabold text-slate-900 dark:text-white">今日待辦</h2>
           <p id="todoSummary" class="text-xs sm:text-sm text-slate-500 dark:text-brand-muted"></p>
         </div>
 
-        <form id="todoAddForm" class="flex items-center gap-2 h-12 pl-4 pr-1.5 rounded-2xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 focus-within:border-[#007E8A]">
+        <form id="todoAddForm" class="flex items-center gap-2 min-h-12 shrink-0 pl-4 pr-1.5 rounded-2xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 focus-within:border-[#007E8A]">
           <label for="todoAddInput" class="sr-only">新增待辦</label>
-          <input id="todoAddInput" type="text" autocomplete="off" enterkeyhint="done" maxlength="200" placeholder="新增待辦… 例如「明天下午3點 回覆新朋友 #SR」" class="flex-1 min-w-0 bg-transparent outline-none text-[15px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500">
+          <textarea id="todoAddInput" rows="2" autocomplete="off" enterkeyhint="done" maxlength="200" placeholder="新增待辦… 例如「明天下午3點 回覆新朋友 #SR」" class="todo-add-input flex-1 min-w-0 bg-transparent outline-none text-[15px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"></textarea>
           <button type="button" id="todoMicBtn" class="todo-mic hidden" aria-label="語音輸入" title="語音輸入">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
           </button>
@@ -884,7 +877,7 @@
       </section>
 
       <!-- App 入口：4 欄 × 2 排，共 8 格 -->
-      <section data-widget="apps" data-desktop-slot="top" aria-labelledby="appsTitle" class="dash-widget relative space-y-3">
+      <section data-widget="apps" aria-labelledby="appsTitle" class="dash-widget relative">
         <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
         <div class="flex items-center justify-between gap-3 min-h-[36px]">
           <h2 id="appsTitle" class="text-sm font-bold text-slate-500 dark:text-brand-muted">分站入口</h2>
@@ -892,7 +885,7 @@
         </div>
         <!-- 分站清單存在 Firestore dx04_settings/apps；管理員長按進入編輯模式：「−」移除、「＋」新增、點 Logo 編輯 -->
         <div id="siteGrid" class="grid grid-cols-4 gap-3"></div>
-        <p id="appsAdminHint" class="hidden text-xs text-slate-400 dark:text-slate-500"></p>
+        <p id="appsAdminHint" class="apps-admin-hint hidden text-xs text-slate-400 dark:text-slate-500"></p>
       </section>
     </div>
   </main>
@@ -905,7 +898,7 @@
         <input id="appUrl" autocomplete="off" inputmode="url" class="app-input" placeholder="https://…">
       </label>
       <label class="flex flex-col gap-1.5 text-sm font-bold text-slate-600 dark:text-slate-300">名稱
-        <input id="appName" maxlength="30" autocomplete="off" class="app-input" placeholder="貼上網址後自動抓取，可修改">
+        <input id="appName" data-ha="name" maxlength="30" autocomplete="off" class="app-input" placeholder="貼上網址後自動抓取，可修改">
       </label>
       <div class="flex flex-col gap-1.5">
         <label for="appIcon" class="text-sm font-bold text-slate-600 dark:text-slate-300">圖示</label>
@@ -928,157 +921,7 @@
   </footer>
 
   <script type="text/plain" data-dx-private>
-    // 手機版區塊拖曳排序（Pointer 事件，觸控與滑鼠皆可），順序存在 localStorage
-    (function () {
-      const grid = document.getElementById('dashGrid');
-      const KEY = 'clc_dx04_widget_order';
-      const widgets = () => Array.from(grid.querySelectorAll(':scope > [data-widget]'));
-      try {
-        const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
-        if (Array.isArray(saved)) saved.forEach(k => { const el = grid.querySelector(':scope > [data-widget="' + k + '"]'); if (el) grid.appendChild(el); });
-      } catch (_) {}
-      function save() {
-        try { localStorage.setItem(KEY, JSON.stringify(widgets().map(w => w.dataset.widget))); } catch (_) {}
-      }
-      const DESKTOP_KEY = 'clc_dx04_widget_desktop_slots_v1';
-      let desktopSlots = ['todo', 'apps', 'clock'];
-      try {
-        const saved = JSON.parse(localStorage.getItem(DESKTOP_KEY) || 'null');
-        if (Array.isArray(saved) && saved.length === 3 && new Set(saved).size === 3 &&
-            saved.every(id => desktopSlots.includes(id))) desktopSlots = saved;
-      } catch (_) {}
-      function applyDesktopSlots() {
-        const slots = ['main', 'top', 'bottom'];
-        widgets().forEach(el => { el.dataset.desktopSlot = slots[desktopSlots.indexOf(el.dataset.widget)]; });
-      }
-      function saveDesktop() {
-        try { localStorage.setItem(DESKTOP_KEY, JSON.stringify(desktopSlots)); } catch (_) {}
-      }
-      applyDesktopSlots();
-      let drag = null, pendingDrag = null;
-      function startDrag(pending) {
-        if (pendingDrag !== pending || !pending.el.isConnected) return;
-        cancelPendingDrag();
-        drag = { el:pending.el, id:pending.id, desktop:window.matchMedia('(min-width: 1024px)').matches,
-          clientX:pending.x, startClientX:pending.x, clientY:pending.y,
-          startPageY:pending.y + window.scrollY, base:0, raf:0, target:null };
-        drag.el.classList.add('is-dragging');
-        document.body.classList.add('dash-dragging');
-        if (!pending.mouse && navigator.vibrate) navigator.vibrate(15);
-        drag.raf = requestAnimationFrame(autoScroll);
-      }
-      function cancelPendingDrag() {
-        if (pendingDrag) clearTimeout(pendingDrag.timer);
-        pendingDrag = null;
-      }
-      // 以「頁面座標」計算位移，捲動時區塊仍跟著手指
-      function update() {
-        if (!drag) return;
-        const el = drag.el;
-        const pageY = drag.clientY + window.scrollY;
-        if (drag.desktop) {
-          el.style.transform = 'translate(' + (drag.clientX - drag.startClientX) + 'px,' +
-            (pageY - drag.startPageY) + 'px)';
-          if (drag.target) drag.target.classList.remove('widget-drop-target');
-          drag.target = widgets().find(other => {
-            if (other === el) return false;
-            const r = other.getBoundingClientRect();
-            return drag.clientX >= r.left && drag.clientX <= r.right &&
-              drag.clientY >= r.top && drag.clientY <= r.bottom;
-          }) || null;
-          if (drag.target) drag.target.classList.add('widget-drop-target');
-          return;
-        }
-        const dy = () => pageY - drag.startPageY + drag.base;
-        el.style.transform = 'translateY(' + dy() + 'px)';
-        const list = widgets();
-        const i = list.indexOf(el);
-        const prev = list[i - 1], next = list[i + 1];
-        const naturalTop = el.getBoundingClientRect().top - dy();
-        let moved = false;
-        if (next) { const r = next.getBoundingClientRect(); if (drag.clientY > r.top + r.height / 2) { grid.insertBefore(next, el); moved = true; } }
-        if (!moved && prev) { const r = prev.getBoundingClientRect(); if (drag.clientY < r.top + r.height / 2) { grid.insertBefore(el, prev); moved = true; } }
-        if (moved) {
-          el.style.transform = '';
-          drag.base += naturalTop - el.getBoundingClientRect().top;
-          el.style.transform = 'translateY(' + dy() + 'px)';
-        }
-      }
-      function autoScroll() {
-        if (!drag) return;
-        const edge = 70, y = drag.clientY;
-        let v = 0;
-        if (y < edge) v = -Math.ceil((edge - y) / 5);
-        else if (y > window.innerHeight - edge) v = Math.ceil((y - (window.innerHeight - edge)) / 5);
-        if (v) { window.scrollBy(0, v); update(); }
-        drag.raf = requestAnimationFrame(autoScroll);
-      }
-      grid.addEventListener('pointerdown', e => {
-        const handle = e.target.closest('.drag-handle');
-        if (!handle || e.button !== 0) return;
-        e.preventDefault();
-        cancelPendingDrag();
-        const el = handle.closest('[data-widget]');
-        const pending = { el, id:e.pointerId, x:e.clientX, y:e.clientY, mouse:e.pointerType === 'mouse', timer:null };
-        pendingDrag = pending;
-        handle.setPointerCapture(e.pointerId);
-        pending.timer = setTimeout(() => startDrag(pending), 500);
-      });
-      grid.addEventListener('pointermove', e => {
-        if (pendingDrag && e.pointerId === pendingDrag.id) {
-          const distance = Math.hypot(e.clientX - pendingDrag.x, e.clientY - pendingDrag.y);
-          if (pendingDrag.mouse && distance > 6) startDrag(pendingDrag);
-          else if (!pendingDrag.mouse && distance > 10) cancelPendingDrag();
-        }
-        if (!drag || e.pointerId !== drag.id) return;
-        drag.clientX = e.clientX;
-        drag.clientY = e.clientY;
-        update();
-      });
-      function end(e) {
-        if (pendingDrag && e.pointerId === pendingDrag.id) cancelPendingDrag();
-        if (!drag || e.pointerId !== drag.id) return;
-        cancelAnimationFrame(drag.raf);
-        drag.el.classList.remove('is-dragging');
-        drag.el.style.transform = '';
-        document.body.classList.remove('dash-dragging');
-        if (drag.desktop) {
-          if (drag.target) {
-            drag.target.classList.remove('widget-drop-target');
-            if (e.type === 'pointerup') {
-              const from = desktopSlots.indexOf(drag.el.dataset.widget);
-              const to = desktopSlots.indexOf(drag.target.dataset.widget);
-              [desktopSlots[from], desktopSlots[to]] = [desktopSlots[to], desktopSlots[from]];
-              applyDesktopSlots(); saveDesktop();
-            }
-          }
-        } else { save(); }
-        drag = null;
-      }
-      grid.addEventListener('pointerup', end);
-      grid.addEventListener('pointercancel', end);
-      grid.addEventListener('lostpointercapture', end);
-      // 鍵盤：焦點在拖曳把手時，上下鍵移動
-      grid.addEventListener('keydown', e => {
-        const handle = e.target.closest('.drag-handle');
-        if (!handle || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
-        e.preventDefault();
-        const el = handle.closest('[data-widget]');
-        if (window.matchMedia('(min-width: 1024px)').matches) {
-          const from = desktopSlots.indexOf(el.dataset.widget);
-          const to = from + (e.key === 'ArrowUp' ? -1 : 1);
-          if (to >= 0 && to < desktopSlots.length) {
-            [desktopSlots[from], desktopSlots[to]] = [desktopSlots[to], desktopSlots[from]];
-            applyDesktopSlots(); saveDesktop();
-          }
-          return;
-        }
-        if (e.key === 'ArrowUp' && el.previousElementSibling) grid.insertBefore(el, el.previousElementSibling);
-        if (e.key === 'ArrowDown' && el.nextElementSibling) grid.insertBefore(el.nextElementSibling, el);
-        handle.focus();
-        save();
-      });
-    })();
+    window.dxDashboard = window.clcDashboardWidgets(document.getElementById('dashGrid'));
 
     // 時鐘與日期（台北時間）：以 Cloudflare 伺服器時間校正，不受本機時鐘誤差影響
     (function () {
@@ -1183,16 +1026,18 @@
     })();
 
     // 今日待辦：Firestore dx04_todos（僅 Superuser）。文字或語音輸入，會自動辨識日期、時間與 #標籤。
-    (function () {
+    window.dxDashboard.register('todo', (widget, area) => {
+      const find = id => window.dxDashboard.find(widget, id);
+      const prefix = area === 'todo' ? '' : '~' + area + '~';
       const TZ = 'Asia/Taipei';
-      const body = document.getElementById('todoBody');
-      const form = document.getElementById('todoAddForm');
-      const input = document.getElementById('todoAddInput');
-      const statusEl = document.getElementById('todoStatus');
-      const summary = document.getElementById('todoSummary');
-      const doneToggle = document.getElementById('todoDoneToggle');
-      const doneList = document.getElementById('todoDoneList');
-      const doneCount = document.getElementById('todoDoneCount');
+      const body = find('todoBody');
+      const form = find('todoAddForm');
+      const input = find('todoAddInput');
+      const statusEl = find('todoStatus');
+      const summary = find('todoSummary');
+      const doneToggle = find('todoDoneToggle');
+      const doneList = find('todoDoneList');
+      const doneCount = find('todoDoneCount');
       let todos = [], unsub = null, showDone = false;
 
       // ---------- 日期工具（一律以台北日期計算） ----------
@@ -1231,7 +1076,7 @@
       function parse(text) {
         let t = ' ' + text.trim() + ' ';
         let due = '', time = '', tag = '';
-        const cut = re => { const m = t.match(re); if (m) t = t.replace(m[0], ' '); return m; };
+        const cut = re => { const m = t.match(re); if (m) t = t.replace(m[0], m[0].replace(/[^\n]+/g, ' ')); return m; };
 
         let m = cut(/[#＃]([^\s#＃]{1,20})/);
         if (m) tag = TAGS[m[1].toLowerCase()] || m[1];
@@ -1268,7 +1113,7 @@
         }
         if (time && !due) due = base;
 
-        let title = t.replace(/\s+/g, ' ').trim();
+        let title = t.replace(/[^\S\n]+/g, ' ').replace(/^ +| +$/gm, '').trim();
         if (!title) title = text.trim();
         return { title, due, time, tag };
       }
@@ -1378,7 +1223,7 @@
         items.forEach(t => ul.append(row(t, opts)));
         body.append(h, ul);
       }
-      const orderKey = () => 'clc_dx04_todo_order:' + String(window.currentAdminEmail || '').toLowerCase();
+      const orderKey = () => 'clc_dx04_todo_order:' + String(window.currentAdminEmail || '').toLowerCase() + (prefix ? ':' + area : '');
       function readOrder() {
         try { const v = JSON.parse(localStorage.getItem(orderKey()) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; }
       }
@@ -1405,7 +1250,7 @@
         render();
       }
       document.addEventListener('pointerdown', e => {
-        if (body.classList.contains('todo-deleting') && !e.target.closest('.todo-row, #todoUndoBar')) setTodoDeleteMode(false);
+        if (body.classList.contains('todo-deleting') && !e.target.closest('.todo-row, .todo-undo-bar')) setTodoDeleteMode(false);
       });
       document.addEventListener('keydown', e => { if (e.key === 'Escape') setTodoDeleteMode(false); });
 
@@ -1476,7 +1321,9 @@
         todos = [];
         if (!canUse()) { render(); return; }
         const finish = finishTodoWait = window.clcVerseWait?.();
-        unsub = col().limit(500).onSnapshot(snap => {
+        const byId = col().orderBy(firebase.firestore.FieldPath.documentId());
+        const query = prefix ? byId.startAt(prefix).endBefore(prefix + '\uf8ff') : byId.endBefore('~');
+        unsub = query.limit(500).onSnapshot(snap => {
           finish?.();
           todos = snap.docs.map(d => {
             const x = d.data();
@@ -1497,7 +1344,9 @@
         const existingOrder = readOrder();
         const rank = new Map(existingOrder.map((id, i) => [id, i]));
         const previousIds = todos.filter(t => !t.done).sort((a, b) => (rank.get(a.id) ?? -1) - (rank.get(b.id) ?? -1) || byNewest(a, b)).map(t => t.id);
-        const added = await col().add({
+        const id = col().doc().id;
+        const added = col().doc(prefix + id);
+        await added.set({
           title: p.title.slice(0, 200), due: p.due, time: p.time, tag: p.tag.slice(0, 20),
           done: false, doneAt: null, createdAt: FV.serverTimestamp(), updatedAt: FV.serverTimestamp()
         });
@@ -1514,19 +1363,20 @@
       function showUndo() {
         if (!undoBar) {
           undoBar = document.createElement('div');
-          undoBar.id = 'todoUndoBar';
+          undoBar.className = 'todo-undo-bar';
           undoBar.setAttribute('role', 'status');
           undoBar.setAttribute('aria-live', 'polite');
           undoBar.style.cssText = 'position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:1000;max-width:calc(100vw - 32px);padding:12px 18px;border-radius:14px;background:#242a38;color:#fff;box-shadow:0 8px 30px #0006;display:flex;align-items:center;gap:18px;font-size:14px;';
-          const message = document.createElement('span'); message.id = 'todoUndoMessage';
-          const button = document.createElement('button'); button.id = 'todoUndoButton'; button.type = 'button';
+          const message = document.createElement('span'); message.className = 'todo-undo-message';
+          const button = document.createElement('button'); button.type = 'button';
           button.innerHTML = '復原<span class="undo-en"> Undo</span>'; button.style.cssText = 'flex:none;background:none;border:0;color:#67e8f9;font:700 14px Arial;padding:8px;cursor:pointer;';
           button.addEventListener('click', undoDelete);
           undoBar.append(message, button); document.body.append(undoBar);
         }
         undoBar.hidden = !undoEntries.size;
+        if (undoEntries.size) document.body.append(undoBar);
         undoBar.style.display = undoEntries.size ? 'flex' : 'none';
-        undoBar.querySelector('#todoUndoMessage').textContent = `已刪除 ${undoEntries.size} 項待辦`;
+        undoBar.querySelector('.todo-undo-message').textContent = `已刪除 ${undoEntries.size} 項待辦`;
         undoBar.querySelector('button').disabled = undoBusy;
       }
       function expireUndo(id) {
@@ -1568,8 +1418,8 @@
         return parts.join(' ');
       }
       function startEdit(todo, textEl) {
-        const box = document.createElement('input');
-        box.type = 'text';
+        const box = document.createElement('textarea');
+        box.rows = Math.max(2, todo.title.split('\n').length);
         box.className = 'todo-edit';
         box.maxLength = 220;
         box.value = rawText(todo);
@@ -1591,7 +1441,7 @@
           } catch (err) { console.warn('待辦修改失敗', err); setStatus(errText(err)); render(); }
         };
         box.addEventListener('keydown', e => {
-          if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); finish(true); }
+          if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); finish(true); }
           else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
         });
         box.addEventListener('blur', () => finish(true));
@@ -1609,17 +1459,23 @@
         catch (err) { console.warn('待辦新增失敗', err); setStatus(errText(err)); }
       });
 
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+          e.preventDefault();
+          form.requestSubmit();
+        }
+      });
       form.addEventListener('submit', async e => {
         e.preventDefault();
         const text = input.value.trim();
         if (!text || !canUse()) return;
         input.value = '';
         try { await addTodo(text); }
-        catch (err) { console.warn('待辦新增失敗', err); input.value = text; setStatus(errText(err)); }
+        catch (err) { console.warn('待辦新增失敗', err); if (!input.value) input.value = text; setStatus(errText(err)); }
       });
 
       // ---------- 語音輸入：預設用瀏覽器內建語音辨識（快）；不支援或失敗（Brave、Firefox 等）時自動改用錄音 + Gemini AI 判讀 ----------
-      const mic = document.getElementById('todoMicBtn');
+      const mic = find('todoMicBtn');
       if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function' && typeof MediaRecorder !== 'undefined') {
         mic.classList.remove('hidden');
         let recorder = null, stream = null, chunks = [], before = '', stopTimer = null, busy = false;
@@ -1785,11 +1641,11 @@
         }
       }
 
-      window.clcTodoParse = parse; // 方便除錯
+      if (area === 'todo') window.clcTodoParse = parse; // 方便除錯
       render();
       window.addEventListener('clc-admin-changed', subscribe);
       if (window.isSuperuser) subscribe();
-    })();
+    });
   </script>
   <script src="clc-sso.js?v=20261120-loading-lock"></script>
   <script src="header.js?v=20261120-standalone-links"></script>
@@ -1798,21 +1654,34 @@
     // 管理員：長按任一格進入「編輯模式」（像 iPhone 主畫面）→ 按「−」移除、按「＋」貼網址新增、點 Logo 改名稱或圖示。
     // 名稱與 Logo 由 /api/site-info 自動抓（和手機「加入主畫面」相同來源）。
     // 開啟方式：YA、SR 用 CLC_SITES 網址（和左上角 Logo 站台選單相同）；其他網站在 DX04 Header 底下的 open.html 內開啟。
-    (function () {
-      const grid = document.getElementById('siteGrid');
-      const hint = document.getElementById('appsAdminHint');
-      const doneBtn = document.getElementById('appsDoneBtn');
+    const appDialogTemplate = document.getElementById('appDialog').cloneNode(true);
+    window.dxDashboard.register('apps', (widget, area) => {
+      const dashboard = window.dxDashboard;
+      const original = area === 'apps';
+      const template = document.getElementById('appDialog');
+      const dialog = original ? template : dashboard.copy(appDialogTemplate, area);
+      if (!original) document.body.append(dialog);
+      const find = id => dashboard.find(widget, id) || dashboard.find(dialog, id);
+      const inArea = item => (item?.area || 'apps') === area;
+      const validItem = item => item && item.id && item.name;
+      const fingerprint = items => JSON.stringify(items, (key, value) => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+        return Object.fromEntries(Object.keys(value).sort().map(k => [k, value[k]]));
+      });
+      const grid = find('siteGrid');
+      const hint = find('appsAdminHint');
+      const doneBtn = find('appsDoneBtn');
       const CACHE_KEY = 'clc_dx04_apps';
       const MIN_SLOTS = 8, MAX_APPS = 40;
       const DEFAULT_APPS = [
         { id: 'ya', site: 'ya', name: 'CLC YA', url: 'https://clc-dx04.pages.dev/ya/', icon: '/ya/apple-touch-icon.png' },
         { id: 'sr', site: 'sr', name: 'CLC SR', url: 'https://clc-dx04.pages.dev/sr/', icon: '/sr/apple-touch-icon.png' }
       ];
-      let apps = DEFAULT_APPS;
+      let apps = original ? DEFAULT_APPS : [];
       let editing = false;
       try {
         const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
-        if (Array.isArray(cached)) apps = cached;
+        if (Array.isArray(cached)) apps = cached.filter(validItem).filter(inArea);
       } catch (_) {}
 
       const isAdmin = () => !!window.isSuperuser; // 只有 Superuser 可以編輯分站入口
@@ -2025,19 +1894,31 @@
       // ---------- 儲存 ----------
       async function persist(next) {
         if (!window.db || !window.firebase) throw new Error('資料庫尚未載入');
-        await window.db.collection('dx04_settings').doc('apps').set({
-          items: next,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          updatedBy: String(window.currentAdminEmail || '')
+        const ref = window.db.collection('dx04_settings').doc('apps');
+        const base = fingerprint(apps);
+        const items = await window.db.runTransaction(async tx => {
+          const snap = await tx.get(ref);
+          const saved = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : DEFAULT_APPS;
+          if (fingerprint(saved.filter(validItem).filter(inArea)) !== base) throw new Error('App 清單已更新，請重試。');
+          const merged = saved.filter(item => !inArea(item)).concat(
+            original ? next : next.map(item => ({ ...item, area }))
+          );
+          if (merged.length > MAX_APPS) throw new Error('所有區域合計最多 ' + MAX_APPS + ' 個 App。');
+          tx.set(ref, {
+            items: merged,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: String(window.currentAdminEmail || '')
+          });
+          return merged;
         });
-        apps = next;
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify(apps)); } catch (_) {}
+        apps = items.filter(inArea);
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify(items)); } catch (_) {}
         render();
       }
       function errorText(err) {
         return err && err.code === 'permission-denied'
           ? '權限不足：請確認已用管理員登入，並已到 Firebase Console 發布最新的 firestore.rules。'
-          : '儲存失敗，請稍後再試。';
+          : err && /^(所有區域|App 清單)/.test(err.message) ? err.message : '儲存失敗，請稍後再試。';
       }
       async function removeApp(id) {
         const app = apps.find(a => a.id === id);
@@ -2062,15 +1943,14 @@
 
       // ---------- 新增／修改 App（同 LinFamily）：網址 → 名稱 → 圖示 ----------
       // 貼上網址後自動抓名稱、圖示、能否內嵌；使用者改過的值不會被自動抓取覆蓋；抓不到圖示就用字母圖示。
-      const dialog = document.getElementById('appDialog');
-      const form = document.getElementById('appForm');
-      const fName = document.getElementById('appName');
-      const fUrl = document.getElementById('appUrl');
-      const fIcon = document.getElementById('appIcon');
-      const preview = document.getElementById('appIconPreview');
-      const errEl = document.getElementById('appFormError');
-      const statusEl = document.getElementById('appStatus');
-      const saveBtn = document.getElementById('appSaveBtn');
+      const form = find('appForm');
+      const fName = find('appName');
+      const fUrl = find('appUrl');
+      const fIcon = find('appIcon');
+      const preview = find('appIconPreview');
+      const errEl = find('appFormError');
+      const statusEl = find('appStatus');
+      const saveBtn = find('appSaveBtn');
       let editingId = null, auto = {}, fetchSeq = 0, fetchTimer = 0, uploadedIcon = '';
       const placeholderIcon = fIcon.placeholder;
       function setUploaded(icon) {
@@ -2094,7 +1974,7 @@
         if (id && !app) return;
         editingId = app ? app.id : null;
         if (app) addPos = null;
-        document.getElementById('appTitle').textContent = app ? '修改 App' : '新增 App';
+        find('appTitle').textContent = app ? '修改 App' : '新增 App';
         fUrl.value = app ? (app.site ? hrefFor(app) : app.url) : '';
         fUrl.readOnly = !!(app && app.site);
         fUrl.title = app && app.site ? 'YA、SR 的網址跟著 header.js 的 CLC_SITES' : '';
@@ -2130,7 +2010,7 @@
       fUrl.addEventListener('change', fetchInfo);
       fIcon.addEventListener('input', () => { if (fIcon.value.trim() && uploadedIcon) setUploaded(''); updatePreview(); });
       fName.addEventListener('input', updatePreview);
-      document.getElementById('appCancelBtn').addEventListener('click', () => dialog.close());
+      find('appCancelBtn').addEventListener('click', () => dialog.close());
       // 按下和放開都在框外才關閉（拖曳選字滑出去不會關掉）
       if (window.clcDialogBackdropClose) window.clcDialogBackdropClose(dialog);
       else dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
@@ -2186,8 +2066,9 @@
         window.db.collection('dx04_settings').doc('apps').onSnapshot(snap => {
           finish?.();
           const items = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : DEFAULT_APPS;
-          apps = items.filter(a => a && a.id && a.name);
-          try { localStorage.setItem(CACHE_KEY, JSON.stringify(apps)); } catch (_) {}
+          const valid = items.filter(validItem);
+          apps = valid.filter(inArea);
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify(valid)); } catch (_) {}
           render();
           checkEmbeds();
         }, err => { finish?.(); console.warn('分站清單讀取失敗（沿用快取或預設）', err); });
@@ -2195,7 +2076,7 @@
         finish?.();
         console.warn('分站清單無法連線資料庫', err);
       }
-    })();
+    });
   </script>
   <script>
     // 安裝事件須在登入前監聽，避免錯過 beforeinstallprompt 與 window.load。
