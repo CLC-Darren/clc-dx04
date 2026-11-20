@@ -183,7 +183,7 @@
 }
 .widget-context-menu[hidden] { display: none; }
 .widget-context-menu > button { text-align: start; font-weight: 600; }
-.widget-context-menu button:is(:focus-visible, :hover) { background: #f1f5f9; }
+.widget-context-menu button:is(:focus-visible, :hover) { background: #f1f5f9; outline: none; }
 .dark .widget-context-menu button:is(:focus-visible, :hover) { background: #ffffff0d; }
 
 #dashGrid.widget-grid > .dash-widget[hidden] { display: none !important; }
