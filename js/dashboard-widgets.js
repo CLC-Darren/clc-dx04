@@ -145,17 +145,25 @@ window.clcDashboardWidgets = function (grid) {
     for (const child of Array.from(el.children)) {
       if (child !== handle) content.append(child);
     }
-    const resize = document.createElement('button');
-    resize.type = 'button';
-    resize.className = 'widget-resize';
-    resize.setAttribute('aria-label', '調整區域大小（方向鍵）');
+    const resizeHandles = Object.entries({
+      n: '上邊', ne: '右上角', e: '右邊', se: '右下角',
+      s: '下邊', sw: '左下角', w: '左邊', nw: '左上角'
+    }).map(([edge, label]) => {
+      const handle = document.createElement('button');
+      handle.type = 'button';
+      handle.className = 'widget-resize';
+      handle.dataset.edge = edge;
+      handle.tabIndex = edge === 'se' ? 0 : -1;
+      handle.setAttribute('aria-label', '從' + label + '調整區域大小（方向鍵）');
+      return handle;
+    });
     const expand = document.createElement('button');
     expand.type = 'button';
     expand.className = 'widget-drawer-handle';
     expand.hidden = true;
     expand.setAttribute('aria-label', '展開區域');
     expand.setAttribute('aria-expanded', 'false');
-    el.append(content, expand, resize);
+    el.append(content, expand, ...resizeHandles);
     el.dataset.widgetId = id;
     const entry = { el, type, content, expand, title: title || heading?.textContent };
     entries.set(id, entry);
@@ -351,8 +359,22 @@ window.clcDashboardWidgets = function (grid) {
   function changeBox(start, type, dx, dy, resize) {
     const [minW, minH] = minimum(type, mode());
     if (resize) {
-      return { ...start, w: clamp(start.w + dx, minW, columns() - start.x),
-        h: Math.max(minH, start.h + dy) };
+      const right = start.x + start.w, bottom = start.y + start.h;
+      let x = start.x, y = start.y, w = start.w, h = start.h;
+      if (resize.includes('w')) {
+        x = clamp(x + dx, 0, right - minW);
+        w = right - x;
+      }
+      if (resize.includes('e')) w = clamp(w + dx, minW, columns() - x);
+      if (resize.includes('n')) {
+        if (mobile()) h = Math.max(minH, h - dy);
+        else {
+          y = clamp(y + dy, 0, bottom - minH);
+          h = bottom - y;
+        }
+      }
+      if (resize.includes('s')) h = Math.max(minH, h + dy);
+      return { x, y, w, h };
     }
     return { ...start, x: clamp(start.x + dx, 0, columns() - start.w),
       y: clamp(start.y + dy, 0, Math.max(0, bottomRow(current()) - 1)) };
@@ -422,6 +444,7 @@ window.clcDashboardWidgets = function (grid) {
         .map(entry => entry.el.offsetTop + entry.el.offsetHeight / 2);
       gesture.slot = gesture.centers.filter(value => center > value).length;
     }
+    if (resize) el.dataset.resizeEdge = resize;
     el.classList.add(resize ? 'is-resizing' : 'is-dragging');
     document.body.classList.add('dash-dragging');
     gesture.frame = requestAnimationFrame(autoScroll);
@@ -430,8 +453,9 @@ window.clcDashboardWidgets = function (grid) {
   grid.addEventListener('pointerdown', e => {
     if (e.button !== 0 || gesture) return;
     const el = moveSurface(e.target);
-    const resize = !!e.target.closest('.widget-resize');
+    const resize = e.target.closest('.widget-resize')?.dataset.edge;
     if (!el || (e.pointerType === 'touch' && !resize)) return;
+    if (resize) e.preventDefault();
     begin(el, e.pointerId, e.clientX, e.clientY, resize);
     grid.setPointerCapture(e.pointerId);
   });
@@ -513,6 +537,7 @@ window.clcDashboardWidgets = function (grid) {
     if (!g) return;
     cancelAnimationFrame(g.frame);
     g.el.classList.remove('is-dragging', 'is-resizing');
+    delete g.el.dataset.resizeEdge;
     document.body.classList.remove('dash-dragging');
     gesture = null;
     if (commit && g.next !== current()) {
@@ -549,7 +574,7 @@ window.clcDashboardWidgets = function (grid) {
     const el = handle.closest('[data-widget-id]');
     const id = el.dataset.widgetId;
     const [dx, dy] = offsets[e.key];
-    const resize = handle.classList.contains('widget-resize');
+    const resize = handle.dataset.edge;
     const base = current();
     let box = changeBox(base[id], el.dataset.widget, dx, dy, resize);
     if (mobile() && !resize && dy) {
