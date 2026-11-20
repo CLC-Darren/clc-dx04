@@ -351,6 +351,21 @@ window.clcDashboardWidgets = function (grid) {
   grid.classList.add('widget-grid');
   draw(current());
 
+  grid.addEventListener('wheel', e => {
+    if (mobile() || gesture || e.defaultPrevented || !e.cancelable || e.ctrlKey || e.shiftKey ||
+        Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    // Chrome can keep a wheel gesture latched to a list even at its edge.
+    const scroller = e.target.closest('.todo-scroll, .widget-content');
+    if (!scroller || e.target.closest('textarea, select')) return;
+    const canScroll = getComputedStyle(scroller).overflowY === 'auto' &&
+      (e.deltaY < 0 ? scroller.scrollTop > 1 : scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 1);
+    if (canScroll) return;
+
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? innerHeight : 1;
+    window.scrollBy({ top: e.deltaY * unit, behavior: 'instant' });
+  }, { passive: false });
+
   function metrics() {
     const rect = grid.getBoundingClientRect();
     return { rect, stepX: (rect.width + 12) / columns(), stepY: 60 };

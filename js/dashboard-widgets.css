@@ -309,6 +309,7 @@ body:has(.widget-drawer[open]) { overflow: hidden; }
 }
 
 @media (min-width: 1024px) {
+  #dashGrid :is(.widget-content, .todo-scroll) { overscroll-behavior-y: auto; }
   #dashGrid.widget-grid > .is-compact-clock { padding: 16px; }
   .is-compact-clock > .widget-content {
     display: grid;
