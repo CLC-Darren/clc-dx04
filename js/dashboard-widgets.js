@@ -636,22 +636,26 @@ window.clcDashboardWidgets = function (grid) {
     entry.mounted = true;
   }
 
-  function add(type, restoreId) {
-    const id = restoreId || 'area-' + crypto.randomUUID();
+  function place(type, id, at) {
     const { rect, stepX, stepY } = metrics();
     for (const name of ['desktop', 'mobile']) {
       const boxes = layout[name];
       const [w, h] = name === 'mobile' ? types[type].mobile : types[type].size;
       const box = { x: 0, y: bottomRow(boxes), w, h };
-      if (name === mode()) {
-        const x = clamp(Math.floor((point.x - rect.left) / stepX), 0, columns() - w);
-        const y = clamp(Math.floor((point.y - rect.top) / stepY), 0, box.y);
+      if (at && name === mode()) {
+        const x = clamp(Math.floor((at.x - rect.left) / stepX), 0, columns() - w);
+        const y = clamp(Math.floor((at.y - rect.top) / stepY), 0, box.y);
         const nearby = [{ ...box, x, y }, { ...box, x, y: Math.max(0, y - 1) }, { ...box, x, y: y + 1 }];
         box.x = x;
         Object.assign(box, nearby.find(candidate => available(candidate, boxes)));
       }
       boxes[id] = box;
     }
+  }
+
+  function add(type, restoreId) {
+    const id = restoreId || 'area-' + crypto.randomUUID();
+    place(type, id, point);
     const entry = restoreId ? entries.get(id) : make(type, id);
     entry.el.hidden = false;
     draw(current());
@@ -789,6 +793,19 @@ window.clcDashboardWidgets = function (grid) {
 
   return {
     find, copy,
+    discoverTodoAreas(ids) {
+      const added = [];
+      for (const id of ids) {
+        if (entries.has(id)) continue;
+        place('todo', id);
+        added.push([id, make('todo', id)]);
+      }
+      if (!added.length) return;
+      draw(current());
+      for (const [id, entry] of added) mountEntry(id, entry);
+      save();
+      updateEmptyButton();
+    },
     reveal(widget) {
       const entry = entries.get(widget.dataset.widgetId);
       if (!entry || !mobile()) return;

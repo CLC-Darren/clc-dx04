@@ -6,7 +6,7 @@
   <script src="/verse-wait.js?v=2"></script>
   <script src="/login-gate.js?v=20261119-verse-wait"></script>
   <link rel="stylesheet" href="/js/dashboard-widgets.css?v=7">
-  <script src="/js/dashboard-widgets.js?v=7"></script>
+  <script src="/js/dashboard-widgets.js?v=8"></script>
   <script src="/reorder.js?v=todo-cross-area-1"></script>
   <script src="/js/clc-slot-grid.js?v=20261120-app-rows"></script>
   <script src="/js/clc-icon-upload.js?v=20261116-menu2"></script>
@@ -1052,6 +1052,39 @@
 
     // 今日待辦：Firestore dx04_todos（僅 Superuser）。文字或語音輸入，會自動辨識日期、時間與 #標籤。
     const todoAreas = new Map();
+    const sharedTodoDocs = new Map();
+    let stopTodoDiscovery;
+    const todoCollection = () => window.db.collection('dx04_todos');
+    const todosById = () => todoCollection().orderBy(firebase.firestore.FieldPath.documentId());
+    function areaFromDoc(id) {
+      return /^~(area-[a-f0-9-]+)~[^~]+$/.exec(id)?.[1];
+    }
+    function syncTodoAreas() {
+      stopTodoDiscovery?.();
+      stopTodoDiscovery = null;
+      sharedTodoDocs.clear();
+      if (!window.isSuperuser || !window.db) return;
+      let initial = true;
+      stopTodoDiscovery = todosById().startAt('~area-').endBefore('~area-\uf8ff').onSnapshot(snap => {
+        if (!window.isSuperuser) return;
+        const affected = new Set(snap.docChanges().map(change => areaFromDoc(change.doc.id)).filter(Boolean));
+        if (initial) {
+          initial = false;
+          for (const [widget, entry] of todoAreas) if (entry.prefix) affected.add(widget.dataset.widgetId);
+        }
+        if (!affected.size) return;
+        for (const id of affected) sharedTodoDocs.set(id, []);
+        for (const doc of snap.docs) {
+          const id = areaFromDoc(doc.id);
+          if (affected.has(id)) sharedTodoDocs.get(id).push(doc);
+        }
+        window.dxDashboard.discoverTodoAreas([...affected].filter(id => sharedTodoDocs.get(id).length));
+        for (const [widget, entry] of todoAreas) {
+          const id = widget.dataset.widgetId;
+          if (affected.has(id)) entry.receive(sharedTodoDocs.get(id));
+        }
+      }, err => console.warn('待辦分區同步失敗', err));
+    }
     window.dxDashboard.register('todo', (widget, area) => {
       const find = id => window.dxDashboard.find(widget, id);
       const prefix = area === 'todo' ? '' : '~' + area + '~';
@@ -1275,7 +1308,7 @@
         try { const v = JSON.parse(localStorage.getItem(orderKey()) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; }
       }
       const scroll = body.closest('.todo-scroll');
-      todoAreas.set(widget, { prefix, body, orderKey, render });
+      todoAreas.set(widget, { prefix, body, orderKey, render, receive });
       let highlighted, insertion;
       function crossTarget(node, y, source) {
         highlighted?.classList.remove('todo-area-drop');
@@ -1402,30 +1435,35 @@
           ? '權限不足：請確認已用 Superuser 登入，並已發布最新的 firestore.rules。'
           : '連線失敗，請稍後再試。';
       }
-      const col = () => window.db.collection('dx04_todos');
+      const col = todoCollection;
       let finishTodoWait;
       function subscribe() {
         finishTodoWait?.();
         if (unsub) { unsub(); unsub = null; }
         todos = [];
         if (!canUse()) { render(); return; }
+        if (prefix) {
+          receive(sharedTodoDocs.get(area) || []);
+          return;
+        }
         const finish = finishTodoWait = window.clcVerseWait?.();
-        const byId = col().orderBy(firebase.firestore.FieldPath.documentId());
-        const query = prefix ? byId.startAt(prefix).endBefore(prefix + '\uf8ff') : byId.endBefore('~');
-        unsub = query.limit(500).onSnapshot(snap => {
+        unsub = todosById().endBefore('~').limit(500).onSnapshot(snap => {
           finish?.();
-          todos = snap.docs.map(d => {
-            const x = d.data();
-            return {
-              raw: x, id: d.id, title: String(x.title || ''), due: x.due || '', time: x.time || '', tag: x.tag || '',
-              done: !!x.done,
-              doneMs: x.doneAt && x.doneAt.toMillis ? x.doneAt.toMillis() : (x.done ? Date.now() : 0),
-              created: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.now()
-            };
-          }).filter(x => x.title);
-          setStatus('');
-          render();
+          receive(snap.docs);
         }, err => { finish?.(); console.warn('待辦讀取失敗', err); setStatus(errText(err)); render(); });
+      }
+      function receive(docs) {
+        todos = docs.slice(0, 500).map(d => {
+          const x = d.data();
+          return {
+            raw: x, id: d.id, title: String(x.title || ''), due: x.due || '', time: x.time || '', tag: x.tag || '',
+            done: !!x.done,
+            doneMs: x.doneAt && x.doneAt.toMillis ? x.doneAt.toMillis() : (x.done ? Date.now() : 0),
+            created: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.now()
+          };
+        }).filter(x => x.title);
+        setStatus('');
+        render();
       }
       async function addTodo(text) {
         const p = parse(text);
@@ -1735,6 +1773,8 @@
       window.addEventListener('clc-admin-changed', subscribe);
       if (window.isSuperuser) subscribe();
     });
+    window.addEventListener('clc-admin-changed', syncTodoAreas);
+    syncTodoAreas();
   </script>
   <script src="clc-sso.js?v=20261120-loading-lock"></script>
   <script src="header.js?v=20261120-menu-coordination"></script>
