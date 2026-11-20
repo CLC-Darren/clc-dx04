@@ -69,13 +69,46 @@
   border-width: 0 2px 2px 0;
   border-radius: 0 0 2px;
 }
-.widget-drop-preview {
-  position: absolute;
-  pointer-events: none;
-  border: 2px dashed #00A3B4;
-  border-radius: 20px;
-  background: rgba(0, 163, 180, .10);
+[data-widget="todo"] > .widget-content { overflow: hidden; }
+[data-widget="todo"] > .widget-content > :not(.todo-scroll) { flex-shrink: 0; }
+.todo-scroll {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior-y: contain;
+  padding: 2px 4px;
+  cursor: auto;
 }
+.todo-scroll .todo-row.reorder-source { opacity: 0; }
+.todo-scroll .todo-row { transition: translate 220ms cubic-bezier(.2,.75,.25,1); }
+@media (prefers-reduced-motion: reduce) {
+  .todo-scroll .todo-row.reorder-source { opacity: 0; }
+.todo-scroll .todo-row { transition: none; }
+}
+.widget-grid .drag-handle { touch-action: auto; }
+.widget-grid .drag-handle:focus-visible::after { content: "↕"; }
+.widget-grid .widget-resize { opacity: 0; transition: opacity 140ms ease; }
+.widget-grid .widget-resize:focus-visible,
+.widget-grid .is-widget-selected > .widget-resize,
+.widget-grid .is-resizing > .widget-resize { opacity: 1; }
+.widget-grid .is-dragging, .widget-grid .is-dragging * { cursor: grabbing; }
+@media (hover: hover) {
+  .widget-grid .dash-widget { cursor: grab; }
+  .widget-grid :is(a, button:not(.drag-handle, .widget-resize, .widget-heading)) { cursor: pointer; }
+  .widget-grid :is(.widget-heading, textarea, input:not([type="checkbox"])) { cursor: text; }
+  .widget-grid .is-dragging { cursor: grabbing; }
+  .widget-grid .is-resizing { cursor: nwse-resize; }
+  .widget-grid .dash-widget:hover > .widget-resize { opacity: 1; }
+}
+@media (pointer: coarse) {
+  .widget-grid .widget-resize:not(:focus-visible) { pointer-events: none; }
+  .widget-grid .is-widget-selected > .widget-resize { pointer-events: auto; }
+  .widget-grid .dash-widget { -webkit-touch-callout: none; }
+}
+
 .widget-context-menu {
   position: fixed;
   z-index: 1100;

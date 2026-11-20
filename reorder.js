@@ -2,6 +2,8 @@
 window.clcReorder = function (container, options) {
   let source = null, target = null, after = false, pointer = null, holdTimer = null;
   let suppressUntil = 0, saving = false, floating = null;
+  let preview = null, scrollFrame = 0;
+  const scroll = options.scroll;
   const item = node => node?.closest?.(options.item);
   const excluded = node => node?.closest?.('input, textarea, select, .todo-del, .todo-minus, .app-remove, .app-slot, .slot-remove, .slot-empty');
   function lift() {
@@ -40,6 +42,12 @@ window.clcReorder = function (container, options) {
   }
   function clear() {
     clearTimeout(holdTimer);
+    cancelAnimationFrame(scrollFrame);
+    scrollFrame = 0;
+    if (preview) {
+      for (const { row } of preview.rows) row.style.translate = '';
+      preview = null;
+    }
     floating?.remove(); floating = null;
     container.querySelectorAll('.reorder-source, .reorder-target').forEach(el => el.classList.remove('reorder-source', 'reorder-target'));
     source = target = pointer = null;
@@ -52,30 +60,105 @@ window.clcReorder = function (container, options) {
     after = options.grid ? x > rect.left + rect.width / 2 : y > rect.top + rect.height / 2;
     target.classList.add('reorder-target');
   }
+  function startPreview() {
+    const rows = Array.from(source.parentElement.children).filter(row => row.matches(options.item))
+      .map(row => ({ row, rect: row.getBoundingClientRect() }));
+    const index = rows.findIndex(entry => entry.row === source);
+    const gap = parseFloat(getComputedStyle(source.parentElement).rowGap) || 0;
+    const rect = rows[index].rect;
+    preview = { rows, index, offset: rect.height + gap, scrollTop: scroll.scrollTop,
+      center: rect.top + rect.height / 2, y: pointer.y };
+  }
+
+  function shiftRows(x, y) {
+    const { rows, index, offset, scrollTop, center } = preview;
+    const bounds = scroll.getBoundingClientRect();
+    const within = x >= bounds.left - 32 && x <= bounds.right + 32;
+    const draggedCenter = center + y - pointer.y + scroll.scrollTop - scrollTop;
+    let slot = index;
+    if (within) {
+      rows.forEach(({ rect }, i) => {
+        const midpoint = rect.top + rect.height / 2;
+        if (i < index && draggedCenter < midpoint && slot === index) slot = i;
+        if (i > index && draggedCenter > midpoint) slot = i;
+      });
+    }
+    target = slot === index ? null : rows[slot].row;
+    after = slot > index;
+    rows.forEach(({ row }, i) => {
+      const shift = i >= slot && i < index ? offset : i > index && i <= slot ? -offset : 0;
+      row.style.translate = shift ? '0 ' + shift + 'px' : '';
+    });
+  }
+
+  function scrollPreview() {
+    scrollFrame = 0;
+    if (!preview || !pointer?.moved) return;
+    const { x, y } = preview;
+    const bounds = scroll.getBoundingClientRect();
+    const top = Math.max(0, bounds.top), bottom = Math.min(innerHeight, bounds.bottom);
+    const margin = Math.min(34, (bottom - top) / 3);
+    let speed = 0;
+    if (x >= bounds.left - 32 && x <= bounds.right + 32) {
+      if (y < top + margin) speed = -Math.min(12, Math.ceil((top + margin - y) / 3));
+      if (y > bottom - margin) speed = Math.min(12, Math.ceil((y - bottom + margin) / 3));
+    }
+    if (speed) {
+      const before = scroll.scrollTop;
+      scroll.scrollTop += speed;
+      if (scroll.scrollTop !== before) {
+        shiftRows(x, y);
+        scrollFrame = requestAnimationFrame(scrollPreview);
+      }
+    }
+  }
+
   function begin() {
-    if (!pointer || !source || !options.allowed()) return;
+    if (!pointer || !container.contains(source) || !options.allowed()) return;
     pointer.armed = true;
     options.start?.();
     source.classList.add('reorder-source');
+    if (scroll) startPreview();
     lift();
     if (pointer.touch && navigator.vibrate) navigator.vibrate(15);
   }
   function move(x, y) {
     pointer.moved = true;
     follow(x, y);
+    if (preview) {
+      Object.assign(preview, { x, y });
+      shiftRows(x, y);
+      if (!scrollFrame) scrollFrame = requestAnimationFrame(scrollPreview);
+      return;
+    }
     aim(item(document.elementFromPoint(x, y)), x, y);
     if (y < 60) window.scrollBy(0, -15);
     else if (y > innerHeight - 60) window.scrollBy(0, 15);
   }
   async function finish(commit) {
-    const from = source?.dataset.sortId, to = target?.dataset.sortId, insertAfter = after;
+    const from = source?.dataset.sortId, to = container.contains(target) ? target.dataset.sortId : null, insertAfter = after;
+    commit = commit && container.contains(source);
     if (pointer?.armed) suppressUntil = Date.now() + 500;
     const ghost = floating; floating = null;
+    const before = commit && to && preview && !matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? new Map(preview.rows.map(({ row }) => [row.dataset.sortId, row.getBoundingClientRect().top]))
+      : null;
     clear();
     if (!commit || !from || !to || !options.allowed()) { await land(ghost, from); return; }
     suppressUntil = Date.now() + 500;
     saving = true;
-    try { await options.move(from, to, insertAfter); }
+    try {
+      await options.move(from, to, insertAfter);
+      if (before) {
+        for (const row of container.querySelectorAll(options.item)) {
+          const id = row.dataset.sortId;
+          if (id === from || !before.has(id)) continue;
+          const dy = before.get(id) - row.getBoundingClientRect().top;
+          if (Math.abs(dy) > 1) row.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }],
+            { duration: 190, easing: 'cubic-bezier(.2,.75,.25,1)' });
+        }
+      }
+    }
     catch (error) { options.error?.(error); }
     finally { await land(ghost, from); saving = false; }
   }
@@ -100,6 +183,7 @@ window.clcReorder = function (container, options) {
     if (!pointer.armed) {
       if (Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y) < 7) return;
       begin();
+      if (!pointer.armed) { clear(); return; }
       container.setPointerCapture(e.pointerId);
     }
     e.preventDefault();
@@ -111,7 +195,12 @@ window.clcReorder = function (container, options) {
     if (container.hasPointerCapture(e.pointerId)) container.releasePointerCapture(e.pointerId);
     finish(moved);
   });
-  container.addEventListener('pointercancel', () => { if (pointer && !pointer.touch) finish(false); });
+  for (const event of ['pointercancel', 'lostpointercapture']) {
+    container.addEventListener(event, e => {
+      if (pointer && !pointer.touch && pointer.id === e.pointerId) finish(false);
+    });
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && pointer) finish(false); });
   // A short swipe remains normal scrolling; only a stationary long press takes over touchmove.
   container.addEventListener('touchstart', e => {
     if (e.touches.length !== 1 || saving || !options.allowed() || excluded(e.target)) { if (pointer?.touch) finish(false); return; }

@@ -2,12 +2,12 @@
 <html lang="zh-TW" class="dark dx-locked">
 <head>
   <link rel="stylesheet" href="/login-gate.css?v=20261119-verse-wait">
-  <link rel="stylesheet" href="/light-theme.css?v=3">
+  <link rel="stylesheet" href="/light-theme.css?v=4">
   <script src="/verse-wait.js?v=2"></script>
   <script src="/login-gate.js?v=20261119-verse-wait"></script>
-  <link rel="stylesheet" href="/js/dashboard-widgets.css?v=1">
-  <script src="/js/dashboard-widgets.js?v=1"></script>
-  <script src="/reorder.js?v=drag-lift-6"></script>
+  <link rel="stylesheet" href="/js/dashboard-widgets.css?v=2">
+  <script src="/js/dashboard-widgets.js?v=2"></script>
+  <script src="/reorder.js?v=todo-reflow-1"></script>
   <script src="/js/clc-slot-grid.js?v=20261117push"></script>
   <script src="/js/clc-icon-upload.js?v=20261116-menu2"></script>
   <meta charset="UTF-8">
@@ -88,12 +88,9 @@
     .dark .app-slot { border-color:#334155; color:#475569; }
     /* 區塊移動把手 */
     .drag-handle { position:absolute; top:0; left:50%; transform:translateX(-50%); width:56px; height:22px; display:flex; align-items:center; justify-content:center; background:none; border:0; padding:0; cursor:grab; touch-action:none; z-index:2; }
-    .drag-handle span { width:36px; height:5px; border-radius:9999px; background:#cbd5e1; }
-    .dark .drag-handle span { background:#334155; }
     .drag-handle:focus-visible { outline:2px solid #00A3B4; border-radius:8px; }
-    .dash-widget.is-dragging { z-index:30; box-shadow:0 18px 40px rgba(0,0,0,.35); transition:none; }
-    .dash-widget.is-dragging .drag-handle { cursor:grabbing; }
-    .dash-widget.is-dragging .drag-handle span { background:#007E8A; }
+    .dash-widget.is-dragging { z-index:30; box-shadow:0 18px 40px rgba(0,0,0,.35); }
+    .dash-widget.is-resizing { z-index:30; }
     body.dash-dragging { user-select:none; -webkit-user-select:none; }
     .app-tile[draggable="true"] { cursor:grab; }
     .app-tile { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
@@ -153,7 +150,7 @@
     .todo-empty { padding:14px 4px; font-size:.875rem; color:#64748b; }
     .dark .todo-empty { color:#8A92A6; }
     .todo-chevron { transition:transform .2s; }
-    #todoDoneToggle.is-open .todo-chevron { transform:rotate(180deg); }
+    [aria-controls].is-open .todo-chevron { transform:rotate(180deg); }
     .todo-mic { flex:none; width:40px; height:40px; display:grid; place-content:center; border:0; border-radius:12px; background:none; color:#64748b; cursor:pointer; }
     .dark .todo-mic { color:#8A92A6; }
     .todo-mic:hover { color:#007E8A; }
@@ -833,7 +830,7 @@
 
       <!-- 時間、日期、天氣 -->
       <section data-widget="clock" aria-label="時間與天氣" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-5">
-        <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
+        <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"></button>
         <div class="clock-main">
           <p class="flex items-baseline gap-1 font-extrabold tracking-tight tabular-nums text-slate-900 dark:text-white"><span id="clockTime" class="text-5xl sm:text-6xl">--:--</span><span id="clockSec" class="text-2xl sm:text-3xl text-slate-400 dark:text-brand-muted">:--</span></p>
           <p id="clockDate" class="mt-1 text-base text-slate-500 dark:text-brand-muted">&nbsp;</p>
@@ -850,7 +847,7 @@
 
       <!-- 今日待辦：存在 Firestore dx04_todos（僅 Superuser 可讀寫）；可文字或語音新增、勾選完成、刪除 -->
       <section data-widget="todo" aria-labelledby="todoTitle" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-3">
-        <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
+        <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"></button>
         <div class="flex items-center justify-between gap-3">
           <h2 id="todoTitle" class="text-xl font-extrabold text-slate-900 dark:text-white">今日待辦</h2>
           <p id="todoSummary" class="text-xs sm:text-sm text-slate-500 dark:text-brand-muted"></p>
@@ -865,20 +862,22 @@
         </form>
         <p id="todoStatus" class="hidden text-sm text-slate-500 dark:text-brand-muted"></p>
 
-        <div id="todoBody" class="flex flex-col gap-1"></div>
+        <div class="todo-scroll">
+          <div id="todoBody" class="flex flex-col gap-1"></div>
 
-        <div class="mt-auto pt-2 border-t border-slate-100 dark:border-white/[0.06]">
-          <button type="button" id="todoDoneToggle" class="w-full h-11 flex items-center justify-between text-sm text-slate-500 dark:text-brand-muted" aria-expanded="false" aria-controls="todoDoneList">
-            <span>今天已完成 <span id="todoDoneCount">0</span> 項</span>
-            <svg class="todo-chevron w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <ul id="todoDoneList" class="hidden"></ul>
+          <div class="mt-auto pt-2 border-t border-slate-100 dark:border-white/[0.06]">
+            <button type="button" id="todoDoneToggle" class="w-full h-11 flex items-center justify-between text-sm text-slate-500 dark:text-brand-muted" aria-expanded="false" aria-controls="todoDoneList">
+              <span>今天已完成 <span id="todoDoneCount">0</span> 項</span>
+              <svg class="todo-chevron w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <ul id="todoDoneList" class="hidden"></ul>
+          </div>
         </div>
       </section>
 
       <!-- App 入口：4 欄 × 2 排，共 8 格 -->
       <section data-widget="apps" aria-labelledby="appsTitle" class="dash-widget relative">
-        <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"><span></span></button>
+        <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"></button>
         <div class="flex items-center justify-between gap-3 min-h-[36px]">
           <h2 id="appsTitle" class="text-sm font-bold text-slate-500 dark:text-brand-muted">分站入口</h2>
           <button type="button" id="appsDoneBtn" hidden class="h-9 px-4 rounded-full text-sm font-bold bg-[#007E8A] hover:bg-[#006C77] text-white">完成</button>
@@ -1228,7 +1227,7 @@
         try { const v = JSON.parse(localStorage.getItem(orderKey()) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; }
       }
       window.clcReorder(body, {
-        item: '.todo-row', directMouse: true, allowed: () => !!window.isSuperuser,
+        item: '.todo-row', directMouse: true, scroll: body.closest('.todo-scroll'), allowed: () => !!window.isSuperuser,
         hold: () => setTodoDeleteMode(true), // 手機長按不動：每一項右上角出現「−」
         move(from, to, after) {
           const rows = Array.from(body.querySelectorAll('.todo-row'));

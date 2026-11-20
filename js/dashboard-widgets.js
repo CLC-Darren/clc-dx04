@@ -11,7 +11,7 @@ window.clcDashboardWidgets = function (grid) {
   const templates = new Map();
   const mount = new Map();
   const animations = new Map();
-  let gesture = null;
+  let gesture = null, pending = null, selected = null, suppressClickUntil = 0;
 
   function read(storageKey) {
     try { return JSON.parse(localStorage.getItem(storageKey)); }
@@ -202,6 +202,17 @@ window.clcDashboardWidgets = function (grid) {
         return [other, placed];
       }));
     }
+    if (resize) {
+      const next = { [id]: box };
+      const others = Object.keys(base).filter(other => other !== id);
+      others.sort((a, b) => base[a].y - base[b].y || base[a].x - base[b].x);
+      for (const other of others) {
+        const candidate = { ...base[other] };
+        while (!available(candidate, next)) candidate.y++;
+        next[other] = candidate;
+      }
+      return next;
+    }
     const next = { ...base, [id]: box };
     const collisions = Object.keys(base).filter(other => other !== id && overlaps(base[other], box));
     collisions.sort((a, b) => base[a].y - base[b].y || base[a].x - base[b].x);
@@ -218,7 +229,7 @@ window.clcDashboardWidgets = function (grid) {
     grid.style.setProperty('--widget-columns', columns());
     const previous = new Map();
     for (const [id, { el }] of entries) {
-      if (animate && !reducedMotion.matches && id !== gesture?.widgetId) previous.set(id, el.getBoundingClientRect());
+      if (animate && !reducedMotion.matches && (gesture?.resize || id !== gesture?.widgetId)) previous.set(id, el.getBoundingClientRect());
       animations.get(id)?.cancel();
       animations.delete(id);
       if (id !== gesture?.widgetId) el.style.transform = '';
@@ -229,9 +240,16 @@ window.clcDashboardWidgets = function (grid) {
       const { el } = entries.get(id);
       const after = el.getBoundingClientRect();
       const dx = before.left - after.left, dy = before.top - after.top;
-      if (Math.abs(dx) > .5 || Math.abs(dy) > .5) {
-        animations.set(id, el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
-          { duration: 190, easing: 'ease-out' }));
+      const from = { transform: `translate(${dx}px, ${dy}px)` }, to = { transform: 'none' };
+      const resized = Math.abs(before.width - after.width) > .5 || Math.abs(before.height - after.height) > .5;
+      if (resized) {
+        Object.assign(from, { width: before.width + 'px', height: before.height + 'px' });
+        Object.assign(to, { width: after.width + 'px', height: after.height + 'px' });
+      }
+      if (resized || Math.abs(dx) > .5 || Math.abs(dy) > .5) {
+        const animation = el.animate([from, to], { duration: 250, easing: 'cubic-bezier(.18,.75,.25,1)' });
+        animations.set(id, animation);
+        animation.onfinish = () => { if (animations.get(id) === animation) animations.delete(id); };
       }
     }
   }
@@ -253,10 +271,6 @@ window.clcDashboardWidgets = function (grid) {
       y: clamp(start.y + dy, 0, Math.max(0, bottomRow(current()) - 1)) };
   }
 
-  const preview = document.createElement('div');
-  preview.className = 'widget-drop-preview';
-  preview.setAttribute('aria-hidden', 'true');
-
   function update() {
     const g = gesture;
     const { rect, stepX, stepY } = metrics();
@@ -270,10 +284,6 @@ window.clcDashboardWidgets = function (grid) {
     if (!g.resize) {
       const target = g.next[g.widgetId];
       g.el.style.transform = `translate(${dx + (g.start.x - target.x) * stepX}px, ${dy + (g.start.y - target.y) * stepY}px)`;
-      Object.assign(preview.style, {
-        left: target.x * stepX + 'px', top: target.y * stepY + 'px',
-        width: box.w * stepX - 12 + 'px', height: box.h * stepY - 12 + 'px'
-      });
     }
   }
 
@@ -288,35 +298,105 @@ window.clcDashboardWidgets = function (grid) {
     gesture.frame = requestAnimationFrame(autoScroll);
   }
 
-  grid.addEventListener('pointerdown', e => {
-    const handle = e.target.closest('.drag-handle, .widget-resize');
-    if (!handle || e.button !== 0 || gesture) return;
-    const el = handle.closest('[data-widget-id]');
+  function moveSurface(target, touch = false) {
+    if (target.closest('a, input, textarea, select, [contenteditable], .todo-scroll, .slot-cell, .slot-empty') ||
+        (target.closest('button') && !target.closest(touch
+          ? '.drag-handle, .widget-resize, .widget-heading' : '.drag-handle, .widget-resize'))) return null;
+    return target.closest('[data-widget-id]');
+  }
+
+  function selectWidget(el) {
+    selected?.classList.remove('is-widget-selected');
+    selected = el;
+    selected?.classList.add('is-widget-selected');
+  }
+
+  function begin(el, pointer, x, y, resize, touch = false) {
     const widgetId = el.dataset.widgetId, start = current()[widgetId];
     const { rect } = metrics();
-    const resize = handle.classList.contains('widget-resize');
-    gesture = { el, widgetId, start, type: el.dataset.widget, resize, box: start, next: current(),
-      pointer: e.pointerId, startX: e.clientX - rect.left, startY: e.clientY - rect.top, x: e.clientX, y: e.clientY };
-    handle.setPointerCapture(e.pointerId);
-    el.classList.add('is-dragging');
+    gesture = { el, widgetId, start, type: el.dataset.widget, resize, touch, box: start, next: current(),
+      pointer, startX: x - rect.left, startY: y - rect.top, x, y };
+    el.classList.add(resize ? 'is-resizing' : 'is-dragging');
     document.body.classList.add('dash-dragging');
-    if (!resize) grid.append(preview);
     gesture.frame = requestAnimationFrame(autoScroll);
+  }
+
+  grid.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || gesture) return;
+    const el = moveSurface(e.target);
+    const resize = !!e.target.closest('.widget-resize');
+    if (!el || (e.pointerType === 'touch' && !resize)) return;
+    begin(el, e.pointerId, e.clientX, e.clientY, resize);
+    grid.setPointerCapture(e.pointerId);
   });
 
   grid.addEventListener('pointermove', e => {
-    if (gesture?.pointer !== e.pointerId) return;
+    if (!gesture || gesture.touch || gesture.pointer !== e.pointerId) return;
     gesture.x = e.clientX;
     gesture.y = e.clientY;
     update();
+  });
+
+  function cancelHold() {
+    clearTimeout(pending?.timer);
+    pending = null;
+  }
+
+  grid.addEventListener('touchstart', e => {
+    cancelHold();
+    if (e.touches.length !== 1 || gesture || e.target.closest('.widget-resize')) return;
+    const el = moveSurface(e.target, true);
+    if (!el) return;
+    const { identifier, clientX, clientY } = e.touches[0];
+    const timer = setTimeout(() => {
+      cancelHold();
+      selectWidget(el);
+      begin(el, identifier, clientX, clientY, false, true);
+      navigator.vibrate?.(15);
+    }, 500);
+    pending = { identifier, clientX, clientY, timer };
+  }, { passive: true });
+
+  grid.addEventListener('touchmove', e => {
+    const id = pending?.identifier ?? (gesture?.touch ? gesture.pointer : null);
+    const touch = Array.from(e.changedTouches).find(t => t.identifier === id);
+    if (!touch) return;
+    if (pending) {
+      if (Math.hypot(touch.clientX - pending.clientX, touch.clientY - pending.clientY) > 9) cancelHold();
+      return;
+    }
+    if (e.cancelable) e.preventDefault();
+    gesture.x = touch.clientX;
+    gesture.y = touch.clientY;
+    update();
+  }, { passive: false });
+
+  for (const event of ['touchend', 'touchcancel']) {
+    grid.addEventListener(event, e => {
+      const ended = id => Array.from(e.changedTouches).some(t => t.identifier === id);
+      if (pending && ended(pending.identifier)) cancelHold();
+      if (gesture?.touch && ended(gesture.pointer)) {
+        suppressClickUntil = performance.now() + 400;
+        finish(event === 'touchend');
+      }
+    });
+  }
+
+  grid.addEventListener('click', e => {
+    if (performance.now() < suppressClickUntil && e.detail !== 0) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }
+  }, true);
+  document.addEventListener('pointerdown', e => {
+    if (selected && !selected.contains(e.target)) selectWidget(null);
   });
 
   function finish(commit) {
     const g = gesture;
     if (!g) return;
     cancelAnimationFrame(g.frame);
-    g.el.classList.remove('is-dragging');
-    preview.remove();
+    g.el.classList.remove('is-dragging', 'is-resizing');
     document.body.classList.remove('dash-dragging');
     gesture = null;
     if (commit && g.next !== current()) {
@@ -327,16 +407,16 @@ window.clcDashboardWidgets = function (grid) {
   }
 
   grid.addEventListener('pointerup', e => {
-    if (gesture?.pointer !== e.pointerId) return;
+    if (!gesture || gesture.touch || gesture.pointer !== e.pointerId) return;
     gesture.x = e.clientX;
     gesture.y = e.clientY;
     update();
     finish(true);
   });
   for (const event of ['pointercancel', 'lostpointercapture']) {
-    grid.addEventListener(event, e => { if (gesture?.pointer === e.pointerId) finish(false); });
+    grid.addEventListener(event, e => { if (gesture && !gesture.touch && gesture.pointer === e.pointerId) finish(false); });
   }
-  breakpoint.addEventListener('change', () => { finish(false); draw(current()); });
+  breakpoint.addEventListener('change', () => { cancelHold(); finish(false); draw(current()); });
 
   grid.addEventListener('keydown', e => {
     const handle = e.target.closest('.drag-handle, .widget-resize');
@@ -406,6 +486,10 @@ window.clcDashboardWidgets = function (grid) {
   }
 
   document.addEventListener('contextmenu', e => {
+    if ((pending || gesture?.touch || e.pointerType === 'touch') && moveSurface(e.target, true)) {
+      e.preventDefault();
+      return;
+    }
     if (!window.isSuperuser || gesture || !e.target.closest('main, footer') || document.querySelector('dialog[open]') ||
         e.target.closest('a, input, textarea, select, button, [contenteditable], .todo-row, .slot-cell')) return;
     e.preventDefault();
@@ -421,7 +505,9 @@ window.clcDashboardWidgets = function (grid) {
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     closeMenu(true);
+    cancelHold();
     finish(false);
+    selectWidget(null);
   });
   window.addEventListener('scroll', () => closeMenu(), { passive: true });
   window.addEventListener('clc-admin-changed', () => { if (!window.isSuperuser) closeMenu(); });

@@ -48,7 +48,6 @@ html:not(.dark) .todo-del:focus-visible { color: #e11d48; }
 html:not(.dark) .app-slot { border-color: #C7C7CC; color: #AEAEB2; }
 html:not(.dark) .app-slot.is-admin:hover { border-color: #007E8A; color: #007E8A; }
 html:not(.dark) .drag-handle span { background: #D1D1D6; }
-html:not(.dark) .dash-widget.is-dragging .drag-handle span { background: #007E8A; }
 html:not(.dark) .app-input { background: rgba(118,118,128,.12); border-color: transparent; }
 html:not(.dark) .app-input:focus { border-color: #007E8A; }
 html:not(.dark) .app-dialog::backdrop { background: rgba(0,0,0,.35); }
