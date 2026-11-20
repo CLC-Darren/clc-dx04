@@ -3,7 +3,7 @@ window.clcDashboardWidgets = function (grid) {
   const breakpoint = matchMedia('(min-width: 1024px)');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const types = {
-    clock: { min: [2, 5], size: [2, 5], mobile: [1, 3] },
+    clock: { min: [2, 5], size: [2, 5], mobile: [1, 3], label: '時鐘與天氣' },
     todo: { min: [2, 4], size: [3, 9], mobile: [1, 7], mobileMin: 4, title: '代辦事項' },
     apps: { min: [2, 3], size: [2, 4], mobile: [1, 4], mobileMin: 3, title: 'APP管理區域' }
   };
@@ -51,7 +51,7 @@ window.clcDashboardWidgets = function (grid) {
     try {
       localStorage.setItem(key, JSON.stringify({
         layout,
-        widgets: [...entries].map(([id, { type, title }]) => ({ id, type, title }))
+        widgets: [...entries].map(([id, { type, title, el }]) => ({ id, type, title, hidden: el.hidden }))
       }));
     } catch (_) {
       notice.textContent = '無法儲存區塊設定，請確認瀏覽器允許本機儲存。';
@@ -141,7 +141,9 @@ window.clcDashboardWidgets = function (grid) {
   for (const el of grid.querySelectorAll(':scope > [data-widget]')) {
     const id = el.dataset.widget;
     templates.set(id, el.cloneNode(true));
-    setup(el, id, metadata.find(item => item?.id === id && typeof item.title === 'string')?.title);
+    const item = metadata.find(item => item?.id === id);
+    setup(el, id, typeof item?.title === 'string' ? item.title : '');
+    el.hidden = item?.hidden === true;
   }
 
   function make(type, id, title) {
@@ -151,9 +153,9 @@ window.clcDashboardWidgets = function (grid) {
   }
 
   for (const item of metadata) {
-    if (item && ['todo', 'apps'].includes(item.type) && typeof item.id === 'string' &&
+    if (item && Object.hasOwn(types, item.type) && typeof item.id === 'string' &&
         /^area-[a-f0-9-]+$/.test(item.id) && !entries.has(item.id)) {
-      make(item.type, item.id, typeof item.title === 'string' ? item.title : '');
+      make(item.type, item.id, typeof item.title === 'string' ? item.title : '').el.hidden = item.hidden === true;
     }
   }
 
@@ -169,7 +171,8 @@ window.clcDashboardWidgets = function (grid) {
     const placed = {};
     const defaultLayout = layout[name];
     const cols = name === 'desktop' ? 5 : 1;
-    for (const [id, { type }] of entries) {
+    for (const [id, { type, el }] of entries) {
+      if (el.hidden) continue;
       const [minW, minH] = minimum(type, name);
       const stored = saved?.layout?.[name]?.[id] || defaultLayout[id];
       const [w, h] = name === 'desktop' ? types[type].size : types[type].mobile;
@@ -229,6 +232,7 @@ window.clcDashboardWidgets = function (grid) {
     grid.style.setProperty('--widget-columns', columns());
     const previous = new Map();
     for (const [id, { el }] of entries) {
+      if (el.hidden) continue;
       if (animate && !reducedMotion.matches && (gesture?.resize || id !== gesture?.widgetId)) previous.set(id, el.getBoundingClientRect());
       animations.get(id)?.cancel();
       animations.delete(id);
@@ -290,7 +294,7 @@ window.clcDashboardWidgets = function (grid) {
   function autoScroll() {
     if (!gesture) return;
     const y = gesture.y;
-    if (!gesture.resize) {
+    if (!gesture.resize && (!gesture.touch || gesture.moved)) {
       if (y < 60) window.scrollBy(0, -12);
       else if (y > innerHeight - 60) window.scrollBy(0, 12);
     }
@@ -315,7 +319,7 @@ window.clcDashboardWidgets = function (grid) {
     const widgetId = el.dataset.widgetId, start = current()[widgetId];
     const { rect } = metrics();
     gesture = { el, widgetId, start, type: el.dataset.widget, resize, touch, box: start, next: current(),
-      pointer, startX: x - rect.left, startY: y - rect.top, x, y };
+      pointer, touchX: x, touchY: y, startX: x - rect.left, startY: y - rect.top, x, y };
     el.classList.add(resize ? 'is-resizing' : 'is-dragging');
     document.body.classList.add('dash-dragging');
     gesture.frame = requestAnimationFrame(autoScroll);
@@ -351,6 +355,7 @@ window.clcDashboardWidgets = function (grid) {
     const timer = setTimeout(() => {
       cancelHold();
       selectWidget(el);
+      if (canOpenMenu()) openMenu(clientX, clientY, el.dataset.widgetId, false);
       begin(el, identifier, clientX, clientY, false, true);
       navigator.vibrate?.(15);
     }, 500);
@@ -366,6 +371,11 @@ window.clcDashboardWidgets = function (grid) {
       return;
     }
     if (e.cancelable) e.preventDefault();
+    if (!gesture.moved) {
+      if (Math.hypot(touch.clientX - gesture.touchX, touch.clientY - gesture.touchY) <= 9) return;
+      gesture.moved = true;
+      closeMenu();
+    }
     gesture.x = touch.clientX;
     gesture.y = touch.clientY;
     update();
@@ -377,7 +387,11 @@ window.clcDashboardWidgets = function (grid) {
       if (pending && ended(pending.identifier)) cancelHold();
       if (gesture?.touch && ended(gesture.pointer)) {
         suppressClickUntil = performance.now() + 400;
-        finish(event === 'touchend');
+        const stationary = !gesture.moved;
+        if (stationary && e.cancelable) e.preventDefault();
+        finish(event === 'touchend' && !stationary);
+        if (event === 'touchcancel') closeMenu();
+        else if (stationary && !menu.hidden) menu.firstElementChild.focus({ preventScroll: true });
       }
     });
   }
@@ -389,7 +403,7 @@ window.clcDashboardWidgets = function (grid) {
     }
   }, true);
   document.addEventListener('pointerdown', e => {
-    if (selected && !selected.contains(e.target)) selectWidget(null);
+    if (selected && !selected.contains(e.target) && !menu.contains(e.target)) selectWidget(null);
   });
 
   function finish(commit) {
@@ -444,17 +458,37 @@ window.clcDashboardWidgets = function (grid) {
   menu.className = 'widget-context-menu';
   menu.hidden = true;
   menu.setAttribute('role', 'group');
-  menu.setAttribute('aria-label', '新增區域');
+  menu.setAttribute('aria-label', '卡片操作');
   document.body.append(menu);
-  let point, previousFocus;
+  const emptyButton = document.createElement('button');
+  emptyButton.type = 'button';
+  emptyButton.className = 'widget-empty-button';
+  emptyButton.textContent = '新增區域';
+  grid.before(emptyButton);
+  let point, previousFocus, menuScrollX, menuScrollY;
+
+  function updateEmptyButton() {
+    emptyButton.hidden = !window.isSuperuser || Object.keys(current()).length > 0;
+  }
+
+  function canOpenMenu() {
+    return window.isSuperuser && !gesture && !document.querySelector('dialog[open]');
+  }
+
   function closeMenu(restoreFocus = false) {
     if (menu.hidden) return;
     menu.hidden = true;
-    if (restoreFocus) previousFocus?.focus();
+    if (restoreFocus) previousFocus?.focus({ preventScroll: true });
   }
 
-  function add(type) {
-    const id = 'area-' + crypto.randomUUID();
+  function mountEntry(id, entry) {
+    if (entry.el.hidden || entry.mounted) return;
+    mount.get(entry.type)(entry.el, id);
+    entry.mounted = true;
+  }
+
+  function add(type, restoreId) {
+    const id = restoreId || 'area-' + crypto.randomUUID();
     const { rect, stepX, stepY } = metrics();
     for (const name of ['desktop', 'mobile']) {
       const boxes = layout[name];
@@ -469,36 +503,86 @@ window.clcDashboardWidgets = function (grid) {
       }
       boxes[id] = box;
     }
-    const entry = make(type, id);
+    const entry = restoreId ? entries.get(id) : make(type, id);
+    entry.el.hidden = false;
     draw(current());
+    mountEntry(id, entry);
     save();
-    mount.get(type)(entry.el, id);
     closeMenu();
+    updateEmptyButton();
     entry.el.querySelector('.drag-handle').focus();
   }
 
-  for (const [type, label] of [['todo', '新增代辦事項區域'], ['apps', '新增APP管理區域']]) {
+  function remove(id) {
+    const { el } = entries.get(id);
+    animations.get(id)?.cancel();
+    animations.delete(id);
+    el.hidden = true;
+    if (selected === el) selectWidget(null);
+    for (const name of ['desktop', 'mobile']) {
+      delete layout[name][id];
+    }
+    // 將手機版向上收齊，避免移除卡片後留下整張卡片的空位。
+    let y = 0;
+    for (const box of Object.values(layout.mobile).sort((a, b) => a.y - b.y)) {
+      box.y = y;
+      y += box.h;
+    }
+    draw(current(), true);
+    save();
+    closeMenu();
+    updateEmptyButton();
+    const next = [...entries.values()].find(entry => !entry.el.hidden);
+    (next?.el.querySelector('.drag-handle') || emptyButton).focus({ preventScroll: true });
+  }
+
+  const nameOf = entry => entry.title || types[entry.type].label;
+  function menuButton(label, action, className) {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = label;
-    button.addEventListener('click', () => add(type));
+    if (className) button.className = className;
+    button.addEventListener('click', () => { if (canOpenMenu()) action(); });
     menu.append(button);
   }
+
+  function openMenu(x, y, id, focus = true) {
+    point = { x, y };
+    menuScrollX = window.scrollX;
+    menuScrollY = window.scrollY;
+    previousFocus = document.activeElement;
+    menu.replaceChildren();
+    if (id) menuButton('刪除「' + nameOf(entries.get(id)) + '」', () => remove(id), 'widget-menu-delete');
+    for (const [type, label] of [
+      ['todo', '新增代辦事項區域'], ['clock', '新增時鐘與天氣'], ['apps', '新增APP管理區域']
+    ]) menuButton(label, () => add(type));
+    for (const [hiddenId, entry] of entries) {
+      if (entry.el.hidden) menuButton('復原「' + nameOf(entry) + '」', () => add(entry.type, hiddenId));
+    }
+    menu.hidden = false;
+    menu.scrollTop = 0;
+    menu.style.left = Math.max(4, Math.min(x, innerWidth - menu.offsetWidth - 4)) + 'px';
+    menu.style.top = Math.max(4, Math.min(y, innerHeight - menu.offsetHeight - 4)) + 'px';
+    if (focus) menu.firstElementChild.focus({ preventScroll: true });
+  }
+
+  emptyButton.addEventListener('click', () => {
+    if (!canOpenMenu()) return;
+    const rect = emptyButton.getBoundingClientRect();
+    openMenu(rect.left, rect.bottom);
+  });
+  updateEmptyButton();
 
   document.addEventListener('contextmenu', e => {
     if ((pending || gesture?.touch || e.pointerType === 'touch') && moveSurface(e.target, true)) {
       e.preventDefault();
       return;
     }
-    if (!window.isSuperuser || gesture || !e.target.closest('main, footer') || document.querySelector('dialog[open]') ||
-        e.target.closest('a, input, textarea, select, button, [contenteditable], .todo-row, .slot-cell')) return;
+    if (!canOpenMenu() || !e.target.closest('main, footer') ||
+        e.target.closest('a, input, textarea, select, [contenteditable], .slot-cell, .slot-empty')) return;
     e.preventDefault();
-    point = { x: e.clientX, y: e.clientY };
-    previousFocus = document.activeElement;
-    menu.hidden = false;
-    menu.style.left = Math.max(4, Math.min(point.x, innerWidth - menu.offsetWidth - 4)) + 'px';
-    menu.style.top = Math.max(4, Math.min(point.y, innerHeight - menu.offsetHeight - 4)) + 'px';
-    menu.firstElementChild.focus({ preventScroll: true });
+    const el = e.target.closest('[data-widget-id]');
+    openMenu(e.clientX, e.clientY, el?.dataset.widgetId);
   });
 
   document.addEventListener('pointerdown', e => { if (!menu.contains(e.target)) closeMenu(); });
@@ -509,14 +593,19 @@ window.clcDashboardWidgets = function (grid) {
     finish(false);
     selectWidget(null);
   });
-  window.addEventListener('scroll', () => closeMenu(), { passive: true });
-  window.addEventListener('clc-admin-changed', () => { if (!window.isSuperuser) closeMenu(); });
+  window.addEventListener('scroll', () => {
+    if (window.scrollX !== menuScrollX || window.scrollY !== menuScrollY) closeMenu();
+  }, { passive: true });
+  window.addEventListener('clc-admin-changed', () => {
+    if (!window.isSuperuser) closeMenu();
+    updateEmptyButton();
+  });
 
   return {
     find, copy,
     register(type, init) {
       mount.set(type, init);
-      for (const [id, entry] of entries) if (entry.type === type) init(entry.el, id);
+      for (const [id, entry] of entries) if (entry.type === type) mountEntry(id, entry);
     }
   };
 };

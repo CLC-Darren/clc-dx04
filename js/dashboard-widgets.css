@@ -125,3 +125,20 @@
 .dark .widget-context-menu { background: #242a38; color: white; border-color: #475569; }
 .widget-context-menu button { padding: 8px 12px; text-align: start; border-radius: 7px; }
 .widget-context-menu button:is(:focus-visible, :hover) { background: rgba(0, 163, 180, .18); }
+
+#dashGrid.widget-grid > .dash-widget[hidden] { display: none !important; }
+.widget-empty-button {
+  align-self: flex-start;
+  border-radius: 10px;
+  padding: 8px 14px;
+  background: #007E8A;
+  color: white;
+}
+.widget-empty-button[hidden] { display: none; }
+.widget-context-menu {
+  max-width: calc(100vw - 8px);
+  max-height: calc(100dvh - 8px);
+  overflow: auto;
+}
+.widget-context-menu .widget-menu-delete { color: #be123c; }
+.dark .widget-context-menu .widget-menu-delete { color: #fda4af; }
