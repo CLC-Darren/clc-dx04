@@ -77,6 +77,58 @@ window.clcDashboardWidgets = function (grid) {
     return clone;
   }
 
+  const drawer = document.createElement('dialog');
+  drawer.className = 'widget-drawer';
+  const collapse = document.createElement('button');
+  collapse.type = 'button';
+  collapse.className = 'widget-drawer-handle';
+  collapse.setAttribute('aria-label', '收合區域');
+  collapse.addEventListener('click', () => drawer.close());
+  drawer.append(collapse);
+  document.body.append(drawer);
+  let expanded = null;
+  const drawerObserver = new ResizeObserver(records => {
+    for (const { target } of records) refreshExpand(entries.get(target.dataset.widgetId));
+  });
+
+  function refreshExpand(entry) {
+    if (!mobile() || entry.el.hidden || expanded === entry) {
+      entry.expand.hidden = true;
+      return;
+    }
+    const body = entry.content;
+    const list = body.querySelector('.todo-scroll');
+    const clipped = node => node.scrollHeight > node.clientHeight + 1;
+    entry.expand.hidden = !clipped(body) && !(list && clipped(list));
+  }
+
+  function openDrawer(entry) {
+    if (expanded || entry.expand.hidden || document.querySelector('dialog[open]')) return;
+    closeMenu();
+    selectWidget(null);
+    expanded = entry;
+    drawer.dataset.widget = entry.type;
+    drawer.setAttribute('aria-label', nameOf(entry));
+    entry.el.style.setProperty('--drawer-collapsed-height', entry.el.offsetHeight + 'px');
+    entry.el.classList.add('has-open-drawer');
+    entry.expand.setAttribute('aria-expanded', 'true');
+    drawer.insertBefore(entry.content, collapse);
+    drawer.showModal();
+    collapse.focus({ preventScroll: true });
+  }
+
+  drawer.addEventListener('close', () => {
+    if (!expanded) return;
+    const entry = expanded;
+    expanded = null;
+    entry.el.insertBefore(entry.content, entry.expand);
+    entry.el.classList.remove('has-open-drawer');
+    entry.el.style.removeProperty('--drawer-collapsed-height');
+    entry.expand.setAttribute('aria-expanded', 'false');
+    refreshExpand(entry);
+    if (!entry.expand.hidden) entry.expand.focus({ preventScroll: true });
+  });
+
   const notice = document.createElement('p');
   notice.setAttribute('role', 'status');
   grid.after(notice);
@@ -95,24 +147,36 @@ window.clcDashboardWidgets = function (grid) {
     resize.type = 'button';
     resize.className = 'widget-resize';
     resize.setAttribute('aria-label', '調整區域大小（方向鍵）');
-    el.append(content, resize);
+    const expand = document.createElement('button');
+    expand.type = 'button';
+    expand.className = 'widget-drawer-handle';
+    expand.hidden = true;
+    expand.setAttribute('aria-label', '展開區域');
+    expand.setAttribute('aria-expanded', 'false');
+    el.append(content, expand, resize);
     el.dataset.widgetId = id;
-    const entry = { el, type, title: title || heading?.textContent };
+    const entry = { el, type, content, expand, title: title || heading?.textContent };
     entries.set(id, entry);
+    drawerObserver.observe(el);
+    const changes = new MutationObserver(() => refreshExpand(entry));
+    changes.observe(content, { childList: true, subtree: true, characterData: true, attributes: true,
+      attributeFilter: ['hidden', 'class'] });
+    expand.addEventListener('click', () => openDrawer(entry));
     if (heading) {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'widget-heading';
       button.textContent = entry.title;
-      button.title = '修改區域名稱';
       heading.replaceChildren(button);
-      button.addEventListener('click', () => {
+      entry.rename = () => {
+        if (!button.isConnected) return;
         const input = document.createElement('input');
         input.className = 'widget-heading-input';
         input.maxLength = 40;
         input.value = entry.title;
         input.setAttribute('aria-label', '修改區域名稱');
         button.replaceWith(input);
+        input.focus({ preventScroll: true });
         input.select();
         let finished = false;
         function finish(commit) {
@@ -132,7 +196,11 @@ window.clcDashboardWidgets = function (grid) {
           finish(e.key === 'Enter');
           button.focus();
         });
+      };
+      button.addEventListener('dblclick', e => {
+        if (!matchMedia('(pointer: coarse)').matches && e.sourceCapabilities?.firesTouchEvents !== true) entry.rename();
       });
+      button.addEventListener('click', e => { if (e.detail === 0) entry.rename(); });
     }
     return entry;
   }
@@ -189,10 +257,13 @@ window.clcDashboardWidgets = function (grid) {
     layout[name] = placed;
   }
 
-  function resolve(base, id, box, resize) {
+  function resolve(base, id, box, resize, slot) {
     if (mobile()) {
       const ids = Object.keys(base).sort((a, b) => base[a].y - base[b].y);
-      if (!resize && box.y !== base[id].y) {
+      if (slot !== undefined) {
+        ids.splice(ids.indexOf(id), 1);
+        ids.splice(slot, 0, id);
+      } else if (!resize && box.y !== base[id].y) {
         ids.splice(ids.indexOf(id), 1);
         const position = box.y > base[id].y ? box.y + box.h : box.y;
         const ahead = ids.findIndex(other => position < base[other].y + base[other].h / 2);
@@ -231,6 +302,7 @@ window.clcDashboardWidgets = function (grid) {
   function draw(boxes, animate = false) {
     grid.style.setProperty('--widget-columns', columns());
     const previous = new Map();
+    const mobileOrder = mobile() ? Object.keys(boxes).sort((a, b) => boxes[a].y - boxes[b].y) : null;
     for (const [id, { el }] of entries) {
       if (el.hidden) continue;
       if (animate && !reducedMotion.matches && (gesture?.resize || id !== gesture?.widgetId)) previous.set(id, el.getBoundingClientRect());
@@ -238,7 +310,13 @@ window.clcDashboardWidgets = function (grid) {
       animations.delete(id);
       if (id !== gesture?.widgetId) el.style.transform = '';
       const { x, y, w, h } = boxes[id];
-      el.style.gridArea = (y + 1) + ' / ' + (x + 1) + ' / span ' + h + ' / span ' + w;
+      if (mobileOrder) {
+        el.style.gridArea = (mobileOrder.indexOf(id) + 1) + ' / 1';
+        el.style.setProperty('--mobile-height', h * 60 - 12 + 'px');
+        el.style.setProperty('--clock-height-extra', (h - types.clock.mobile[1]) * 60 + 'px');
+      } else {
+        el.style.gridArea = (y + 1) + ' / ' + (x + 1) + ' / span ' + h + ' / span ' + w;
+      }
     }
     for (const [id, before] of previous) {
       const { el } = entries.get(id);
@@ -279,6 +357,17 @@ window.clcDashboardWidgets = function (grid) {
     const g = gesture;
     const { rect, stepX, stepY } = metrics();
     const dx = g.x - rect.left - g.startX, dy = g.y - rect.top - g.startY;
+    if (mobile() && !g.resize) {
+      const edge = (dy < 0 ? g.top : g.bottom) + dy;
+      const slot = g.centers.filter(value => edge > value).length;
+      if (slot !== g.slot) {
+        g.slot = slot;
+        g.next = resolve(current(), g.widgetId, g.start, false, slot);
+        draw(g.next, true);
+      }
+      g.el.style.transform = `translateY(${dy + g.top - g.el.offsetTop}px)`;
+      return;
+    }
     const box = changeBox(g.start, g.type, Math.round(dx / stepX), Math.round(dy / stepY), g.resize);
     if (['x', 'y', 'w', 'h'].some(k => box[k] !== g.box[k])) {
       g.box = box;
@@ -320,6 +409,14 @@ window.clcDashboardWidgets = function (grid) {
     const { rect } = metrics();
     gesture = { el, widgetId, start, type: el.dataset.widget, resize, touch, box: start, next: current(),
       pointer, touchX: x, touchY: y, startX: x - rect.left, startY: y - rect.top, x, y };
+    if (mobile() && !resize) {
+      gesture.top = el.offsetTop;
+      gesture.bottom = gesture.top + el.offsetHeight;
+      const center = (gesture.top + gesture.bottom) / 2;
+      gesture.centers = [...entries.values()].filter(entry => !entry.el.hidden && entry.el !== el)
+        .map(entry => entry.el.offsetTop + entry.el.offsetHeight / 2);
+      gesture.slot = gesture.centers.filter(value => center > value).length;
+    }
     el.classList.add(resize ? 'is-resizing' : 'is-dragging');
     document.body.classList.add('dash-dragging');
     gesture.frame = requestAnimationFrame(autoScroll);
@@ -388,16 +485,16 @@ window.clcDashboardWidgets = function (grid) {
       if (gesture?.touch && ended(gesture.pointer)) {
         suppressClickUntil = performance.now() + 400;
         const stationary = !gesture.moved;
-        if (stationary && e.cancelable) e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         finish(event === 'touchend' && !stationary);
         if (event === 'touchcancel') closeMenu();
-        else if (stationary && !menu.hidden) menu.firstElementChild.focus({ preventScroll: true });
+        else if (stationary && !menu.hidden) menu.querySelector('button').focus({ preventScroll: true });
       }
     });
   }
 
   grid.addEventListener('click', e => {
-    if (performance.now() < suppressClickUntil && e.detail !== 0) {
+    if (performance.now() < suppressClickUntil && e.detail !== 0 && moveSurface(e.target, true)) {
       e.preventDefault();
       e.stopImmediatePropagation();
     }
@@ -430,7 +527,14 @@ window.clcDashboardWidgets = function (grid) {
   for (const event of ['pointercancel', 'lostpointercapture']) {
     grid.addEventListener(event, e => { if (gesture && !gesture.touch && gesture.pointer === e.pointerId) finish(false); });
   }
-  breakpoint.addEventListener('change', () => { cancelHold(); finish(false); draw(current()); });
+  breakpoint.addEventListener('change', () => {
+    if (drawer.open) drawer.close();
+    cancelHold();
+    closeMenu();
+    finish(false);
+    draw(current());
+    for (const entry of entries.values()) refreshExpand(entry);
+  });
 
   grid.addEventListener('keydown', e => {
     const handle = e.target.closest('.drag-handle, .widget-resize');
@@ -551,19 +655,54 @@ window.clcDashboardWidgets = function (grid) {
     menuScrollX = window.scrollX;
     menuScrollY = window.scrollY;
     previousFocus = document.activeElement;
-    menu.replaceChildren();
-    if (id) menuButton('刪除「' + nameOf(entries.get(id)) + '」', () => remove(id), 'widget-menu-delete');
-    for (const [type, label] of [
-      ['todo', '新增代辦事項區域'], ['clock', '新增時鐘與天氣'], ['apps', '新增APP管理區域']
-    ]) menuButton(label, () => add(type));
-    for (const [hiddenId, entry] of entries) {
-      if (entry.el.hidden) menuButton('復原「' + nameOf(entry) + '」', () => add(entry.type, hiddenId));
+    const entry = id && entries.get(id);
+    const compact = mobile() && !!entry;
+    if (entry) selectWidget(entry.el);
+    menu.classList.toggle('is-card-popup', compact);
+
+    function position() {
+      menu.hidden = false;
+      menu.scrollTop = 0;
+      const width = menu.offsetWidth, height = menu.offsetHeight;
+      const card = compact && entry.el.getBoundingClientRect();
+      const left = card ? (card.left + card.right - width) / 2 : x;
+      const top = card ? (card.top >= height + 14 ? card.top - height - 10 : card.bottom + 10) : y;
+      menu.style.left = clamp(left, 4, Math.max(4, innerWidth - width - 4)) + 'px';
+      menu.style.top = clamp(top, 4, Math.max(4, innerHeight - height - 4)) + 'px';
     }
-    menu.hidden = false;
-    menu.scrollTop = 0;
-    menu.style.left = Math.max(4, Math.min(x, innerWidth - menu.offsetWidth - 4)) + 'px';
-    menu.style.top = Math.max(4, Math.min(y, innerHeight - menu.offsetHeight - 4)) + 'px';
-    if (focus) menu.firstElementChild.focus({ preventScroll: true });
+
+    function additionOptions() {
+      if (compact) {
+        menu.replaceChildren();
+        menu.classList.remove('is-card-popup');
+      }
+      for (const [type, label] of [
+        ['todo', '新增代辦事項區域'], ['clock', '新增時鐘與天氣'], ['apps', '新增APP管理區域']
+      ]) menuButton(label, () => add(type));
+      for (const [hiddenId, hidden] of entries) {
+        if (hidden.el.hidden) menuButton('復原「' + nameOf(hidden) + '」', () => add(hidden.type, hiddenId));
+      }
+      if (compact) {
+        position();
+        menu.querySelector('button').focus({ preventScroll: true });
+      }
+    }
+
+    menu.replaceChildren();
+    if (compact) {
+      const title = document.createElement('p');
+      title.className = 'widget-popup-title';
+      title.textContent = nameOf(entry);
+      menu.append(title);
+      menuButton('新增', additionOptions, 'widget-menu-add');
+      menuButton('刪除', () => remove(id), 'widget-menu-delete');
+      if (entry.rename) menuButton('重新命名', () => { closeMenu(); selectWidget(null); entry.rename(); });
+    } else {
+      if (entry) menuButton('刪除「' + nameOf(entry) + '」', () => remove(id), 'widget-menu-delete');
+      additionOptions();
+    }
+    position();
+    if (focus) menu.querySelector('button').focus({ preventScroll: true });
   }
 
   emptyButton.addEventListener('click', () => {

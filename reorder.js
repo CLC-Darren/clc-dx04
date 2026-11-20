@@ -18,7 +18,7 @@ window.clcReorder = function (container, options) {
     floating.inert = true;
     floating.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;box-sizing:border-box;margin:0;pointer-events:none;z-index:2147483646;`;
     floating._liftOrigin = { left: rect.left, top: rect.top };
-    document.body.appendChild(floating);
+    (container.closest('dialog[open]') || document.body).appendChild(floating);
     follow(pointer.x, pointer.y);
   }
   function follow(x, y) {
