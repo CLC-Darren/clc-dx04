@@ -296,7 +296,15 @@
   }
 
   async function runSite() {
-    if (window.top !== window) return; // 被嵌入 iframe 時由外層頁面處理
+    const embedded = window.top !== window;
+    if (embedded) {
+      // LF 的同源待辦檢視可以直接沿用現行登入。其他 iframe 由外頁處理。
+      try {
+        if (siteKey || new URLSearchParams(location.search).get('view') !== 'todos' ||
+            window.parent.location.origin !== location.origin ||
+            !/^\/lf(?:\/|$)/.test(window.parent.location.pathname)) return;
+      } catch (_) { return; }
+    }
     if (!siteKey && document.readyState !== 'complete') await new Promise(r => addEventListener('load', r, { once: true })); // 等 header.js 設好 firebaseConfig
     let site;
     if (!siteKey) site = { name: 'DX04', firebase: window.firebaseConfig }; // DX04 本身也可以由 LinFamily 帶入登入
@@ -323,6 +331,7 @@
         else notice(`自動登入 ${name} 失敗，請按右上角 🔐 登入。（${err}）`);
       }
     }
+    if (embedded) return;
     // 分站登出（登入狀態被移除）→ 所有站一起登出。
     setInterval(async () => {
       const now = await hasAuthUser(config.apiKey);

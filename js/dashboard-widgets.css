@@ -340,3 +340,13 @@ body:has(.widget-drawer[open]) { overflow: hidden; }
   .is-compact-clock .clock-weather-separator { display: none; }
   .is-compact-clock :is(#wxRefresh, [data-widget-field="wxRefresh"]) { font-size: 11px; padding: 4px 6px; }
 }
+
+.dx-todos-back { display: none; }
+.dx-todos-view .dx-todos-back { display: inline-flex; align-self: flex-start; color: #007e8a; }
+.dark.dx-todos-view .dx-todos-back { color: #53bbc5; }
+.dx-todos-view :is(#clc-header, footer),
+.dx-todos-view main > :not(#dashGrid, .dx-todos-back, .widget-empty-button, [role="status"]),
+.dx-todos-embedded .dx-todos-back { display: none; }
+.dx-todos-view main { max-width: 760px; padding: 16px; gap: 14px; }
+.dx-todos-view #dashGrid.widget-grid { grid-auto-rows: auto; }
+.dx-todos-view #dashGrid.widget-grid > [data-widget="todo"] { height: var(--mobile-height); }
