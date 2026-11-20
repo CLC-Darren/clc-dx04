@@ -1,3 +1,8 @@
+#dx-main { padding-inline: 14px; }
+@media (min-width: 640px) { #dx-main { padding-inline: 20px; } }
+@media (min-width: 1024px) { #dx-main { padding-inline: 24px; } }
+@media (min-width: 1440px) { #dx-main { padding-inline: 32px; } }
+
 .widget-grid[data-dashboard-grid] {
   display: grid;
   grid-template-columns: repeat(var(--widget-columns), minmax(0, 1fr));
@@ -35,8 +40,10 @@
   gap: 8px;
   grid-template-columns: repeat(4, minmax(0, 82px));
 }
-[data-widget="apps"] .slot-grid:not(.is-editing) .app-slot:nth-child(n+9):not(.is-app-add-target) {
-  visibility: hidden;
+@media (min-width: 1024px) {
+  [data-widget="apps"] > .widget-content > .slot-grid {
+    grid-template-columns: repeat(auto-fill, minmax(0, 82px));
+  }
 }
 [data-widget="apps"] .is-app-add-target { border-color: #007e8a; }
 .widget-app-heading {

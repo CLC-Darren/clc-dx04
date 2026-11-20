@@ -116,9 +116,10 @@
       const admin = canEdit() && !o.flow, cols = columns();
       const byPos = new Map(items.map(it => [it.pos, it]));
       const maxPos = items.reduce((m, it) => Math.max(m, it.pos), -1);
-      let total = Math.max((typeof o.minSlots === 'function' ? o.minSlots() : o.minSlots) || 0, Math.ceil((maxPos + 1) / cols) * cols);
+      let total = Math.max((typeof o.minSlots === 'function' ? o.minSlots(cols) : o.minSlots) || 0, Math.ceil((maxPos + 1) / cols) * cols);
       if (admin && o.reserveEmptyRow !== false && items.length >= total) total += cols; // 管理時至少留一格空格可新增
       total = Math.ceil(total / cols) * cols;
+      if (admin && o.reserveEmptySlot && items.length >= total) total++;
       if (o.flow) total = items.length;
       grid.classList.toggle('is-editing', editing);
       const floating = Array.from(grid.querySelectorAll(':scope > .slot-floating')); // 落位動畫中的卡片保留
@@ -320,7 +321,7 @@
       if (e.target.closest('.slot-remove')) return;
       const empty = e.target.closest('.slot-empty.is-admin');
       if (empty && grid.contains(empty)) {
-        if (editing) return; // 晃動中點一下「＋」就新增
+        if (editing || o.addOnClick) return; // 點一下「＋」就新增
         g = { cell: empty, empty: true, x, y, touch, at: Date.now(), held: false, dragging: false, target: null };
         empty.classList.add('slot-pressing');
         g.timer = setTimeout(() => {
@@ -403,7 +404,7 @@
         return;
       }
       const empty = e.target.closest('.slot-empty.is-admin');
-      if (empty) { e.preventDefault(); e.stopImmediatePropagation(); if (editing) o.onAdd?.(Number(empty.dataset.slot)); return; }
+      if (empty) { e.preventDefault(); e.stopImmediatePropagation(); if (editing || o.addOnClick) o.onAdd?.(Number(empty.dataset.slot)); return; }
       const cell = e.target.closest('.slot-cell');
       if (cell && editing) { e.preventDefault(); e.stopImmediatePropagation(); o.onEdit?.(cell.dataset.id); }
     }, true);
@@ -411,12 +412,14 @@
     document.addEventListener('pointerdown', e => {
       if (editing && !g && !grid.contains(e.target) && e.target !== done && e.target !== cancel && !e.target.closest('dialog')) finishEditing(false);
     });
-    let rt = null, lastCols = 0;
-    window.addEventListener('resize', () => {
-      clearTimeout(rt);
-      rt = setTimeout(() => { const c = columns(); if (c !== lastCols) { lastCols = c; render(); } }, 120);
+    let lastCols = columns();
+    const observer = new ResizeObserver(() => {
+      const cols = columns();
+      if (cols === lastCols || g?.dragging) return;
+      lastCols = cols;
+      render();
     });
-    lastCols = columns();
+    observer.observe(grid);
     return { render, setEditing, finishEditing, isEditing: () => editing, items: () => items };
   };
 })();

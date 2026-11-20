@@ -5,11 +5,11 @@
   <link rel="stylesheet" href="/light-theme.css?v=4">
   <script src="/verse-wait.js?v=2"></script>
   <script src="/login-gate.js?v=20261119-verse-wait"></script>
-  <link rel="stylesheet" href="/js/dashboard-widgets.css?v=11">
+  <link rel="stylesheet" href="/js/dashboard-widgets.css?v=12">
   <script src="/js/dashboard-widgets.js?v=11"></script>
   <script src="/reorder.js?v=shared-todo-2"></script>
   <script src="https://linfamily.pages.dev/js/dashboard-todos.js"></script>
-  <script src="/js/clc-slot-grid.js?v=20261120-app-rows"></script>
+  <script src="/js/clc-slot-grid.js?v=20261120-fit-columns"></script>
   <script src="/js/clc-icon-upload.js?v=20261116-menu2"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -732,7 +732,7 @@
 
   <header id="clc-header"></header>
 
-  <main class="max-w-6xl w-full mx-auto px-5 sm:px-8 py-8 lg:py-12 flex-1 flex flex-col gap-6 lg:gap-8">
+  <main id="dx-main" class="w-full py-8 lg:py-12 flex-1 flex flex-col gap-6 lg:gap-8">
 
     <div id="dx-swipe-zone" class="space-y-1.5">
       <p class="text-xs lg:text-sm font-bold tracking-[0.3em] text-[#007E8A] dark:text-[#00A3B4] uppercase">CLC Control Panel</p>
@@ -1048,7 +1048,7 @@
       const hint = find('appsAdminHint');
       const doneBtn = find('appsDoneBtn');
       const CACHE_KEY = 'clc_dx04_apps';
-      const MIN_SLOTS = 8, MAX_APPS = 40;
+      const MAX_APPS = 40;
       const DEFAULT_APPS = [
         { id: 'ya', site: 'ya', name: 'CLC YA', url: 'https://clc-dx04.pages.dev/ya/', icon: '/ya/apple-touch-icon.png' },
         { id: 'sr', site: 'sr', name: 'CLC SR', url: 'https://clc-dx04.pages.dev/sr/', icon: '/sr/apple-touch-icon.png' }
@@ -1250,7 +1250,7 @@
       let addPos = null;
       const addBtn = find('appsAddBtn');
       const slots = window.clcSlotGrid(grid, {
-        minSlots: () => Math.max(MIN_SLOTS, (addPos ?? -1) + 1), reserveEmptyRow: false, cellClass: 'app-cell', emptyClass: 'app-slot', removeClass: 'app-remove',
+        minSlots: cols => Math.max(cols * 2, (addPos ?? -1) + 1), reserveEmptyRow: false, reserveEmptySlot: true, addOnClick: true, cellClass: 'app-cell', emptyClass: 'app-slot', removeClass: 'app-remove',
         doneButton: doneBtn,
         canEdit: isAdmin,
         getItems: () => apps,
