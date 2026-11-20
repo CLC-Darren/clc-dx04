@@ -225,7 +225,8 @@ window.clcReorder = function (container, options) {
       if (pointer && !pointer.touch && pointer.id === e.pointerId) finish(false);
     });
   }
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && pointer) finish(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && pointer) finish(false); }, { signal: options.signal });
+  options.signal?.addEventListener('abort', clear, { once: true });
   // A short swipe remains normal scrolling; only a stationary long press takes over touchmove.
   container.addEventListener('touchstart', e => {
     if (e.touches.length !== 1 || saving || !options.allowed() || excluded(e.target)) { if (pointer?.touch) finish(false); return; }

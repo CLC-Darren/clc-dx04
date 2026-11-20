@@ -29,7 +29,7 @@
     document.documentElement.classList.toggle('dx-locked', !allowed);
     const gate = document.getElementById('dx-login-gate');
     if (gate) gate.hidden = allowed;
-    if (final !== false && !allowed && started && !window.clcLogoutPending) { location.replace(document.documentElement.classList.contains('dx-todos-view') ? '/?view=todos' : '/'); return; }
+    if (final !== false && !allowed && started && !window.clcLogoutPending) { location.replace('/'); return; }
     startPrivateScripts();
   };
   async function login(button) {

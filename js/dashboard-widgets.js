@@ -1,6 +1,6 @@
-window.clcDashboardWidgets = function (grid, { todoOnly = false } = {}) {
-  const key = todoOnly ? 'clc_dx04_todo_view_v1' : 'clc_dx04_dashboard_widgets_v1';
-  const breakpoint = matchMedia(todoOnly ? 'not all' : '(min-width: 1024px)');
+window.clcDashboardWidgets = function (grid) {
+  const key = 'clc_dx04_dashboard_widgets_v1';
+  const breakpoint = matchMedia('(min-width: 1024px)');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const types = {
     clock: { min: [2, 3], size: [2, 4], mobile: [1, 3], label: '時鐘與天氣' },
@@ -218,10 +218,6 @@ window.clcDashboardWidgets = function (grid, { todoOnly = false } = {}) {
   const metadata = Array.isArray(saved?.widgets) ? saved.widgets : [];
   for (const el of grid.querySelectorAll(':scope > [data-widget]')) {
     const id = el.dataset.widget;
-    if (todoOnly && id !== 'todo') {
-      el.remove();
-      continue;
-    }
     templates.set(id, el.cloneNode(true));
     const item = metadata.find(item => item?.id === id);
     setup(el, id, typeof item?.title === 'string' ? item.title : '');
@@ -235,7 +231,7 @@ window.clcDashboardWidgets = function (grid, { todoOnly = false } = {}) {
   }
 
   for (const item of metadata) {
-    if (item && templates.has(item.type) && typeof item.id === 'string' &&
+    if (item && Object.hasOwn(types, item.type) && typeof item.id === 'string' &&
         /^area-[a-f0-9-]+$/.test(item.id) && !entries.has(item.id)) {
       make(item.type, item.id, typeof item.title === 'string' ? item.title : '').el.hidden = item.hidden === true;
     }
@@ -732,7 +728,7 @@ window.clcDashboardWidgets = function (grid, { todoOnly = false } = {}) {
       }
       for (const [type, label] of [
         ['todo', '新增代辦事項區域'], ['clock', '新增時鐘與天氣'], ['apps', '新增APP管理區域']
-      ]) if (!todoOnly || type === 'todo') menuButton(label, () => add(type));
+      ]) menuButton(label, () => add(type));
       for (const [hiddenId, hidden] of entries) {
         if (hidden.el.hidden) menuButton('復原「' + nameOf(hidden) + '」', () => add(hidden.type, hiddenId));
       }

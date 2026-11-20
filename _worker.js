@@ -336,9 +336,19 @@ async function handleSiteInfo(request, ctx) {
 
 /* ---------- /api/transcribe：使用 Gemini API 將語音轉為待辦文字（支援 Brave、Chrome、Safari） ---------- */
 async function handleTranscribe(request, env) {
+  const headers = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'vary': 'Origin' };
+  const lfOrigin = 'https://linfamily.pages.dev';
+  if (request.headers.get('Origin') === lfOrigin) {
+    headers['Access-Control-Allow-Origin'] = lfOrigin;
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: {
+        ...headers, 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type'
+      } });
+    }
+  }
   const json = (body, status = 200) => new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }
+    headers
   });
   if (request.method !== 'POST') return json({ ok: false, error: 'method' }, 405);
 

@@ -4,17 +4,11 @@
   <link rel="stylesheet" href="/login-gate.css?v=20261119-verse-wait">
   <link rel="stylesheet" href="/light-theme.css?v=4">
   <script src="/verse-wait.js?v=2"></script>
-  <script src="/login-gate.js?v=20261120-todo-view"></script>
-  <link rel="stylesheet" href="/js/dashboard-widgets.css?v=8">
-  <script src="/js/dashboard-widgets.js?v=9"></script>
-  <script src="/reorder.js?v=todo-cross-area-1"></script>
-  <script src="/js/dashboard-todos.js"></script>
-  <script>
-    if (new URLSearchParams(location.search).get('view') === 'todos') {
-      document.documentElement.classList.add('dx-todos-view');
-      if (window.self !== window.top) document.documentElement.classList.add('dx-todos-embedded');
-    }
-  </script>
+  <script src="/login-gate.js?v=20261119-verse-wait"></script>
+  <link rel="stylesheet" href="/js/dashboard-widgets.css?v=9">
+  <script src="/js/dashboard-widgets.js?v=10"></script>
+  <script src="/reorder.js?v=shared-todo-2"></script>
+  <script src="https://linfamily.pages.dev/js/dashboard-todos.js"></script>
   <script src="/js/clc-slot-grid.js?v=20261120-app-rows"></script>
   <script src="/js/clc-icon-upload.js?v=20261116-menu2"></script>
   <meta charset="UTF-8">
@@ -746,8 +740,6 @@
 
   <main class="max-w-6xl w-full mx-auto px-5 sm:px-8 py-8 lg:py-12 flex-1 flex flex-col gap-6 lg:gap-8">
 
-    <a class="dx-todos-back" href="https://linfamily.pages.dev/">← 返回 LinFamily</a>
-
     <div id="dx-swipe-zone" class="space-y-1.5">
       <p class="text-xs lg:text-sm font-bold tracking-[0.3em] text-[#007E8A] dark:text-[#00A3B4] uppercase">CLC Control Panel</p>
       <h1 id="dx-greeting" class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Hello, DX04</h1>
@@ -863,31 +855,6 @@
       <!-- 今日待辦：存在 Firestore dx04_todos（僅 Superuser 可讀寫）；可文字或語音新增、勾選完成、刪除 -->
       <section data-widget="todo" aria-labelledby="todoTitle" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-3">
         <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"></button>
-        <div class="flex items-center justify-between gap-3">
-          <h2 id="todoTitle" class="text-xl font-extrabold text-slate-900 dark:text-white">今日待辦</h2>
-          <p id="todoSummary" class="text-xs sm:text-sm text-slate-500 dark:text-brand-muted"></p>
-        </div>
-
-        <form id="todoAddForm" class="flex items-center gap-2 min-h-12 shrink-0 pl-4 pr-1.5 rounded-2xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 focus-within:border-[#007E8A]">
-          <label for="todoAddInput" class="sr-only">新增待辦</label>
-          <textarea id="todoAddInput" rows="2" autocomplete="off" enterkeyhint="done" maxlength="200" placeholder="新增待辦… 例如「明天下午3點 回覆新朋友 #SR」" class="todo-add-input flex-1 min-w-0 bg-transparent outline-none text-[15px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"></textarea>
-          <button type="button" id="todoMicBtn" class="todo-mic hidden" aria-label="語音輸入" title="語音輸入">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
-          </button>
-        </form>
-        <p id="todoStatus" class="hidden text-sm text-slate-500 dark:text-brand-muted"></p>
-
-        <div class="todo-scroll">
-          <div id="todoBody" class="flex flex-col gap-1"></div>
-
-          <div class="mt-auto pt-2 border-t border-slate-100 dark:border-white/[0.06]">
-            <button type="button" id="todoDoneToggle" class="w-full h-11 flex items-center justify-between text-sm text-slate-500 dark:text-brand-muted" aria-expanded="false" aria-controls="todoDoneList">
-              <span>今天已完成 <span id="todoDoneCount">0</span> 項</span>
-              <svg class="todo-chevron w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <ul id="todoDoneList" class="hidden"></ul>
-          </div>
-        </div>
       </section>
 
       <!-- App 入口：4 欄 × 2 排，共 8 格 -->
@@ -936,12 +903,11 @@
   </footer>
 
   <script type="text/plain" data-dx-private>
-    const todoOnly = document.documentElement.classList.contains('dx-todos-view');
-    window.dxDashboard = window.clcDashboardWidgets(document.getElementById('dashGrid'), { todoOnly });
+    document.querySelector('#dashGrid > [data-widget="todo"]').append(window.clcBuildTodoFields());
+    window.dxDashboard = window.clcDashboardWidgets(document.getElementById('dashGrid'));
 
     // 時鐘與日期（台北時間）：以 Cloudflare 伺服器時間校正，不受本機時鐘誤差影響
     (function () {
-      if (todoOnly) return;
       const clocks = [];
       function paintTime(clock, now) {
         const parts = Object.fromEntries(fmtTime.formatToParts(now).map(p => [p.type, p.value]));
@@ -1061,7 +1027,7 @@
       setInterval(load, 30 * 60 * 1000);
     })();
 
-    window.clcMountTodos(window.dxDashboard, { focusInput: todoOnly });
+    window.clcMountTodos(window.dxDashboard);
   </script>
   <script src="clc-sso.js?v=20261120-entry"></script>
   <script src="header.js?v=20261120-entry"></script>
