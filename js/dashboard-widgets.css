@@ -28,9 +28,45 @@
   gap: 12px;
 }
 
+#dashGrid.widget-grid > [data-widget="apps"] { padding: 10px 14px 12px; }
 [data-widget="apps"] > .widget-content > .slot-grid {
-  margin: 8px;
-  grid-template-columns: repeat(4, minmax(0, 94px));
+  margin: 3px 4px 0;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 82px));
+}
+[data-widget="apps"] .slot-grid:not(.is-editing) .app-slot:nth-child(n+9):not(.is-app-add-target) {
+  visibility: hidden;
+}
+[data-widget="apps"] .is-app-add-target { border-color: #007e8a; }
+.widget-app-heading {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding-inline: 4px;
+}
+.widget-app-heading h2 { margin: 0; }
+.widget-app-add {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 26px;
+  color: #597386;
+  border-radius: 7px;
+  font-size: 17px;
+  line-height: 1;
+}
+.dark .widget-app-add { color: #a3b4c6; }
+.widget-app-add[hidden] { display: none; }
+.widget-app-add:disabled { opacity: .4; }
+.widget-app-add:not(:disabled):is(:hover, :focus-visible) { background: #007e8a22; }
+.widget-app-heading > .slot-cancel { margin-inline-start: auto; }
+.app-dialog.is-slot-anchored {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
 }
 .widget-content .todo-add-input { resize: none; margin: 4px 0; }
 
@@ -58,15 +94,6 @@
   touch-action: none;
 }
 .dark .widget-resize { color: #a0aabc; }
-.widget-resize::after {
-  content: "";
-  position: absolute;
-  inset: auto 8px 6px auto;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: currentColor;
-}
 [data-widget="todo"] > .widget-content { overflow: hidden; }
 [data-widget="todo"] > .widget-content > :not(.todo-scroll) { flex-shrink: 0; }
 .todo-scroll {
@@ -95,6 +122,11 @@
 .widget-grid .is-dragging, .widget-grid .is-dragging * { cursor: grabbing; }
 @media (hover: hover) {
   .widget-grid .dash-widget { cursor: grab; }
+  .widget-grid .dash-widget:hover:not(.is-widget-selected) {
+    outline: 1px solid #8b9aab4d;
+    outline-offset: 2px;
+    border-radius: 24px;
+  }
   .widget-grid :is(a, button:not(.drag-handle, .widget-resize, .widget-heading)) { cursor: pointer; }
   .widget-grid :is(.widget-heading, textarea, input:not([type="checkbox"])) { cursor: text; }
   .widget-grid .is-dragging { cursor: grabbing; }
@@ -111,18 +143,12 @@
   position: fixed;
   z-index: 1100;
   display: grid;
-  min-width: 195px;
-  padding: 5px;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  background: white;
-  color: #0f172a;
-  box-shadow: 0 8px 28px #0004;
+  padding: 7.5px 0;
 }
 .widget-context-menu[hidden] { display: none; }
-.dark .widget-context-menu { background: #242a38; color: white; border-color: #475569; }
-.widget-context-menu button { padding: 8px 12px; text-align: start; border-radius: 7px; }
-.widget-context-menu button:is(:focus-visible, :hover) { background: rgba(0, 163, 180, .18); }
+.widget-context-menu > button { text-align: start; font-weight: 600; }
+.widget-context-menu button:is(:focus-visible, :hover) { background: #f1f5f9; }
+.dark .widget-context-menu button:is(:focus-visible, :hover) { background: #ffffff0d; }
 
 #dashGrid.widget-grid > .dash-widget[hidden] { display: none !important; }
 .widget-empty-button {
@@ -138,18 +164,14 @@
   max-height: calc(100dvh - 8px);
   overflow: auto;
 }
-.widget-context-menu .widget-menu-delete { color: #be123c; }
-.dark .widget-context-menu .widget-menu-delete { color: #fda4af; }
+.widget-context-menu .widget-menu-delete { color: #e11d48; font-weight: 700; }
+.dark .widget-context-menu .widget-menu-delete { color: #fb7185; }
 
 .widget-grid .is-widget-selected {
   outline: 2px solid #8796a5;
   outline-offset: 4px;
   border-radius: 24px;
 }
-.widget-grid .widget-resize:not(:focus-visible)::after { opacity: 0; }
-.widget-grid .is-widget-selected > .widget-resize::after,
-.widget-grid .is-resizing > .widget-resize::after { opacity: 1; }
-
 .widget-drawer-handle {
   position: absolute;
   inset: auto auto 0 50%;
@@ -212,28 +234,25 @@ body:has(.widget-drawer[open]) { overflow: hidden; }
     z-index: 2;
     cursor: ns-resize;
   }
-  .widget-grid .is-widget-selected > .widget-resize::after { inset: auto auto 4px 50%; translate: -50% 0; }
 }
 .widget-context-menu.is-card-popup {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2px;
-  width: min(290px, calc(100vw - 16px));
-  border: 0;
-  padding: 5px;
-  border-radius: 20px;
-  box-shadow: 0 12px 42px #0005;
-  background: #f8fafc;
+  padding: 4px 0 7.5px;
 }
-.dark .widget-context-menu.is-card-popup { background: #242832; }
 .widget-popup-title {
   grid-column: 1 / -1;
   margin: 0;
-  padding: 10px 12px;
+  padding: 7.5px 15px;
   text-align: center;
+  color: #64748b;
+  font-size: 11.25px;
+  line-height: 15px;
   font-weight: 700;
   overflow-wrap: anywhere;
 }
-.widget-context-menu.is-card-popup button { text-align: center; border-radius: 12px; min-height: 44px; }
+.dark .widget-popup-title { color: #94a3b8; }
+.widget-context-menu.is-card-popup button { text-align: center; min-height: 44px; }
 .widget-context-menu.is-card-popup button:last-child:nth-child(4) { grid-column: 1 / -1; }
 .widget-popup-title { border-bottom: 1px solid #93a1b533; }
 .widget-context-menu.is-card-popup :is(.widget-menu-add, .widget-menu-delete)::before {
@@ -252,4 +271,36 @@ body:has(.widget-drawer[open]) { overflow: hidden; }
   border: 2px solid currentColor;
   border-radius: 1px 1px 3px 3px;
   box-shadow: 0 -3px 0 -1px currentColor;
+}
+
+@media (min-width: 1024px) {
+  #dashGrid.widget-grid > .is-compact-clock { padding: 16px; }
+  .is-compact-clock > .widget-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+    align-items: center;
+    gap: 12px;
+    padding: 0;
+    container-type: inline-size;
+  }
+  .is-compact-clock .clock-weather {
+    min-width: 0;
+    border-top: 0;
+    border-left: 1px solid #94a3b840;
+    padding: 0 0 0 12px;
+    gap: 8px;
+  }
+  .is-compact-clock .clock-main { min-width: 0; }
+  .is-compact-clock :is(#clockTime, [data-widget-field="clockTime"]) { font-size: clamp(30px, 11cqi, 54px); }
+  .is-compact-clock :is(#clockSec, [data-widget-field="clockSec"]) { font-size: clamp(12px, 4cqi, 20px); }
+  .is-compact-clock :is(#clockDate, [data-widget-field="clockDate"]) { font-size: 12px; line-height: 1.45; }
+  .is-compact-clock :is(#wxIcon, [data-widget-field="wxIcon"]) { width: 25px; height: 25px; }
+  .is-compact-clock .clock-weather > div:last-child > p:first-child { flex-wrap: wrap; gap: 3px 7px; }
+  .is-compact-clock :is(#wxTemp, [data-widget-field="wxTemp"]) { font-size: 26px; }
+  .is-compact-clock :is(#wxDesc, [data-widget-field="wxDesc"]) { font-size: 13px; }
+  .is-compact-clock :is(#wxMeta, [data-widget-field="wxMeta"]) { font-size: 11px; line-height: 1.45; }
+  .is-compact-clock .clock-weather-detail { display: block; }
+  .is-compact-clock .clock-weather-detail:first-child { font-weight: 600; }
+  .is-compact-clock .clock-weather-separator { display: none; }
+  .is-compact-clock :is(#wxRefresh, [data-widget-field="wxRefresh"]) { font-size: 11px; padding: 4px 6px; }
 }

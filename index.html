@@ -5,10 +5,10 @@
   <link rel="stylesheet" href="/light-theme.css?v=4">
   <script src="/verse-wait.js?v=2"></script>
   <script src="/login-gate.js?v=20261119-verse-wait"></script>
-  <link rel="stylesheet" href="/js/dashboard-widgets.css?v=4">
-  <script src="/js/dashboard-widgets.js?v=4"></script>
+  <link rel="stylesheet" href="/js/dashboard-widgets.css?v=5">
+  <script src="/js/dashboard-widgets.js?v=5"></script>
   <script src="/reorder.js?v=todo-reflow-2"></script>
-  <script src="/js/clc-slot-grid.js?v=20261117push"></script>
+  <script src="/js/clc-slot-grid.js?v=20261120-app-rows"></script>
   <script src="/js/clc-icon-upload.js?v=20261116-menu2"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -878,8 +878,9 @@
       <!-- App 入口：4 欄 × 2 排，共 8 格 -->
       <section data-widget="apps" aria-labelledby="appsTitle" class="dash-widget relative">
         <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"></button>
-        <div class="flex items-center justify-between gap-3 min-h-[36px]">
+        <div class="widget-app-heading">
           <h2 id="appsTitle" class="text-sm font-bold text-slate-500 dark:text-brand-muted">分站入口</h2>
+          <button type="button" id="appsAddBtn" class="widget-app-add" aria-label="新增 APP" hidden>＋</button>
           <button type="button" id="appsDoneBtn" hidden class="h-9 px-4 rounded-full text-sm font-bold bg-[#007E8A] hover:bg-[#006C77] text-white">完成</button>
         </div>
         <!-- 分站清單存在 Firestore dx04_settings/apps；管理員長按進入編輯模式：「−」移除、「＋」新增、點 Logo 編輯 -->
@@ -972,14 +973,27 @@
         return ['雷雨', 'storm'];
       }
       let loading = false, retryTimer = null;
-      let weather = { description: '讀取天氣中…', meta: PLACE, temperature: '--°', failed: false };
+      let weather = { description: '讀取天氣中…', temperature: '--°', failed: false };
       function paintWeather(clock) {
         const { wxIcon, wxTemp, wxDesc, wxMeta, wxRefresh } = clock;
         if (weather.icon) wxIcon.innerHTML =
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full" aria-hidden="true">' + icons[weather.icon] + '</svg>';
         wxTemp.textContent = weather.temperature;
         wxDesc.textContent = weather.description;
-        wxMeta.textContent = weather.meta;
+        wxMeta.textContent = '';
+        const lines = [PLACE, weather.range, weather.details].filter(Boolean);
+        for (const [index, text] of lines.entries()) {
+          const line = document.createElement('span');
+          line.className = 'clock-weather-detail';
+          line.textContent = text;
+          if (index) {
+            const separator = document.createElement('span');
+            separator.className = 'clock-weather-separator';
+            separator.textContent = ' · ';
+            wxMeta.append(separator);
+          }
+          wxMeta.append(line);
+        }
         wxRefresh.hidden = !weather.failed;
         wxRefresh.disabled = loading;
         wxRefresh.textContent = loading ? '讀取中…' : '↻ 重新整理';
@@ -1002,8 +1016,8 @@
           const [text, icon] = describe(c.weather_code);
           weather = {
             icon, description: text, failed: false, temperature: Math.round(c.temperature_2m) + '°',
-            meta: PLACE + ' · 高 ' + Math.round(day.temperature_2m_max[0]) + '° 低 ' + Math.round(day.temperature_2m_min[0]) +
-              '° · 降雨 ' + (day.precipitation_probability_max[0] ?? 0) + '% · 濕度 ' + c.relative_humidity_2m + '%'
+            range: '高 ' + Math.round(day.temperature_2m_max[0]) + '°　低 ' + Math.round(day.temperature_2m_min[0]) + '°',
+            details: '降雨 ' + (day.precipitation_probability_max[0] ?? 0) + '% · 濕度 ' + c.relative_humidity_2m + '%'
           };
         } catch (err) {
           console.warn('天氣讀取失敗', err);
@@ -1653,7 +1667,7 @@
     });
   </script>
   <script src="clc-sso.js?v=20261120-loading-lock"></script>
-  <script src="header.js?v=20261120-standalone-links"></script>
+  <script src="header.js?v=20261120-menu-coordination"></script>
   <script type="text/plain" data-dx-private>
     // 分站入口：清單存在 Firestore dx04_settings/apps（所有裝置共用），本機另存一份快取讓畫面先出來。
     // 管理員：長按任一格進入「編輯模式」（像 iPhone 主畫面）→ 按「−」移除、按「＋」貼網址新增、點 Logo 改名稱或圖示。
@@ -1877,20 +1891,24 @@
         return a;
       }
       let addPos = null;
+      const addBtn = find('appsAddBtn');
       const slots = window.clcSlotGrid(grid, {
-        minSlots: MIN_SLOTS, cellClass: 'app-cell', emptyClass: 'app-slot', removeClass: 'app-remove',
+        minSlots: () => Math.max(MIN_SLOTS, (addPos ?? -1) + 1), reserveEmptyRow: false, cellClass: 'app-cell', emptyClass: 'app-slot', removeClass: 'app-remove',
         doneButton: doneBtn,
         canEdit: isAdmin,
         getItems: () => apps,
         renderTile,
         save: persist,
         error: err => alert('排列儲存失敗：' + errorText(err)),
-        onAdd: pos => { addPos = pos; openEdit(null); },
+        onAdd: openAdd,
         onEdit: id => openEdit(id),
         onRemove: id => removeApp(id)
       });
       function render() {
         slots.render();
+        if (addPos !== null) grid.querySelector('.app-slot[data-slot="' + addPos + '"]')?.classList.add('is-app-add-target');
+        addBtn.hidden = !isAdmin();
+        addBtn.disabled = apps.length >= MAX_APPS;
         hint.classList.add('hidden');
         queueIconRefresh();
       }
@@ -1973,8 +1991,40 @@
         onClear: () => { setUploaded(''); updatePreview(); },
         onError: showError
       }) : null;
-      function openEdit(id) {
-        if (!isAdmin()) return;
+      function openAdd(pos) {
+        if (!isAdmin() || dialog.open || apps.length >= MAX_APPS) return;
+        addPos = pos;
+        render();
+        const cell = grid.querySelector('[data-slot="' + pos + '"]');
+        if (cell) {
+          const content = grid.closest('.widget-content');
+          if (getComputedStyle(content).overflowY === 'clip' &&
+              cell.getBoundingClientRect().bottom > content.getBoundingClientRect().bottom) {
+            dashboard.reveal(widget);
+          }
+          cell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+        openEdit(null, cell);
+      }
+      addBtn.addEventListener('click', () => {
+        const occupied = new Set(withPos().map(app => app.pos));
+        let pos = 0;
+        while (occupied.has(pos)) pos++;
+        openAdd(pos);
+      });
+      dialog.addEventListener('close', () => {
+        clearTimeout(fetchTimer);
+        fetchSeq++;
+        dialog.classList.remove('is-slot-anchored');
+        dialog.style.removeProperty('top');
+        dialog.style.removeProperty('left');
+        if (addPos !== null) {
+          addPos = null;
+          render();
+        }
+      });
+      function openEdit(id, anchor) {
+        if (!isAdmin() || dialog.open) return;
         const app = id ? apps.find(a => a.id === id) : null;
         if (id && !app) return;
         editingId = app ? app.id : null;
@@ -1993,7 +2043,15 @@
         saveBtn.disabled = false;
         updatePreview();
         dialog.showModal();
-        (app ? fName : fUrl).focus();
+        if (anchor) {
+          const cell = anchor.getBoundingClientRect();
+          dialog.classList.add('is-slot-anchored');
+          const { width, height } = dialog.getBoundingClientRect();
+          const left = cell.right + width + 12 <= innerWidth ? cell.right + 6 : cell.left;
+          dialog.style.left = Math.max(8, Math.min(left, innerWidth - width - 8)) + 'px';
+          dialog.style.top = Math.max(8, Math.min(cell.top, innerHeight - height - 8)) + 'px';
+        }
+        (app ? fName : fUrl).focus({ preventScroll: true });
       }
       async function fetchInfo() {
         if (fUrl.readOnly) return;

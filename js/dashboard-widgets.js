@@ -3,7 +3,7 @@ window.clcDashboardWidgets = function (grid) {
   const breakpoint = matchMedia('(min-width: 1024px)');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const types = {
-    clock: { min: [2, 5], size: [2, 5], mobile: [1, 3], label: '時鐘與天氣' },
+    clock: { min: [2, 3], size: [2, 4], mobile: [1, 3], label: '時鐘與天氣' },
     todo: { min: [2, 4], size: [3, 9], mobile: [1, 7], mobileMin: 4, title: '代辦事項' },
     apps: { min: [2, 3], size: [2, 4], mobile: [1, 4], mobileMin: 3, title: 'APP管理區域' }
   };
@@ -37,9 +37,10 @@ window.clcDashboardWidgets = function (grid) {
   }
 
   const [main, top, bottom] = legacyOrder(legacyDesktop, ['todo', 'apps', 'clock']);
-  layout.desktop[main] = { x: 2, y: 0, w: 3, h: 9 };
-  layout.desktop[top] = { x: 0, y: 0, w: 2, h: 5 };
-  layout.desktop[bottom] = { x: 0, y: 5, w: 2, h: 5 };
+  const defaultHeight = id => id === 'todo' && id !== main ? 5 : types[id].size[1];
+  layout.desktop[main] = { x: 2, y: 0, w: 3, h: defaultHeight(main) };
+  layout.desktop[top] = { x: 0, y: 0, w: 2, h: defaultHeight(top) };
+  layout.desktop[bottom] = { x: 0, y: layout.desktop[top].h, w: 2, h: defaultHeight(bottom) };
   let row = 0;
   for (const id of legacyOrder(legacyMobile, baseIds)) {
     const [w, h] = types[id].mobile;
@@ -51,6 +52,7 @@ window.clcDashboardWidgets = function (grid) {
     try {
       localStorage.setItem(key, JSON.stringify({
         layout,
+        clockHeightVersion: 2,
         widgets: [...entries].map(([id, { type, title, el }]) => ({ id, type, title, hidden: el.hidden }))
       }));
     } catch (_) {
@@ -247,7 +249,9 @@ window.clcDashboardWidgets = function (grid) {
       const box = { x: 0, y: bottomRow(placed), w, h };
       if (stored && ['x', 'y', 'w', 'h'].every(k => Number.isSafeInteger(stored[k]))) {
         box.w = clamp(stored.w, minW, cols);
-        box.h = Math.max(minH, stored.h);
+        const upgradeClock = name === 'desktop' && type === 'clock' && saved?.clockHeightVersion !== 2 &&
+          saved?.layout?.desktop?.[id] && stored.h === 5;
+        box.h = Math.max(minH, upgradeClock ? types.clock.size[1] : stored.h);
         box.x = clamp(stored.x, 0, cols - box.w);
         box.y = Math.max(0, stored.y);
       }
@@ -310,6 +314,7 @@ window.clcDashboardWidgets = function (grid) {
       animations.delete(id);
       if (id !== gesture?.widgetId) el.style.transform = '';
       const { x, y, w, h } = boxes[id];
+      el.classList.toggle('is-compact-clock', el.dataset.widget === 'clock' && !mobileOrder && h <= types.clock.size[1]);
       if (mobileOrder) {
         el.style.gridArea = (mobileOrder.indexOf(id) + 1) + ' / 1';
         el.style.setProperty('--mobile-height', h * 60 - 12 + 'px');
@@ -651,6 +656,7 @@ window.clcDashboardWidgets = function (grid) {
   }
 
   function openMenu(x, y, id, focus = true) {
+    document.dispatchEvent(new CustomEvent('clc-menu-open', { detail: 'widget' }));
     point = { x, y };
     menuScrollX = window.scrollX;
     menuScrollY = window.scrollY;
@@ -725,6 +731,7 @@ window.clcDashboardWidgets = function (grid) {
   });
 
   document.addEventListener('pointerdown', e => { if (!menu.contains(e.target)) closeMenu(); });
+  document.addEventListener('clc-menu-open', e => { if (e.detail !== 'widget') closeMenu(); });
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     closeMenu(true);
@@ -742,6 +749,12 @@ window.clcDashboardWidgets = function (grid) {
 
   return {
     find, copy,
+    reveal(widget) {
+      const entry = entries.get(widget.dataset.widgetId);
+      if (!entry || !mobile()) return;
+      refreshExpand(entry);
+      openDrawer(entry);
+    },
     register(type, init) {
       mount.set(type, init);
       for (const [id, entry] of entries) if (entry.type === type) mountEntry(id, entry);

@@ -12,6 +12,7 @@
  * 用法：
  *   const g = clcSlotGrid(gridEl, {
  *     minSlots: 6,                       // 也可以是函式（例如依畫面高度算出能放幾格）
+ *     reserveEmptyRow: false,            // 可省略。預設滿格時為管理員保留一排空格。
  *     cellClass: 'ha-cell', emptyClass: 'ha-slot', removeClass: 'ha-remove',
  *     doneButton: el,                    // 可省略，會自動在格子下方建立「完成」
  *     canEdit: () => bool,
@@ -116,7 +117,7 @@
       const byPos = new Map(items.map(it => [it.pos, it]));
       const maxPos = items.reduce((m, it) => Math.max(m, it.pos), -1);
       let total = Math.max((typeof o.minSlots === 'function' ? o.minSlots() : o.minSlots) || 0, Math.ceil((maxPos + 1) / cols) * cols);
-      if (admin && items.length >= total) total += cols; // 管理時至少留一格空格可新增
+      if (admin && o.reserveEmptyRow !== false && items.length >= total) total += cols; // 管理時至少留一格空格可新增
       total = Math.ceil(total / cols) * cols;
       if (o.flow) total = items.length;
       grid.classList.toggle('is-editing', editing);

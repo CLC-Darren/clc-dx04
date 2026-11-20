@@ -102,9 +102,17 @@ function renderHeaderComponent() {
       #clc-header #installAppBtn { height: 34px; box-sizing: border-box; font-size: 12px; padding: 0 10px; border-radius: 9px; }
       #clc-header #adminActiveDot { width: 7px; height: 7px; top: 6px; right: 6px; }
       /* 下拉選單使用與 YA 相同的固定像素尺寸，避免各頁 html font-size 不同造成放大縮小。 */
-      #clc-header #adminDropdown { width: 210px; margin-top: 7.5px; padding-top: 7.5px; padding-bottom: 7.5px; border-radius: 11.25px; }
+      #clc-header #adminDropdown { margin-top: 7.5px; padding-block: 7.5px; }
+      #clc-header #adminDropdown, .widget-context-menu {
+        width: 210px; border-radius: 11.25px; border: 1px solid #e2e8f0;
+        background: #fff; color: #334155; box-shadow: 0 25px 50px -12px #0004;
+      }
+      html.dark #clc-header #adminDropdown, html.dark .widget-context-menu {
+        background: #161924; color: #e2e8f0; border-color: #ffffff1a;
+      }
       #clc-header #adminDropdown > a,
-      #clc-header #adminDropdown > button { padding: 9.375px 15px; font-size: 13.125px; line-height: 18.75px; }
+      #clc-header #adminDropdown > button,
+      .widget-context-menu > button { padding: 9.375px 15px; font-size: 13.125px; line-height: 18.75px; }
       #clc-header #adminDropdown #adminEmailDisplay { padding: 7.5px 15px; font-size: 11.25px; line-height: 15px; }
       #clc-header #adminDropdown > div:not(#adminEmailDisplay) { margin-top: 5.625px; margin-bottom: 5.625px; }
       @media (min-width: 640px) {
@@ -113,7 +121,8 @@ function renderHeaderComponent() {
         #clc-header .header-btn { width: 36px; min-width: 36px; height: 36px; border-radius: 10px; font-size: 16px; }
         #clc-header #installAppBtn { height: 36px; font-size: 13px; padding: 0 12px; border-radius: 10px; }
         #clc-header #adminDropdown > a,
-        #clc-header #adminDropdown > button { font-size: 15px; }
+        #clc-header #adminDropdown > button,
+        .widget-context-menu > button { font-size: 15px; }
       }
       @media (min-width: 1024px) {
         #clc-header > div { padding-left: 24px !important; padding-right: 24px !important; }
@@ -275,8 +284,9 @@ function clcShowSiteSwitcher(toggle) {
   const switcher = document.getElementById('siteSwitcher');
   if (!switcher) return;
   if (toggle) switcher.classList.toggle('hidden'); else switcher.classList.remove('hidden');
-  const admin = document.getElementById('adminDropdown');
-  if (admin) admin.classList.add('hidden');
+  if (!switcher.classList.contains('hidden')) {
+    document.dispatchEvent(new CustomEvent('clc-menu-open', { detail: 'siteSwitcher' }));
+  }
 }
 function handleLogoClick(e) {
   // 長按已開啟選單或登入提示，放開時不再回首頁。
@@ -320,7 +330,10 @@ document.addEventListener('pointerdown', function(e) {
     if (clcLogoClickTimer) { clearTimeout(clcLogoClickTimer); clcLogoClickTimer = null; }
     if (window.isSuperuser) { clcShowSiteSwitcher(false); return; }
     const prompt = document.getElementById('clcLoginPrompt');
-    if (prompt) prompt.classList.remove('hidden');
+    if (prompt) {
+      prompt.classList.remove('hidden');
+      document.dispatchEvent(new CustomEvent('clc-menu-open', { detail: 'clcLoginPrompt' }));
+    }
   }, 450);
 });
 document.addEventListener('pointermove', function(e) {
@@ -338,7 +351,9 @@ function toggleAdminDropdown() {
   if (window.clcGuestView) { if (confirm('結束「以未登入使用者身份檢視」，回到原本的登入身分？')) window.clcExitGuestView(); return; }
   if (window.isAdmin || window.isViewer) {
     const dropdown = document.getElementById('adminDropdown');
-    if (dropdown) dropdown.classList.toggle('hidden');
+    if (dropdown && !dropdown.classList.toggle('hidden')) {
+      document.dispatchEvent(new CustomEvent('clc-menu-open', { detail: 'adminDropdown' }));
+    }
   } else {
     triggerAdminLogin();
   }
@@ -410,6 +425,12 @@ document.addEventListener('click', function(e) {
   const loginPrompt = document.getElementById('clcLoginPrompt');
   if (logoWrap && loginPrompt && !logoWrap.contains(e.target)) {
     loginPrompt.classList.add('hidden');
+  }
+});
+
+document.addEventListener('clc-menu-open', e => {
+  for (const id of ['adminDropdown', 'siteSwitcher', 'clcLoginPrompt']) {
+    if (id !== e.detail) document.getElementById(id)?.classList.add('hidden');
   }
 });
 
@@ -516,7 +537,9 @@ document.addEventListener('DOMContentLoaded', renderHeaderComponent);
     inner.append(b); v.classList.add('is-run');
     inner.style.animationDuration = Math.max(6, text.length * 0.22) + 's';
   }
+  document.addEventListener('clc-menu-open', e => { if (e.detail !== 'headerLink') closeMenu(); });
   function showMenu(x, y) {
+    document.dispatchEvent(new CustomEvent('clc-menu-open', { detail: 'headerLink' }));
     closeMenu();
     const link = originalUrl(pageUrl());
     menu = document.createElement('div');
