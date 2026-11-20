@@ -1,5 +1,6 @@
-window.clcDashboardWidgets = function (grid) {
-  const key = 'clc_dx04_dashboard_widgets_v1';
+window.clcDashboardWidgets = function (grid, external = null) {
+  const storageKey = () => external ? external.key() : 'clc_dx04_dashboard_widgets_v1';
+  const canEdit = () => external ? external.canEdit() : !!window.isSuperuser;
   const breakpoint = matchMedia('(min-width: 1024px)');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const types = {
@@ -18,7 +19,7 @@ window.clcDashboardWidgets = function (grid) {
     catch (_) { return null; }
   }
 
-  const saved = read(key);
+  const saved = external ? null : read(storageKey());
   const mobile = () => !breakpoint.matches;
   const mode = () => mobile() ? 'mobile' : 'desktop';
   const columns = () => mobile() ? 1 : 5;
@@ -50,7 +51,7 @@ window.clcDashboardWidgets = function (grid) {
 
   function save() {
     try {
-      localStorage.setItem(key, JSON.stringify({
+      localStorage.setItem(storageKey(), JSON.stringify({
         layout,
         clockHeightVersion: 2,
         widgets: [...entries].map(([id, { type, title, el }]) => ({ id, type, title, hidden: el.hidden }))
@@ -80,7 +81,7 @@ window.clcDashboardWidgets = function (grid) {
   }
 
   const drawer = document.createElement('dialog');
-  drawer.className = 'widget-drawer';
+  drawer.className = external ? 'widget-drawer lf-todo-drawer' : 'widget-drawer';
   const collapse = document.createElement('button');
   collapse.type = 'button';
   collapse.className = 'widget-drawer-handle';
@@ -90,7 +91,10 @@ window.clcDashboardWidgets = function (grid) {
   document.body.append(drawer);
   let expanded = null;
   const drawerObserver = new ResizeObserver(records => {
-    for (const { target } of records) refreshExpand(entries.get(target.dataset.widgetId));
+    for (const { target } of records) {
+      const entry = entries.get(target.dataset.widgetId);
+      if (entry) refreshExpand(entry);
+    }
   });
 
   function refreshExpand(entry) {
@@ -171,8 +175,9 @@ window.clcDashboardWidgets = function (grid) {
     const changes = new MutationObserver(() => refreshExpand(entry));
     changes.observe(content, { childList: true, subtree: true, characterData: true, attributes: true,
       attributeFilter: ['hidden', 'class'] });
+    entry.stopObserving = () => { changes.disconnect(); drawerObserver.unobserve(el); };
     expand.addEventListener('click', () => openDrawer(entry));
-    if (heading) {
+    if (heading && !external) {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'widget-heading';
@@ -349,6 +354,7 @@ window.clcDashboardWidgets = function (grid) {
     }
   }
   grid.classList.add('widget-grid');
+  grid.dataset.dashboardGrid = '';
   draw(current());
 
   grid.addEventListener('wheel', e => {
@@ -604,7 +610,7 @@ window.clcDashboardWidgets = function (grid) {
   });
 
   const menu = document.createElement('div');
-  menu.className = 'widget-context-menu';
+  menu.className = external ? 'widget-context-menu lf-todo-menu' : 'widget-context-menu';
   menu.hidden = true;
   menu.setAttribute('role', 'group');
   menu.setAttribute('aria-label', '卡片操作');
@@ -617,11 +623,11 @@ window.clcDashboardWidgets = function (grid) {
   let point, previousFocus, menuScrollX, menuScrollY;
 
   function updateEmptyButton() {
-    emptyButton.hidden = !window.isSuperuser || Object.keys(current()).length > 0;
+    emptyButton.hidden = !!external || !canEdit() || Object.keys(current()).length > 0;
   }
 
   function canOpenMenu() {
-    return window.isSuperuser && !gesture && !document.querySelector('dialog[open]');
+    return canEdit() && !gesture && !document.querySelector('dialog[open]');
   }
 
   function closeMenu(restoreFocus = false) {
@@ -667,6 +673,11 @@ window.clcDashboardWidgets = function (grid) {
   }
 
   function remove(id) {
+    if (external) {
+      closeMenu();
+      external.remove(id);
+      return;
+    }
     const { el } = entries.get(id);
     animations.get(id)?.cancel();
     animations.delete(id);
@@ -744,12 +755,12 @@ window.clcDashboardWidgets = function (grid) {
       title.className = 'widget-popup-title';
       title.textContent = nameOf(entry);
       menu.append(title);
-      menuButton('新增', additionOptions, 'widget-menu-add');
+      if (!external) menuButton('新增', additionOptions, 'widget-menu-add');
       menuButton('刪除', () => remove(id), 'widget-menu-delete');
       if (entry.rename) menuButton('重新命名', () => { closeMenu(); selectWidget(null); entry.rename(); });
     } else {
       if (entry) menuButton('刪除「' + nameOf(entry) + '」', () => remove(id), 'widget-menu-delete');
-      additionOptions();
+      if (!external) additionOptions();
     }
     position();
     if (focus) menu.querySelector('button').focus({ preventScroll: true });
@@ -767,7 +778,7 @@ window.clcDashboardWidgets = function (grid) {
       e.preventDefault();
       return;
     }
-    if (!canOpenMenu() || !e.target.closest('main, footer') ||
+    if (!canOpenMenu() || (external ? !grid.contains(e.target.closest('[data-widget-id]')) : !e.target.closest('main, footer')) ||
         e.target.closest('a, input, textarea, select, [contenteditable], .slot-cell, .slot-empty')) return;
     e.preventDefault();
     const el = e.target.closest('[data-widget-id]');
@@ -787,12 +798,51 @@ window.clcDashboardWidgets = function (grid) {
     if (window.scrollX !== menuScrollX || window.scrollY !== menuScrollY) closeMenu();
   }, { passive: true });
   window.addEventListener('clc-admin-changed', () => {
-    if (!window.isSuperuser) closeMenu();
+    if (!canEdit()) closeMenu();
     updateEmptyButton();
   });
 
   return {
     find, copy,
+    attach(el, id) {
+      if (entries.has(id)) return;
+      const cache = read(storageKey())?.layout;
+      grid.append(el);
+      place(el.dataset.widget, id);
+      for (const name of ['desktop', 'mobile']) {
+        const boxes = layout[name];
+        const box = cache?.[name]?.[id];
+        const [minW, minH] = minimum(el.dataset.widget, name);
+        const cols = name === 'desktop' ? 5 : 1;
+        if (!box || !['x', 'y', 'w', 'h'].every(k => Number.isSafeInteger(box[k])) ||
+            box.x < 0 || box.y < 0 || box.w < minW || box.h < minH || box.x + box.w > cols) continue;
+        const others = { ...boxes };
+        delete others[id];
+        if (available(box, others)) boxes[id] = box;
+      }
+      setup(el, id);
+      draw(current());
+    },
+    detach(id) {
+      const entry = entries.get(id);
+      if (!entry) return;
+      cancelHold();
+      finish(false);
+      closeMenu();
+      if (selected === entry.el) selectWidget(null);
+      if (expanded === entry) {
+        drawer.close();
+        expanded = null;
+        entry.content.remove();
+      }
+      entry.stopObserving();
+      animations.get(id)?.cancel();
+      animations.delete(id);
+      entry.el.remove();
+      entries.delete(id);
+      for (const boxes of Object.values(layout)) delete boxes[id];
+      draw(current());
+    },
     discoverTodoAreas(ids) {
       const added = [];
       for (const id of ids) {

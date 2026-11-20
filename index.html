@@ -5,8 +5,8 @@
   <link rel="stylesheet" href="/light-theme.css?v=4">
   <script src="/verse-wait.js?v=2"></script>
   <script src="/login-gate.js?v=20261119-verse-wait"></script>
-  <link rel="stylesheet" href="/js/dashboard-widgets.css?v=10">
-  <script src="/js/dashboard-widgets.js?v=10"></script>
+  <link rel="stylesheet" href="/js/dashboard-widgets.css?v=11">
+  <script src="/js/dashboard-widgets.js?v=11"></script>
   <script src="/reorder.js?v=shared-todo-2"></script>
   <script src="https://linfamily.pages.dev/js/dashboard-todos.js"></script>
   <script src="/js/clc-slot-grid.js?v=20261120-app-rows"></script>
@@ -87,12 +87,6 @@
     .app-fallback { display:grid; place-content:center; background:#007E8A; color:#fff; font-weight:800; font-size:1.5rem; }
     .app-slot { aspect-ratio:1; border-radius:22%; border:2px dashed #cbd5e1; color:#94a3b8; display:grid; place-content:center; font-size:1.75rem; font-weight:300; user-select:none; }
     .dark .app-slot { border-color:#334155; color:#475569; }
-    /* 區塊移動把手 */
-    .drag-handle { position:absolute; top:0; left:50%; transform:translateX(-50%); width:56px; height:22px; display:flex; align-items:center; justify-content:center; background:none; border:0; padding:0; cursor:grab; touch-action:none; z-index:2; }
-    .drag-handle:focus-visible { outline:2px solid #00A3B4; border-radius:8px; }
-    .dash-widget.is-dragging { z-index:30; box-shadow:0 18px 40px rgba(0,0,0,.35); }
-    .dash-widget.is-resizing { z-index:30; }
-    body.dash-dragging { user-select:none; -webkit-user-select:none; }
     .app-tile[draggable="true"] { cursor:grab; }
     .app-tile { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
     .app-tile img { pointer-events:none; }
