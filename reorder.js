@@ -2,7 +2,7 @@
 window.clcReorder = function (container, options) {
   let source = null, target = null, after = false, pointer = null, holdTimer = null;
   let suppressUntil = 0, saving = false, floating = null;
-  let preview = null, scrollFrame = 0;
+  let preview = null, scrollFrame = 0, destination = null;
   const scroll = options.scroll;
   const item = node => node?.closest?.(options.item);
   const excluded = node => node?.closest?.('input, textarea, select, .todo-del, .todo-minus, .app-remove, .app-slot, .slot-remove, .slot-empty');
@@ -50,6 +50,8 @@ window.clcReorder = function (container, options) {
     }
     floating?.remove(); floating = null;
     container.querySelectorAll('.reorder-source, .reorder-target').forEach(el => el.classList.remove('reorder-source', 'reorder-target'));
+    options.crossTarget?.(null);
+    destination = null;
     source = target = pointer = null;
   }
   function aim(next, x, y) {
@@ -67,14 +69,14 @@ window.clcReorder = function (container, options) {
     const gap = parseFloat(getComputedStyle(source.parentElement).rowGap) || 0;
     const rect = rows[index].rect;
     preview = { rows, index, offset: rect.height + gap, scrollTop: scroll.scrollTop,
-      center: rect.top + rect.height / 2, y: pointer.y };
+      center: rect.top + rect.height / 2, pageY: window.scrollY, y: pointer.y };
   }
 
   function shiftRows(x, y) {
     const { rows, index, offset, scrollTop, center } = preview;
     const bounds = scroll.getBoundingClientRect();
     const within = x >= bounds.left - 32 && x <= bounds.right + 32;
-    const draggedCenter = center + y - pointer.y + scroll.scrollTop - scrollTop;
+    const draggedCenter = center + y - pointer.y + scroll.scrollTop - scrollTop + window.scrollY - preview.pageY;
     let slot = index;
     if (within) {
       rows.forEach(({ rect }, i) => {
@@ -95,6 +97,16 @@ window.clcReorder = function (container, options) {
     scrollFrame = 0;
     if (!preview || !pointer?.moved) return;
     const { x, y } = preview;
+    if (options.crossTarget && !scroll.closest('dialog[open]') && (y < 45 || y > innerHeight - 45)) {
+      const before = window.scrollY;
+      window.scrollBy(0, y < 45 ? -12 : 12);
+      if (window.scrollY !== before) {
+        updatePreview(x, y);
+        scrollFrame = requestAnimationFrame(scrollPreview);
+        return;
+      }
+    }
+    if (destination) return;
     const bounds = scroll.getBoundingClientRect();
     const top = Math.max(0, bounds.top), bottom = Math.min(innerHeight, bounds.bottom);
     const margin = Math.min(34, (bottom - top) / 3);
@@ -122,12 +134,22 @@ window.clcReorder = function (container, options) {
     lift();
     if (pointer.touch && navigator.vibrate) navigator.vibrate(15);
   }
+  function updatePreview(x, y) {
+    destination = options.crossTarget?.(document.elementFromPoint(x, y), y, source);
+    if (destination) {
+      target = null;
+      for (const { row } of preview.rows) row.style.translate = '';
+    } else {
+      shiftRows(x, y);
+    }
+  }
+
   function move(x, y) {
     pointer.moved = true;
     follow(x, y);
     if (preview) {
       Object.assign(preview, { x, y });
-      shiftRows(x, y);
+      updatePreview(x, y);
       if (!scrollFrame) scrollFrame = requestAnimationFrame(scrollPreview);
       return;
     }
@@ -137,6 +159,7 @@ window.clcReorder = function (container, options) {
   }
   async function finish(commit) {
     const from = source?.dataset.sortId, to = container.contains(target) ? target.dataset.sortId : null, insertAfter = after;
+    const cross = destination;
     commit = commit && container.contains(source);
     if (pointer?.armed) suppressUntil = Date.now() + 500;
     const ghost = floating; floating = null;
@@ -144,11 +167,12 @@ window.clcReorder = function (container, options) {
       ? new Map(preview.rows.map(({ row }) => [row.dataset.sortId, row.getBoundingClientRect().top]))
       : null;
     clear();
-    if (!commit || !from || !to || !options.allowed()) { await land(ghost, from); return; }
+    if (!commit || !from || (!to && !cross) || !options.allowed()) { await land(ghost, from); return; }
     suppressUntil = Date.now() + 500;
     saving = true;
     try {
-      await options.move(from, to, insertAfter);
+      if (cross) await options.crossMove(from, cross);
+      else await options.move(from, to, insertAfter);
       if (before) {
         for (const row of container.querySelectorAll(options.item)) {
           const id = row.dataset.sortId;
@@ -192,6 +216,7 @@ window.clcReorder = function (container, options) {
   container.addEventListener('pointerup', e => {
     if (!pointer || pointer.touch || e.pointerId !== pointer.id) return;
     const moved = pointer.moved;
+    if (moved && preview && options.crossTarget) updatePreview(e.clientX, e.clientY);
     if (container.hasPointerCapture(e.pointerId)) container.releasePointerCapture(e.pointerId);
     finish(moved);
   });

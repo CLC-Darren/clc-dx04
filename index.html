@@ -7,7 +7,7 @@
   <script src="/login-gate.js?v=20261119-verse-wait"></script>
   <link rel="stylesheet" href="/js/dashboard-widgets.css?v=6">
   <script src="/js/dashboard-widgets.js?v=6"></script>
-  <script src="/reorder.js?v=todo-reflow-2"></script>
+  <script src="/reorder.js?v=todo-cross-area-1"></script>
   <script src="/js/clc-slot-grid.js?v=20261120-app-rows"></script>
   <script src="/js/clc-icon-upload.js?v=20261116-menu2"></script>
   <meta charset="UTF-8">
@@ -185,6 +185,12 @@
       :is(#wxMeta, [data-widget-field="wxMeta"]) { display:none; }
       :is(#wxRefresh, [data-widget-field="wxRefresh"]) { margin-top:4px; padding:4px 6px; font-size:11px; }
     }
+    .todo-move-area { display:none; }
+    body:has(#dashGrid > [data-widget="todo"]:not([hidden]) ~ [data-widget="todo"]:not([hidden]))
+      .widget-drawer .todo-move-area { display:block; flex:none; max-width:6em; font-size:.72rem; color:inherit; }
+    .todo-area-drop { outline:2px solid #00a3b4 !important; outline-offset:2px; }
+    .todo-drop-before { box-shadow: inset 0 2px #00a3b4; }
+    .todo-drop-after { box-shadow: inset 0 -2px #00a3b4; }
     .todo-row { cursor:grab; user-select:none; -webkit-user-select:none; }
     .todo-edit { user-select:text; -webkit-user-select:text; }
     .app-tile[draggable="true"] { cursor:grab; }
@@ -1045,6 +1051,7 @@
     })();
 
     // 今日待辦：Firestore dx04_todos（僅 Superuser）。文字或語音輸入，會自動辨識日期、時間與 #標籤。
+    const todoAreas = new Map();
     window.dxDashboard.register('todo', (widget, area) => {
       const find = id => window.dxDashboard.find(widget, id);
       const prefix = area === 'todo' ? '' : '~' + area + '~';
@@ -1220,7 +1227,28 @@
         del.title = '刪除';
         del.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
         del.addEventListener('click', () => removeTodo(todo));
-        li.append(label, del);
+        const move = document.createElement('select');
+        move.className = 'todo-move-area';
+        move.setAttribute('aria-label', '移動到其他待辦區：' + todo.title);
+        move.add(new Option('移動到…', ''));
+        move.addEventListener('focus', () => {
+          move.options.length = 1;
+          for (const destination of todoAreas.keys()) {
+            if (destination === widget || destination.hidden) continue;
+            const name = destination.querySelector('h2')?.textContent || '代辦事項';
+            move.add(new Option(name, destination.dataset.widgetId));
+          }
+        });
+        move.addEventListener('change', async () => {
+          const destination = [...todoAreas.keys()].find(card => card.dataset.widgetId === move.value);
+          move.value = '';
+          if (!destination || !canUse()) return;
+          move.disabled = true;
+          try { await crossMove(todo.id, { widget: destination }); }
+          catch (err) { setStatus(errText(err)); }
+          finally { move.disabled = false; }
+        });
+        li.append(label, move, del);
         if (body.classList.contains('todo-deleting')) {
           const minus = document.createElement('button');
           minus.type = 'button';
@@ -1246,17 +1274,59 @@
       function readOrder() {
         try { const v = JSON.parse(localStorage.getItem(orderKey()) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; }
       }
-      window.clcReorder(body, {
-        item: '.todo-row', directMouse: true, scroll: body.closest('.todo-scroll'), allowed: () => !!window.isSuperuser,
+      const scroll = body.closest('.todo-scroll');
+      todoAreas.set(widget, { prefix, body, orderKey, render });
+      let highlighted, insertion;
+      function crossTarget(node, y, source) {
+        highlighted?.classList.remove('todo-area-drop');
+        insertion?.classList.remove('todo-drop-before', 'todo-drop-after');
+        highlighted = node?.closest('[data-widget="todo"]');
+        const destination = todoAreas.get(highlighted);
+        if (!destination || highlighted === widget || highlighted.hidden) return null;
+        highlighted.classList.add('todo-area-drop');
+        const candidate = node.closest('.todo-row');
+        insertion = destination.body.contains(candidate) && body.contains(source) ? candidate : null;
+        const rect = insertion?.getBoundingClientRect();
+        const after = !!rect && y >= rect.top + rect.height / 2;
+        insertion?.classList.add(after ? 'todo-drop-after' : 'todo-drop-before');
+        return { widget: highlighted, target: insertion?.dataset.sortId, after };
+      }
+
+      async function crossMove(id, drop) {
+        const destination = todoAreas.get(drop.widget);
+        if (!destination || drop.widget.hidden) return;
+        const from = col().doc(id);
+        const to = col().doc(destination.prefix + col().doc().id);
+        const ids = Array.from(destination.body.querySelectorAll('.todo-row'), row => row.dataset.sortId);
+        const index = ids.indexOf(drop.target);
+        ids.splice(index < 0 ? 0 : index + Number(drop.after), 0, to.id);
+        const moved = await window.db.runTransaction(async tx => {
+          const doc = await tx.get(from);
+          if (!doc.exists) return false;
+          tx.set(to, doc.data());
+          tx.delete(from);
+          return true;
+        });
+        if (!moved) return;
+        try {
+          localStorage.setItem(destination.orderKey(), JSON.stringify(ids));
+          localStorage.setItem(orderKey(), JSON.stringify(readOrder().filter(item => item !== id)));
+        } catch (_) { /* 分區移動已儲存，排序會在瀏覽器允許時保存。 */ }
+        destination.render();
+      }
+      window.clcReorder(scroll, {
+        item: '.todo-row', directMouse: true, scroll, allowed: canUse,
+        crossTarget, crossMove,
         hold: () => setTodoDeleteMode(true), // 手機長按不動：每一項右上角出現「−」
         move(from, to, after) {
           const rows = Array.from(body.querySelectorAll('.todo-row'));
           const ids = rows.map(el => el.dataset.sortId).filter(id => id !== from);
+          if (!ids.includes(to) || !rows.some(row => row.dataset.sortId === from)) return;
           ids.splice(ids.indexOf(to) + (after ? 1 : 0), 0, from);
           localStorage.setItem(orderKey(), JSON.stringify(ids));
           render();
         },
-        error: () => setStatus('無法保存排序，請確認瀏覽器允許本機儲存。')
+        error: err => setStatus(err.code ? errText(err) : '無法移動或保存排序，請稍後再試。')
       });
       const byNewest = (a, b) => b.created - a.created || b.id.localeCompare(a.id);
       // 刪除模式（手機）：長按任一項 → 每項右上角出現「−」（跟 App 一樣），點旁邊或 Esc 結束。
