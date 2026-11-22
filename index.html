@@ -1144,6 +1144,8 @@
     });
     window.dxDesk = desk;
     const layoutKey = mode => 'dx_layout_' + mode + '_' + uid;
+    // 開頁面時（還沒登入完成）先用上次登入者存在這台裝置的排列，loading 畫面就是最新排列，不會進去再跳一下
+    try { const u = localStorage.getItem('dx_last_uid'); if (u) ['desktop', 'phone'].forEach(m => { const c = JSON.parse(localStorage.getItem('dx_layout_' + m + '_' + u) || 'null'); if (c) desk.setLayout(m, c); }); } catch (_) {}
 
     // 工具列：Home / Utility（Utility 先空白）
     const tb = window.clcToolbar($id('dxToolbar'), {
@@ -1346,6 +1348,7 @@
       if (next === uid) return;
       unsubs.forEach(f => f()); unsubs = []; uid = next;
       if (!uid || !window.db) return;
+      try { localStorage.setItem('dx_last_uid', uid); } catch (_) {}
       ['desktop', 'phone'].forEach(mode => {
         let cached = null; try { cached = JSON.parse(localStorage.getItem(layoutKey(mode)) || 'null'); } catch (_) {}
         if (cached) desk.setLayout(mode, cached);
