@@ -43,6 +43,7 @@
       '#lfHomeBtn.edge-left{width:22px;border-radius:0 22px 22px 0}' +
       '#lfHomeBtn.edge-right{width:22px;border-radius:22px 0 0 22px}' +
       '#lfHomeBtn.edge-left svg{transform:translateX(-11px)}#lfHomeBtn.edge-right svg{transform:translateX(11px)}' + // 收起來時房子正好切在螢幕邊緣，只露出一半
+      '@media (hover:none),(pointer:coarse){#lfHomeBtn.edge-left,#lfHomeBtn.edge-right{width:34px}#lfHomeBtn.edge-left svg{transform:translateX(-2px)}#lfHomeBtn.edge-right svg{transform:translateX(2px)}}' + // 手機、平板：多露出一點，房子完整看得到、好按（電腦不變）
       // 拉出來＝圓頭長方形（貼邊那側是平的）；手機只在手指按住時拉出，放開就收回半圓（不用 :hover，避免手機點完一直卡在拉出狀態）
       '#lfHomeBtn.is-active,#lfHomeBtn:focus-visible{opacity:.9;outline:none}' +
       '#lfHomeBtn.edge-left.is-active,#lfHomeBtn.edge-right.is-active,#lfHomeBtn.edge-left:focus-visible,#lfHomeBtn.edge-right:focus-visible{width:50px;place-items:center}' +
