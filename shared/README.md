@@ -21,10 +21,10 @@ const desk = clcDesktop(el, {
   saveLayout: (mode, map) => Promise,       // mode: 'desktop'|'phone'；map: {id:{x,y,w,h}}
   error: err => {}
 });
-desk.put(id, el, { type: 'app' | 'card', w, h, minW, minH, searchText: () => '...' }); // 新增或更新一格（minW/minH：卡片最小尺寸，預設 2×1）
+desk.put(id, el, { type: 'app' | 'card', w, h, minW, minH, searchText: () => '...' }); // 新增或更新一格（minW/minH：每種卡片自己的最小尺寸，可到 1×1；沒指定時 2×1）
 desk.drop(id); desk.setLayout(mode, map | null); desk.search(q) /* → 符合的 id */; desk.placeNext({x,y});
 ```
-- App 固定 1×1；卡片最小 2×1，可拉右下角改大小。卡片的拖曳把手＝裡面有 `.dk-handle` 的元素。
+- App 固定 1×1；卡片最小尺寸由各卡片自己決定（沒指定時 2×1），可拉右下角改大小。卡片的拖曳把手＝裡面有 `.dk-handle` 的元素。
 - 電腦：滑鼠直接拖，放手即存；右鍵開選單。手機：長按 0.5 秒抖動＋選單，手指一移動就變拖曳。
 - 手機第一次沒有排列時，依電腦版順序自動換算，之後各自獨立。
 

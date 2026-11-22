@@ -54,8 +54,8 @@
       var c = cols(), w = o.type === 'app' ? 1 : Math.max(minW(o), Math.min(p.w || 2, c)), h = o.type === 'app' ? 1 : Math.max(minH(o), p.h || 1);
       return { x: Math.max(0, Math.min(p.x, c - w)), y: Math.max(0, p.y), w: w, h: h };
     }
-    // 卡片最小尺寸：put 的 o.minW / o.minH（預設 2×1）
-    function minW(o) { return Math.min(cols(), Math.max(2, o.opt.minW || 2)); }
+    // 卡片最小尺寸由每種卡片自己決定（像 Android widget）：put 的 o.minW / o.minH，可到 1×1；沒指定時 2×1
+    function minW(o) { return Math.min(cols(), Math.max(1, o.opt.minW || 2)); }
     function minH(o) { return Math.max(1, o.opt.minH || 1); }
     function defSize(o) {
       if (o.type === 'app') return { w: 1, h: 1 };
