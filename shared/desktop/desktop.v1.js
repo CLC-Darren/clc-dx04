@@ -186,7 +186,7 @@
     // 拖完放手不要觸發點擊（開 App）
     root.addEventListener('click', function (e) { if (Date.now() - justDragged < 350) { e.preventDefault(); e.stopPropagation(); } }, true);
 
-    // ---------- 手機：長按 0.5 秒 → 抖動＋選單；手指一移動 → 收選單、變拖曳 ----------
+    // ---------- 手機：長按 0.5 秒 → 選單（卡片出現調整大小的圓點）；手指一移動 → 收選單、變拖曳 ----------
     var lp = { timer: 0, armed: false, drag: false, touch: false, sx: 0, sy: 0, handle: null, id: null };
     function mouse(type, target, x, y) {
       target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: type === 'mouseup' ? 0 : 1, view: window }));
@@ -235,7 +235,7 @@
         column: cols(), cellHeight: 100, margin: marg(), float: true, animate: true,
         handle: '.dk-handle', resizable: { handles: 'n,ne,e,se,s,sw,w,nw' }
       }, root);
-      grid.on('dragstart resizestart', function () { closeMenu(); }); // 移動時不抖動
+      grid.on('dragstart resizestart', function () { closeMenu(); }); // 開始移動或調整大小就收起選單
       grid.on('dragstop resizestop', function (e, el) { justDragged = Date.now(); if (el) delete temp[el.getAttribute('gs-id')]; }); // 使用者動過的就照新位置存
       grid.on('change', queueSave);
       relayout();

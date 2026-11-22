@@ -24,8 +24,8 @@ const desk = clcDesktop(el, {
 desk.put(id, el, { type: 'app' | 'card', w, h, minW, minH, searchText: () => '...' }); // 新增或更新一格（minW/minH：每種卡片自己的最小尺寸，可到 1×1；沒指定時 2×1）
 desk.drop(id); desk.setLayout(mode, map | null); desk.search(q) /* → 符合的 id */; desk.placeNext({x,y});
 ```
-- App 固定 1×1；卡片最小尺寸由各卡片自己決定（沒指定時 2×1），可拉右下角改大小。卡片的拖曳把手＝裡面有 `.dk-handle` 的元素。
-- 電腦：滑鼠直接拖，放手即存；右鍵開選單。手機：長按 0.5 秒抖動＋選單，手指一移動就變拖曳。
+- App 固定 1×1；卡片最小尺寸由各卡片自己決定（沒指定時 2×1），電腦四邊四角都能直接拉（像 Windows 視窗）。卡片的拖曳把手＝裡面有 `.dk-handle` 的元素。
+- 電腦：滑鼠直接拖，放手即存；右鍵開選單。手機：長按 0.5 秒出現選單（卡片同時出現外框和四邊圓點，可拖圓點調整大小），手指一移動就變拖曳。
 - 手機第一次沒有排列時，依電腦版順序自動換算，之後各自獨立。
 
 ## 工具列 `clcToolbar(host, opts)`
