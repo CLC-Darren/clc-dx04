@@ -3,6 +3,9 @@
 .dk-root .grid-stack-item-content { overflow:visible; }
 /* gridstack 自己的 CSS 會把格子內容切掉（overflow hidden），App 圖示放大時邊緣被裁；App 格子改成超出也顯示 */
 .dk-root.grid-stack > .grid-stack-item.dk-app > .grid-stack-item-content { overflow:visible; }
+/* App 圖示固定＝格子寬：只有一欄且不能被內容撐大（不然大尺寸圖片會把圖示撐得比格子大） */
+.dk-root .dk-app > .grid-stack-item-content { grid-template-columns:minmax(0,1fr); }
+.dk-root .dk-app img { max-width:100%; }
 .dk-root .dk-card > .grid-stack-item-content { overflow:auto; border-radius:18px; }
 .dk-root .dk-app > .grid-stack-item-content { display:grid; place-items:start center; cursor:grab; touch-action:pan-y; }
 .dk-root .dk-app a, .dk-root .dk-app img { -webkit-user-drag:none; -webkit-touch-callout:none; }
