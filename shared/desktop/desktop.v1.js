@@ -51,12 +51,15 @@
 
     function marg() { var m = opts.margin == null ? 6 : opts.margin; return typeof m === 'object' ? m[mode] : m; }
     function clampPos(p, o) {
-      var c = cols(), w = o.type === 'app' ? 1 : Math.max(2, Math.min(p.w || 2, c)), h = o.type === 'app' ? 1 : Math.max(1, p.h || 1);
+      var c = cols(), w = o.type === 'app' ? 1 : Math.max(minW(o), Math.min(p.w || 2, c)), h = o.type === 'app' ? 1 : Math.max(minH(o), p.h || 1);
       return { x: Math.max(0, Math.min(p.x, c - w)), y: Math.max(0, p.y), w: w, h: h };
     }
+    // 卡片最小尺寸：put 的 o.minW / o.minH（預設 2×1）
+    function minW(o) { return Math.min(cols(), Math.max(2, o.opt.minW || 2)); }
+    function minH(o) { return Math.max(1, o.opt.minH || 1); }
     function defSize(o) {
       if (o.type === 'app') return { w: 1, h: 1 };
-      var c = cols(); return { w: Math.min(c, Math.max(2, o.opt.w || 4)), h: Math.max(1, o.opt.h || 3) };
+      var c = cols(); return { w: Math.min(c, Math.max(minW(o), o.opt.w || 4)), h: Math.max(minH(o), o.opt.h || 3) };
     }
     // 手機第一次：用電腦版的順序（上到下、左到右）
     function currentMap() {
@@ -80,12 +83,12 @@
       var s = defSize(o), it = o.el;
       ['gs-x', 'gs-y', 'gs-auto-position'].forEach(function (a) { it.removeAttribute(a); });
       delete temp[id];
-      if (pos && pos.x + (o.type === 'app' ? 1 : Math.max(2, pos.w || 2)) > cols()) { temp[id] = pos; pos = null; } // 窄視窗放不下：暫時往下補，不存
+      if (pos && pos.x + (o.type === 'app' ? 1 : Math.max(minW(o), pos.w || 2)) > cols()) { temp[id] = pos; pos = null; } // 窄視窗放不下：暫時往下補，不存
       if (pos) { pos = clampPos(pos, o); it.setAttribute('gs-x', pos.x); it.setAttribute('gs-y', pos.y); s = { w: pos.w, h: pos.h }; }
       else if (placeAt && grid.isAreaEmpty(placeAt.x, placeAt.y, s.w, s.h)) { it.setAttribute('gs-x', placeAt.x); it.setAttribute('gs-y', placeAt.y); placeAt = null; }
       else it.setAttribute('gs-auto-position', 'true');
       it.setAttribute('gs-w', s.w); it.setAttribute('gs-h', s.h);
-      if (o.type === 'app') it.setAttribute('gs-no-resize', 'true'); else { it.setAttribute('gs-min-w', 2); it.removeAttribute('gs-no-resize'); }
+      if (o.type === 'app') it.setAttribute('gs-no-resize', 'true'); else { it.setAttribute('gs-min-w', minW(o)); it.setAttribute('gs-min-h', minH(o)); it.removeAttribute('gs-no-resize'); }
       root.appendChild(it); grid.makeWidget(it);
     }
     // 依目前裝置的排列重排全部

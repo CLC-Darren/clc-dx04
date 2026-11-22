@@ -5,8 +5,8 @@
 
 | 檔案 | 用途 | 版本 |
 |---|---|---|
-| `desktop/desktop.v1.js` `.css` | 桌面格子引擎（gridstack 10.3.1，從 jsDelivr 自動載入）、長按/右鍵選單、刪除確認框 | v1（LF 首頁） |
-| `toolbar/toolbar.v1.js` `.css` | 頂部工具列：分頁＋放大鏡＋加號＋搜尋列 | v1（LF 首頁） |
+| `desktop/desktop.v1.js` `.css` | 桌面格子引擎（gridstack 10.3.1，從 jsDelivr 自動載入）、長按/右鍵選單、刪除確認框 | v1（LF、DX 首頁） |
+| `toolbar/toolbar.v1.js` `.css` | 頂部工具列：分頁＋放大鏡＋加號＋搜尋列 | v1（LF、DX 首頁） |
 | `widgets/todo/` | 今日待辦共用 widget | 第三階段 |
 
 ## 桌面 `clcDesktop(root, opts)`
@@ -21,7 +21,7 @@ const desk = clcDesktop(el, {
   saveLayout: (mode, map) => Promise,       // mode: 'desktop'|'phone'；map: {id:{x,y,w,h}}
   error: err => {}
 });
-desk.put(id, el, { type: 'app' | 'card', w, h, searchText: () => '...' }); // 新增或更新一格
+desk.put(id, el, { type: 'app' | 'card', w, h, minW, minH, searchText: () => '...' }); // 新增或更新一格（minW/minH：卡片最小尺寸，預設 2×1）
 desk.drop(id); desk.setLayout(mode, map | null); desk.search(q) /* → 符合的 id */; desk.placeNext({x,y});
 ```
 - App 固定 1×1；卡片最小 2×1，可拉右下角改大小。卡片的拖曳把手＝裡面有 `.dk-handle` 的元素。

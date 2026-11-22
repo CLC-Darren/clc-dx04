@@ -74,6 +74,11 @@ service cloud.firestore {
         && request.resource.data.done is bool;
     }
 
+    // 個人桌面（LF/DX 統一桌面）：users/{uid}/desktop/{home|desktop|phone}、desktop_backups（舊卡片轉換前備份）。只有本人可讀寫。
+    match /users/{uid}/{document=**} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
     // 其他集合一律關閉，之後有新功能再個別開放。
     match /{document=**} {
       allow read, write: if false;

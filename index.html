@@ -6,10 +6,12 @@
   <script src="/verse-wait.js?v=2"></script>
   <script src="/login-gate.js?v=20261119-verse-wait"></script>
   <link rel="stylesheet" href="/js/dashboard-widgets.css?v=12">
-  <script src="/js/dashboard-widgets.js?v=11"></script>
+  <link rel="stylesheet" href="/shared/desktop/desktop.v1.css?v=2">
+  <link rel="stylesheet" href="/shared/toolbar/toolbar.v1.css?v=1">
+  <script src="/shared/desktop/desktop.v1.js?v=5"></script>
+  <script src="/shared/toolbar/toolbar.v1.js?v=1"></script>
   <script src="/reorder.js?v=shared-todo-2"></script>
   <script src="https://linfamily.pages.dev/js/dashboard-todos.js"></script>
-  <script src="/js/clc-slot-grid.js?v=20261120-fit-columns"></script>
   <script src="/js/clc-icon-upload.js?v=20261116-menu2"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -181,8 +183,44 @@
       :is(#wxRefresh, [data-widget-field="wxRefresh"]) { margin-top:4px; padding:4px 6px; font-size:11px; }
     }
     .todo-move-area { display:none; }
-    body:has(#dashGrid > [data-widget="todo"]:not([hidden]) ~ [data-widget="todo"]:not([hidden]))
-      .widget-drawer .todo-move-area { display:block; flex:none; max-width:6em; font-size:.72rem; color:inherit; }
+    /* ---------- 共用桌面（LF/DX 統一）---------- */
+    :root { --pine:#007E8A; --text:#0f172a; --muted:#64748b; --bg:#fff; --btn:rgba(15,23,42,.05); --border:rgba(15,23,42,.12); }
+    .dark { --text:#f1f5f9; --muted:#8A92A6; --bg:#161924; --btn:rgba(255,255,255,.06); --border:rgba(255,255,255,.12); }
+    .dx-top { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:14px 20px; }
+    .dx-top > #dx-swipe-zone { flex:1; min-width:0; }
+    @media (min-width:640px) { .dx-top { flex-wrap:nowrap; align-items:flex-end; } } /* 電腦：工具列底部和問候語底部切齊 */
+    @media (max-width:639px) { #dxToolbar { width:100%; } }
+    #dxSearchHost:empty, #dxSearchHost > [hidden] { display:none; }
+    #dxSearchHost .clc-tb-search { margin:0; }
+    #dxHome[hidden], #dxUtility[hidden] { display:none; }
+    #dxUtility { min-height:40vh; }
+    #dxDesk { --dk-top:300px; margin:0 -11px; }
+    @media (max-width:699px) { #dxDesk { margin:0 -8px; } }
+    .dx-app { display:flex; flex-direction:column; align-items:center; gap:7px; width:100%; text-decoration:none; color:var(--text); -webkit-tap-highlight-color:transparent; }
+    .dx-app .app-tile { width:100%; }
+    .dx-app:hover .app-tile { transform:scale(1.05); }
+    .dx-name { font-size:12.5px; font-weight:700; line-height:1.25; text-align:center; max-width:100%; word-break:keep-all; overflow-wrap:anywhere; }
+    @media (min-width:640px) { .dx-name { font-size:13.5px; } }
+    .dk-root .dk-card > .grid-stack-item-content { overflow:hidden; }
+    .dx-card { position:relative; height:100%; box-sizing:border-box; display:flex; flex-direction:column; gap:12px; padding:18px 18px 14px; border-radius:18px;
+      background:#fff; border:1px solid #e2e8f0; overflow:hidden; }
+    .dark .dx-card { background:#161924; border-color:rgba(255,255,255,.1); }
+    .dx-card .todo-scroll { flex:1 1 0; min-height:0; }
+    .dx-card h2.dk-handle, .dx-card .clock-main.dk-handle { cursor:grab; }
+    .dx-grip { position:absolute; top:0; left:50%; width:44px; height:16px; transform:translateX(-50%); cursor:grab; touch-action:none; }
+    .dx-grip::after { content:""; position:absolute; top:6px; left:8px; right:8px; height:4px; border-radius:4px; background:rgba(148,163,184,.45); }
+    .dx-clock { overflow:auto; container-type:inline-size; }
+    .dx-clock-inner { display:flex; flex-direction:column; gap:14px; }
+    @container (min-width:380px) {
+      .dx-clock-inner { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr); align-items:center; gap:12px; }
+      .dx-clock .clock-weather { border-top:0; border-left:1px solid rgba(148,163,184,.25); padding-top:0; padding-left:12px; }
+    }
+    @container (max-width:279px) {
+      .dx-clock [data-widget-field="clockTime"] { font-size:40px; }
+      .dx-clock [data-widget-field="clockSec"] { font-size:16px; }
+      .dx-clock .clock-weather { padding-top:12px; gap:10px; }
+      .dx-clock [data-widget-field="wxIcon"] { width:36px; height:36px; }
+    }
     .todo-area-drop { outline:2px solid #00a3b4 !important; outline-offset:2px; }
     .todo-drop-before { box-shadow: inset 0 2px #00a3b4; }
     .todo-drop-after { box-shadow: inset 0 -2px #00a3b4; }
@@ -734,6 +772,7 @@
 
   <main id="dx-main" class="w-full py-8 lg:py-12 flex-1 flex flex-col gap-6 lg:gap-8">
 
+    <div class="dx-top">
     <div id="dx-swipe-zone" class="space-y-1.5">
       <p class="text-xs lg:text-sm font-bold tracking-[0.3em] text-[#007E8A] dark:text-[#00A3B4] uppercase">CLC Control Panel</p>
       <h1 id="dx-greeting" class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Hello, DX04</h1>
@@ -826,12 +865,22 @@
       </script>
     </div>
 
-    <!-- 區塊版面保存在目前瀏覽器 -->
-    <div id="dashGrid" class="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start">
+    <div id="dxToolbar"></div><!-- 共用工具列 shared/toolbar：Home / Utility -->
+    </div>
+    <div id="dxSearchHost"></div>
+    <p id="dxNotice" class="text-sm text-amber-600 dark:text-amber-400" hidden></p>
 
-      <!-- 時間、日期、天氣 -->
-      <section data-widget="clock" aria-label="時間與天氣" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-5">
-        <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"></button>
+    <!-- Home：共用桌面 shared/desktop（App 1×1；時鐘天氣、待辦卡片可調大小，最小 2×2；可留空格）。
+         App 清單 dx04_settings/apps；卡片與排列存 users/{uid}/desktop/{home|desktop|phone}。電腦按住拖、右鍵選單；手機長按 0.5 秒。 -->
+    <section id="dxHome" aria-label="Home">
+      <p id="dxNoResult" class="text-sm text-slate-500 dark:text-brand-muted" hidden>找不到符合的項目</p>
+      <div id="dxDesk" aria-label="主畫面"></div>
+    </section>
+    <!-- Utility：先空白 -->
+    <section id="dxUtility" aria-label="Utility" hidden></section>
+
+    <template id="dxClockTpl">
+      <div class="dx-clock-inner">
         <div class="clock-main">
           <p class="flex items-baseline gap-1 font-extrabold tracking-tight tabular-nums text-slate-900 dark:text-white"><span id="clockTime" class="text-5xl sm:text-6xl">--:--</span><span id="clockSec" class="text-2xl sm:text-3xl text-slate-400 dark:text-brand-muted">:--</span></p>
           <p id="clockDate" class="mt-1 text-base text-slate-500 dark:text-brand-muted">&nbsp;</p>
@@ -844,26 +893,8 @@
             <button id="wxRefresh" type="button" hidden class="mt-2 rounded-lg border border-slate-300 dark:border-white/20 px-3 py-2 text-sm font-bold text-[#007E8A] dark:text-[#00A3B4] disabled:opacity-50" aria-label="重新讀取天氣">↻ 重新整理</button>
           </div>
         </div>
-      </section>
-
-      <!-- 今日待辦：存在 Firestore dx04_todos（僅 Superuser 可讀寫）；可文字或語音新增、勾選完成、刪除 -->
-      <section data-widget="todo" aria-labelledby="todoTitle" class="dash-widget relative rounded-3xl bg-white dark:bg-[#161924] border border-slate-200 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-3">
-        <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"></button>
-      </section>
-
-      <!-- App 入口：4 欄 × 2 排，共 8 格 -->
-      <section data-widget="apps" aria-labelledby="appsTitle" class="dash-widget relative">
-        <button type="button" class="drag-handle" aria-label="拖曳或用上下鍵調整順序"></button>
-        <div class="widget-app-heading">
-          <h2 id="appsTitle" class="text-sm font-bold text-slate-500 dark:text-brand-muted">分站入口</h2>
-          <button type="button" id="appsAddBtn" class="widget-app-add" aria-label="新增 APP" hidden></button>
-          <button type="button" id="appsDoneBtn" hidden class="h-9 px-4 rounded-full text-sm font-bold bg-[#007E8A] hover:bg-[#006C77] text-white">完成</button>
-        </div>
-        <!-- 分站清單存在 Firestore dx04_settings/apps；管理員長按進入編輯模式：「−」移除、「＋」新增、點 Logo 編輯 -->
-        <div id="siteGrid" class="grid grid-cols-4 gap-3"></div>
-        <p id="appsAdminHint" class="apps-admin-hint hidden text-xs text-slate-400 dark:text-slate-500"></p>
-      </section>
-    </div>
+      </div>
+    </template>
   </main>
 
   <!-- 新增／修改 App（同 LinFamily）：網址 → 名稱 → 圖示（僅 Superuser） -->
@@ -897,8 +928,6 @@
   </footer>
 
   <script type="text/plain" data-dx-private>
-    document.querySelector('#dashGrid > [data-widget="todo"]').append(window.clcBuildTodoFields());
-    window.dxDashboard = window.clcDashboardWidgets(document.getElementById('dashGrid'));
 
     // 時鐘與日期（台北時間）：以 Cloudflare 伺服器時間校正，不受本機時鐘誤差影響
     (function () {
@@ -1006,14 +1035,16 @@
           clocks.forEach(paintWeather);
         }
       }
-      window.dxDashboard.register('clock', widget => {
+      // 桌面上的時鐘天氣卡片（可放好幾張）；回傳移除函式
+      window.dxMountClock = widget => {
         const fields = ['clockTime', 'clockSec', 'clockDate', 'wxIcon', 'wxTemp', 'wxDesc', 'wxMeta', 'wxRefresh'];
-        const clock = Object.fromEntries(fields.map(id => [id, window.dxDashboard.find(widget, id)]));
+        const clock = Object.fromEntries(fields.map(id => [id, widget.querySelector('[data-widget-field="' + id + '"]')]));
         clocks.push(clock);
         clock.wxRefresh.addEventListener('click', load);
         paintTime(clock, new Date(Date.now() + offset));
         paintWeather(clock);
-      });
+        return () => { const i = clocks.indexOf(clock); if (i >= 0) clocks.splice(i, 1); };
+      };
       tick();
       syncTime();
       load();
@@ -1021,32 +1052,303 @@
       setInterval(load, 30 * 60 * 1000);
     })();
 
-    window.clcMountTodos(window.dxDashboard);
   </script>
   <script src="clc-sso.js?v=20261120-entry"></script>
   <script src="header.js?v=20261120-entry"></script>
   <script type="text/plain" data-dx-private>
-    // 分站入口：清單存在 Firestore dx04_settings/apps（所有裝置共用），本機另存一份快取讓畫面先出來。
-    // 管理員：長按任一格進入「編輯模式」（像 iPhone 主畫面）→ 按「−」移除、按「＋」貼網址新增、點 Logo 改名稱或圖示。
-    // 名稱與 Logo 由 /api/site-info 自動抓（和手機「加入主畫面」相同來源）。
-    // 開啟方式：YA、SR 用 CLC_SITES 網址（和左上角 Logo 站台選單相同）；其他網站在 DX04 Header 底下的 open.html 內開啟。
-    const appDialogTemplate = document.getElementById('appDialog').cloneNode(true);
-    window.dxDashboard.register('apps', (widget, area) => {
-      const dashboard = window.dxDashboard;
-      const original = area === 'apps';
-      const template = document.getElementById('appDialog');
-      const dialog = original ? template : dashboard.copy(appDialogTemplate, area);
-      if (!original) document.body.append(dialog);
-      const find = id => dashboard.find(widget, id) || dashboard.find(dialog, id);
-      const inArea = item => (item?.area || 'apps') === area;
+  (() => {
+    // ---------- 共用桌面（shared/desktop）＋工具列（shared/toolbar） ----------
+    // App 每個一格（清單仍在 dx04_settings/apps，所有人共用）；時鐘天氣、待辦是可調大小的卡片（最小 2×2）。
+    // 每人一份：users/{uid}/desktop/home（有哪些卡片）、desktop / phone（排列，手機電腦各一份）。
+    // 第一次打開會把舊的 DX 區塊（瀏覽器 localStorage）轉成新桌面，轉換前先備份到 users/{uid}/desktop_backups。
+    const $id = id => document.getElementById(id);
+    const deskRoot = $id('dxDesk');
+    const isAdmin = () => !!window.isSuperuser;
+    const CARD_TYPES = {
+      clock: { label: '時鐘與天氣', w: 3, h: 2, minW: 2, minH: 2 },
+      todo: { label: '代辦事項', w: 4, h: 4, minW: 2, minH: 2 }
+    };
+    const LEGACY_KEY = 'clc_dx04_dashboard_widgets_v1';
+    let uid = '', cards = [], cardsLoaded = false, migrating = false, pendingAreas = [];
+    const mounted = new Map(); // 卡片 id → { el, dispose }
+    const appApi = {}; // App 區塊（下面）提供：name、openAdd、openEdit、remove
+    const ts = () => firebase.firestore.FieldValue.serverTimestamp();
+    const userDoc = () => window.db.collection('users').doc(uid);
+    const deskRef = name => userDoc().collection('desktop').doc(name);
+    function notice(msg) { const p = $id('dxNotice'); p.textContent = msg || ''; p.hidden = !msg; }
+    function errText(err) {
+      return err && err.code === 'permission-denied'
+        ? '權限不足：請到 Firebase Console 發布最新的 firestore.rules（含 users/{uid}）。' : '請稍後再試。';
+    }
+
+    const cardOf = id => cards.find(c => c.id === id);
+    const cardName = c => (c && (c.title || (c.id === 'todo' ? '今日待辦' : CARD_TYPES[c.type]?.label))) || '這張卡片';
+    function addItems(cell) {
+      if (!isAdmin()) return [];
+      const list = [
+        { label: '新增 APP', run: () => appApi.openAdd(cell) },
+        { label: '新增代辦事項區域', run: () => addCard('todo', cell) },
+        { label: '新增時鐘與天氣', run: () => addCard('clock', cell) }
+      ];
+      cards.filter(c => c.hidden && CARD_TYPES[c.type]).forEach(c => list.push({ label: '復原「' + cardName(c) + '」', run: () => showCard(c.id, cell) }));
+      return list;
+    }
+    const desk = window.clcDesktop(deskRoot, {
+      cols: { desktop: 16, phone: 4 }, cell: { desktop: 104 }, ratio: 1.3, margin: { desktop: 11, phone: 8 },
+      waitLayout: true,
+      canEdit: isAdmin,
+      label: id => appApi.name?.(id) || cardName(cardOf(id)),
+      menu: ({ id, type, cell }) => {
+        if (!isAdmin()) return [];
+        const m = [];
+        if (type === 'app') m.push({ label: '編輯 App', run: () => appApi.openEdit(id) });
+        if (type === 'card' && cardOf(id)?.type === 'todo') m.push({ label: '重新命名', run: () => renameCard(id) });
+        return m.concat(addItems(cell));
+      },
+      onDelete: (id, type) => type === 'card' ? hideCard(id) : appApi.remove(id),
+      saveLayout: (mode, map) => {
+        if (!uid) return;
+        try { localStorage.setItem(layoutKey(mode), JSON.stringify(map)); } catch (_) {}
+        return deskRef(mode).set({ layout: map, updatedAt: ts() });
+      },
+      error: err => notice('桌面排列儲存失敗：' + errText(err))
+    });
+    window.dxDesk = desk;
+    const layoutKey = mode => 'dx_layout_' + mode + '_' + uid;
+
+    // 工具列：Home / Utility（Utility 先空白）
+    const tb = window.clcToolbar($id('dxToolbar'), {
+      tabs: [{ id: 'home', label: 'Home' }, { id: 'utility', label: 'Utility' }],
+      active: 'home', placeholder: '搜尋 App 或卡片內容…', searchHost: $id('dxSearchHost'),
+      onTab: t => {
+        $id('dxHome').hidden = t !== 'home';
+        $id('dxUtility').hidden = t !== 'utility';
+        if (t === 'home') requestAnimationFrame(() => desk.relayout());
+      },
+      addItems: t => t === 'home' ? addItems(null) : [],
+      onSearch: () => runSearch(),
+      onEnter: () => {
+        const id = runSearch().find(x => !cardOf(x));
+        const a = id && desk.element(id)?.querySelector('a[href]');
+        if (a) a.click();
+      }
+    });
+    function runSearch() {
+      const q = tb.value();
+      if (q && tb.tab() !== 'home') tb.setTab('home');
+      const hits = desk.search(q);
+      $id('dxNoResult').hidden = !q || hits.length > 0;
+      return hits;
+    }
+    window.dxRefreshSearch = () => { if (tb.value()) runSearch(); };
+    window.addEventListener('clc-admin-changed', () => tb.refresh());
+
+    // ---------- 卡片：時鐘天氣、今日待辦（沿用 DX 原本的待辦程式，第三階段才換共用 widget） ----------
+    let mountTodo = null;
+    window.clcMountTodos({
+      find: (widget, id) => widget.querySelector('[data-todo-field="' + id + '"]') || widget.querySelector('#' + id),
+      register: (_, init) => { mountTodo = init; },
+      // 雲端有待辦、但桌面上還沒有那個待辦區域 → 補上（同舊版）
+      discoverTodoAreas: discover
+    });
+    function discover(ids) {
+      if (!cardsLoaded) { pendingAreas.push(...ids); return; }
+      const add = ids.filter(id => !cardOf(id));
+      if (!add.length) return;
+      cards = cards.concat(add.map(id => ({ id, type: 'todo', title: '代辦事項' })));
+      syncCards(); saveCards();
+    }
+    function cardEl(c) {
+      const el = document.createElement('section');
+      el.className = 'dx-card dash-widget';
+      el.dataset.widget = c.type;
+      el.dataset.widgetId = c.id;
+      const grip = document.createElement('div');
+      grip.className = 'dx-grip dk-handle';
+      grip.title = '拖曳移動';
+      el.append(grip);
+      if (c.type === 'clock') {
+        el.classList.add('dx-clock');
+        el.setAttribute('aria-label', '時間與天氣');
+        const body = $id('dxClockTpl').content.cloneNode(true);
+        body.querySelectorAll('[id]').forEach(n => { n.dataset.widgetField = n.id; n.removeAttribute('id'); });
+        el.append(body);
+        el.querySelector('.clock-main').classList.add('dk-handle');
+      } else {
+        el.append(window.clcBuildTodoFields(c.id === 'todo' ? undefined : c.id));
+        const h = el.querySelector('h2');
+        if (c.title) h.textContent = c.title;
+        h.classList.add('dk-handle');
+        el.setAttribute('aria-labelledby', h.id);
+      }
+      return el;
+    }
+    function syncCards() {
+      for (const [id, m] of mounted) {
+        if (cards.some(c => c.id === id && !c.hidden)) continue;
+        try { m.dispose?.(); } catch (_) {}
+        desk.drop(id); mounted.delete(id);
+      }
+      for (const c of cards) {
+        if (c.hidden || !CARD_TYPES[c.type]) continue;
+        const m = mounted.get(c.id);
+        if (m) { if (c.type === 'todo') m.el.querySelector('h2').textContent = cardName(c); continue; }
+        const el = cardEl(c), t = CARD_TYPES[c.type];
+        desk.put(c.id, el, { type: 'card', w: t.w, h: t.h, minW: t.minW, minH: t.minH,
+          searchText: () => el.textContent + ' ' + Array.from(el.querySelectorAll('textarea,input'), x => x.value).join(' ') });
+        const dispose = c.type === 'clock' ? window.dxMountClock(el) : mountTodo?.(el, c.id);
+        mounted.set(c.id, { el, dispose });
+      }
+      tb.refresh();
+    }
+    function saveCards() {
+      if (!uid || !cardsLoaded) return;
+      deskRef('home').set({ cards, updatedAt: ts() }, { merge: true }).catch(err => notice('卡片儲存失敗：' + errText(err)));
+    }
+    function addCard(type, cell) {
+      const id = type === 'todo' ? 'area-' + crypto.randomUUID() : 'clock-' + crypto.randomUUID();
+      if (cell) desk.placeNext(cell);
+      cards = cards.concat({ id, type, title: type === 'todo' ? '代辦事項' : '' });
+      syncCards(); saveCards();
+      if (type === 'todo') requestAnimationFrame(() => mounted.get(id)?.el.querySelector('textarea')?.focus({ preventScroll: true }));
+    }
+    // 刪除＝收起來（待辦資料留著），選單可「復原」（同舊版）
+    function hideCard(id) { cards = cards.map(c => c.id === id ? { ...c, hidden: true } : c); syncCards(); saveCards(); }
+    function showCard(id, cell) { if (cell) desk.placeNext(cell); cards = cards.map(c => c.id === id ? { ...c, hidden: false } : c); syncCards(); saveCards(); }
+    function renameCard(id) {
+      const c = cardOf(id); if (!c) return;
+      const t = prompt('區域名稱', cardName(c));
+      if (t === null || !t.trim()) return;
+      cards = cards.map(x => x.id === id ? { ...x, title: t.trim().slice(0, 30) } : x);
+      syncCards(); saveCards();
+    }
+
+    // ---------- 舊 DX 區塊 → 新桌面（轉換前先備份到 Firebase） ----------
+    function legacyData() { try { return JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null'); } catch (_) { return null; } }
+    function legacyCards(w) {
+      const list = Array.isArray(w?.widgets) ? w.widgets : [{ id: 'clock', type: 'clock' }, { id: 'todo', type: 'todo' }];
+      const out = list.filter(x => x && x.id && CARD_TYPES[x.type])
+        .map(x => ({ id: String(x.id), type: x.type, title: String(x.title || '').slice(0, 30), hidden: !!x.hidden }));
+      if (!out.some(c => c.type === 'clock')) out.unshift({ id: 'clock', type: 'clock', title: '' });
+      if (!out.some(c => c.id === 'todo')) out.push({ id: 'todo', type: 'todo', title: '' });
+      return out;
+    }
+    // 卡片依舊版電腦排列的順序（上到下、左到右）放在上面；App 自動補進其他空格
+    function legacyLayout(list, w) {
+      const old = w?.layout?.desktop || {}, cols = Math.max(6, Math.floor((deskRoot.clientWidth || 1040) / 104));
+      const at = (id, k) => old[id]?.[k] ?? 99;
+      const map = {}; let x = 0, y = 0, rowH = 0;
+      list.filter(c => !c.hidden).sort((a, b) => (at(a.id, 'y') - at(b.id, 'y')) || (at(a.id, 'x') - at(b.id, 'x'))).forEach(c => {
+        const t = CARD_TYPES[c.type];
+        if (x + t.w > cols) { x = 0; y += rowH; rowH = 0; }
+        map[c.id] = { x, y, w: t.w, h: t.h }; x += t.w; rowH = Math.max(rowH, t.h);
+      });
+      return map;
+    }
+    async function backupLegacy(w, note) {
+      let apps = [];
+      try { const s = await window.db.collection('dx04_settings').doc('apps').get(); apps = s.exists ? s.data().items || [] : []; } catch (_) {}
+      if (JSON.stringify(apps).length > 700000) apps = apps.map(a => /^data:/.test(a.icon || '') ? { ...a, icon: '' } : a); // 避免超過 Firestore 1MB
+      const ref = await userDoc().collection('desktop_backups').add({
+        source: 'dx-dashboard-v1', note, device: navigator.userAgent.slice(0, 200),
+        widgets: w ? JSON.stringify(w) : '',
+        legacyDesktop: localStorage.getItem('clc_dx04_widget_desktop_slots_v1') || '',
+        legacyMobile: localStorage.getItem('clc_dx04_widget_order') || '',
+        apps, createdAt: ts()
+      });
+      try { localStorage.setItem('dx_desk_backup_' + uid, ref.id); } catch (_) {}
+      return ref.id;
+    }
+    async function migrate() {
+      if (migrating) return;
+      migrating = true;
+      try {
+        if ((await deskRef('home').get({ source: 'server' })).exists) return; // 另一台裝置已轉換過
+        const w = legacyData(), list = legacyCards(w);
+        const backupId = await backupLegacy(w, '轉換前自動備份');
+        const batch = window.db.batch();
+        if (!(await deskRef('desktop').get()).exists) batch.set(deskRef('desktop'), { layout: legacyLayout(list, w), updatedAt: ts() });
+        batch.set(deskRef('home'), { cards: list, migratedAt: ts(), backupId, updatedAt: ts() });
+        await batch.commit();
+      } catch (err) {
+        console.warn('DX 桌面轉換失敗', err);
+        notice('舊卡片轉換失敗（尚未改動任何資料）：' + errText(err));
+        useCards(legacyCards(legacyData()), false); // 先照舊卡片顯示，不存
+      } finally { migrating = false; }
+    }
+    // 其他裝置第一次打開時，也把那台瀏覽器的舊區塊備份一份（不改動桌面）
+    function backupThisDevice() {
+      const w = legacyData();
+      try { if (!w || localStorage.getItem('dx_desk_backup_' + uid)) return; } catch (_) { return; }
+      backupLegacy(w, '其他裝置的舊區塊備份').catch(err => console.warn('舊區塊備份失敗', err));
+    }
+    // 還原：把最新（或指定）備份寫回這台瀏覽器的舊區塊資料，再重新轉換一次（在主控台執行 dxDesktopRestore()）
+    window.dxDesktopRestore = async backupId => {
+      if (!uid) return '尚未登入';
+      const col = userDoc().collection('desktop_backups');
+      const snap = backupId ? await col.doc(backupId).get() : (await col.orderBy('createdAt', 'desc').limit(1).get()).docs[0];
+      if (!snap || !snap.exists) return '找不到備份';
+      if (!confirm('要用 ' + (snap.data().createdAt?.toDate?.().toLocaleString('zh-TW') || '') + ' 的備份重新建立 DX 桌面嗎？目前的卡片與排列會被取代。')) return '已取消';
+      const d = snap.data();
+      try {
+        if (d.widgets) localStorage.setItem(LEGACY_KEY, d.widgets);
+        ['desktop', 'phone'].forEach(m => localStorage.removeItem(layoutKey(m)));
+      } catch (_) {}
+      const batch = window.db.batch();
+      ['home', 'desktop', 'phone'].forEach(n => batch.delete(deskRef(n)));
+      await batch.commit();
+      location.reload();
+      return '已還原';
+    };
+    function useCards(list, loaded) {
+      cards = list; cardsLoaded = loaded;
+      if (loaded && pendingAreas.length) { const ids = pendingAreas; pendingAreas = []; discover(ids); }
+      syncCards();
+    }
+
+    // ---------- 讀取（登入後） ----------
+    let unsubs = [];
+    function start(user) {
+      const next = user ? user.uid : '';
+      if (next === uid) return;
+      unsubs.forEach(f => f()); unsubs = []; uid = next;
+      if (!uid || !window.db) return;
+      ['desktop', 'phone'].forEach(mode => {
+        let cached = null; try { cached = JSON.parse(localStorage.getItem(layoutKey(mode)) || 'null'); } catch (_) {}
+        if (cached) desk.setLayout(mode, cached);
+        unsubs.push(deskRef(mode).onSnapshot(snap => {
+          if (snap.metadata.hasPendingWrites) return;
+          const map = snap.exists ? snap.data().layout || null : null;
+          try { if (map) localStorage.setItem(layoutKey(mode), JSON.stringify(map)); } catch (_) {}
+          desk.setLayout(mode, map);
+        }, err => { console.warn('桌面排列讀取失敗（沿用這台裝置的排列）', err); if (!cached) desk.setLayout(mode, null); }));
+      });
+      unsubs.push(deskRef('home').onSnapshot(snap => {
+        if (snap.metadata.hasPendingWrites) return;
+        if (!snap.exists) return snap.metadata.fromCache ? undefined : migrate(); // 只有伺服器確認沒有才轉換
+        notice('');
+        const list = (Array.isArray(snap.data().cards) ? snap.data().cards : []).filter(c => c && c.id && CARD_TYPES[c.type]);
+        useCards(list, true);
+        backupThisDevice();
+      }, err => {
+        console.warn('桌面卡片讀取失敗', err);
+        notice('桌面資料讀不到：' + errText(err));
+        useCards(legacyCards(legacyData()), false);
+      }));
+    }
+
+    {
+      // ---------- App（每個一格；清單 dx04_settings/apps，舊的 area 欄位保留不動，新桌面不分區） ----------
+      const original = true;
+      const dialog = document.getElementById('appDialog');
+      const find = id => document.getElementById(id);
+      const inArea = () => true;
       const validItem = item => item && item.id && item.name;
       const fingerprint = items => JSON.stringify(items, (key, value) => {
         if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
         return Object.fromEntries(Object.keys(value).sort().map(k => [k, value[k]]));
       });
-      const grid = find('siteGrid');
-      const hint = find('appsAdminHint');
-      const doneBtn = find('appsDoneBtn');
+      const grid = deskRoot;
       const CACHE_KEY = 'clc_dx04_apps';
       const MAX_APPS = 40;
       const DEFAULT_APPS = [
@@ -1060,7 +1362,6 @@
         if (Array.isArray(cached)) apps = cached.filter(validItem).filter(inArea);
       } catch (_) {}
 
-      const isAdmin = () => !!window.isSuperuser; // 只有 Superuser 可以編輯分站入口
       // 只接受 http(s) 或站內路徑，避免 javascript: 之類的連結。
       function safeUrl(value) {
         const v = String(value || '').trim();
@@ -1234,42 +1535,36 @@
         return img;
       }
 
-      // 格子（長按晃動、拖到空格、互換位置）用四站共用的 js/clc-slot-grid.js；只有 Superuser 可以編輯。
-      function renderTile(app, editing) {
+      // 每個 App 一格（圖示＋名稱，同 LF）
+      function renderTile(app) {
         const a = document.createElement('a');
-        a.className = 'app-tile';
+        a.className = 'dx-app';
         const link = linkFor(app);
         a.href = link.href;
         if (link.newTab) { a.target = '_blank'; a.rel = 'noopener'; }
         a.title = app.name;
-        a.setAttribute('aria-label', editing ? '編輯 ' + app.name : app.name);
-        a.dataset.appId = app.id;
-        a.append(logo(app));
+        a.setAttribute('aria-label', app.name);
+        const icon = document.createElement('span');
+        icon.className = 'app-tile';
+        icon.dataset.appId = app.id;
+        icon.append(logo(app));
+        const name = document.createElement('span');
+        name.className = 'dx-name';
+        name.textContent = app.name;
+        a.append(icon, name);
         return a;
       }
-      let addPos = null;
-      const addBtn = find('appsAddBtn');
-      const slots = window.clcSlotGrid(grid, {
-        minSlots: cols => Math.max(cols * 2, (addPos ?? -1) + 1), reserveEmptyRow: false, reserveEmptySlot: true, addOnClick: true, cellClass: 'app-cell', emptyClass: 'app-slot', removeClass: 'app-remove',
-        doneButton: doneBtn,
-        canEdit: isAdmin,
-        getItems: () => apps,
-        renderTile,
-        save: persist,
-        error: err => alert('排列儲存失敗：' + errorText(err)),
-        onAdd: openAdd,
-        onEdit: id => openEdit(id),
-        onRemove: id => removeApp(id)
-      });
+      let addPos = null, shown = new Set();
       function render() {
-        slots.render();
-        if (addPos !== null) grid.querySelector('.app-slot[data-slot="' + addPos + '"]')?.classList.add('is-app-add-target');
-        addBtn.hidden = !isAdmin();
-        addBtn.disabled = apps.length >= MAX_APPS;
-        hint.classList.add('hidden');
+        const keep = new Set(apps.map(a => a.id));
+        shown.forEach(id => { if (!keep.has(id)) desk.drop(id); });
+        apps.forEach(app => desk.put(app.id, renderTile(app), { type: 'app', searchText: () => app.name + ' ' + (app.url || '') }));
+        shown = keep;
+        tb.refresh();
+        window.dxRefreshSearch();
         queueIconRefresh();
       }
-      const withPos = () => window.clcSlotGridNormalize(apps);
+      const withPos = () => apps.slice();
 
       // ---------- 儲存 ----------
       async function persist(next) {
@@ -1302,7 +1597,7 @@
       }
       async function removeApp(id) {
         const app = apps.find(a => a.id === id);
-        if (!app) return; // 編輯模式下按「−」直接移除，不再二次確認（下方有「完成」）
+        if (!app) return; // 已在刪除確認框確認過
         try { await persist(withPos().filter(a => a.id !== id)); }
         catch (err) { console.warn('分站移除失敗', err); alert(errorText(err)); }
       }
@@ -1348,37 +1643,19 @@
         onClear: () => { setUploaded(''); updatePreview(); },
         onError: showError
       }) : null;
-      function openAdd(pos) {
-        if (!isAdmin() || dialog.open || apps.length >= MAX_APPS) return;
-        addPos = pos;
-        render();
-        const cell = grid.querySelector('[data-slot="' + pos + '"]');
-        if (cell) {
-          const content = grid.closest('.widget-content');
-          if (getComputedStyle(content).overflowY === 'clip' &&
-              cell.getBoundingClientRect().bottom > content.getBoundingClientRect().bottom) {
-            dashboard.reveal(widget);
-          }
-          cell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-        }
-        openEdit(null, cell);
+      function openAdd(cell) {
+        if (!isAdmin() || dialog.open) return;
+        if (apps.length >= MAX_APPS) return alert('最多 ' + MAX_APPS + ' 個 App。');
+        if (cell) desk.placeNext(cell);
+        openEdit(null);
       }
-      addBtn.addEventListener('click', () => {
-        const occupied = new Set(withPos().map(app => app.pos));
-        let pos = 0;
-        while (occupied.has(pos)) pos++;
-        openAdd(pos);
-      });
       dialog.addEventListener('close', () => {
         clearTimeout(fetchTimer);
         fetchSeq++;
         dialog.classList.remove('is-slot-anchored');
         dialog.style.removeProperty('top');
         dialog.style.removeProperty('left');
-        if (addPos !== null) {
-          addPos = null;
-          render();
-        }
+        desk.placeNext(null);
       });
       function openEdit(id, anchor) {
         if (!isAdmin() || dialog.open) return;
@@ -1496,7 +1773,12 @@
         finish?.();
         console.warn('分站清單無法連線資料庫', err);
       }
-    });
+      Object.assign(appApi, { openAdd, openEdit, remove: removeApp, name: id => apps.find(a => a.id === id)?.name || '' });
+    }
+    // 登入狀態（header.js 的 Firebase auth）
+    start(window.auth?.currentUser);
+    window.auth?.onAuthStateChanged?.(start);
+  })();
   </script>
   <script>
     // 安裝事件須在登入前監聽，避免錯過 beforeinstallprompt 與 window.load。
