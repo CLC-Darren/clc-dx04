@@ -1,0 +1,28 @@
+/* CLC 共用工具列 v1。顏色跟著各站 CSS 變數（--btn --border --muted --pine --text --bg），沒有就用預設值。 */
+.clc-tb { display:flex; flex-wrap:nowrap; align-items:center; gap:10px; }
+.clc-tb-tabs { display:inline-flex; gap:4px; padding:4px; border-radius:9999px; background:var(--btn, rgba(0,0,0,.05)); border:1px solid var(--border, rgba(0,0,0,.1)); }
+.clc-tb-tabs > button { position:relative; border:0; background:none; padding:8px 16px; border-radius:9999px; font:inherit; font-size:14px; font-weight:700; color:var(--muted, #777); cursor:pointer; }
+.clc-tb-tabs > button[aria-selected="true"] { background:var(--pine, #2F5D50); color:#fff; }
+.clc-tb-tabs > .clc-tb-icon { padding:8px 12px; display:inline-flex; align-items:center; }
+.clc-tb-tabs > .clc-tb-icon svg { width:16px; height:16px; }
+.clc-tb-tabs > .clc-tb-icon[aria-expanded="true"] { background:var(--pine, #2F5D50); color:#fff; }
+.clc-tb-dot { position:absolute; top:5px; right:6px; width:7px; height:7px; border-radius:50%; background:#D9534F; }
+.clc-tb-dot[hidden] { display:none; }
+.clc-tb-add { position:relative; }
+.clc-tb-btn { flex:none; width:40px; height:40px; border-radius:50%; border:1px solid var(--border, rgba(0,0,0,.1)); background:var(--btn, rgba(0,0,0,.05)); color:var(--muted, #777); cursor:pointer; display:grid; place-items:center; }
+.clc-tb-btn svg { width:18px; height:18px; }
+.clc-tb-btn[hidden] { display:none; }
+.clc-tb-menu { position:absolute; right:0; top:calc(100% + 8px); z-index:60; width:180px; padding:6px; border-radius:14px; background:var(--bg, #fff); border:1px solid var(--border, rgba(0,0,0,.12)); box-shadow:0 12px 32px rgba(0,0,0,.2); display:flex; flex-direction:column; }
+.clc-tb-menu[hidden] { display:none; }
+.clc-tb-menu button { text-align:left; border:0; background:none; color:var(--text, #222); font:inherit; font-size:14px; font-weight:600; padding:10px 12px; border-radius:10px; cursor:pointer; }
+.clc-tb-menu button:hover { background:var(--btn, rgba(0,0,0,.06)); }
+.clc-tb-search { display:flex; align-items:center; gap:10px; height:48px; padding:0 8px 0 16px; margin:0 0 16px; max-width:780px; border-radius:16px; border:1px solid var(--border, rgba(0,0,0,.12)); background:var(--btn, rgba(0,0,0,.03)); }
+.clc-tb-search[hidden] { display:none; }
+.clc-tb-search:focus-within { border-color:var(--pine, #2F5D50); }
+.clc-tb-search svg { width:18px; height:18px; flex:none; color:var(--muted, #777); }
+.clc-tb-search input { flex:1; min-width:0; height:100%; border:0; outline:none; background:transparent; font:inherit; font-size:15px; color:var(--text, #222); }
+.clc-tb-search input::-webkit-search-cancel-button { display:none; }
+.clc-tb-search button { flex:none; width:32px; height:32px; border:0; border-radius:10px; background:none; color:var(--muted, #777); cursor:pointer; font-size:16px; }
+.clc-tb-search button[hidden] { display:none; }
+@media (max-width:430px) { .clc-tb { gap:8px; } .clc-tb-tabs > button { padding:8px 12px; } .clc-tb-tabs > .clc-tb-icon { padding:8px 10px; } }
+@media (max-width:380px) { .clc-tb { gap:6px; } .clc-tb-tabs > button { padding:7px 10px; font-size:13px; } .clc-tb-btn { width:36px; height:36px; } }

@@ -1,0 +1,4 @@
+# 共用程式讓其他網域（linfamily.pages.dev 等）載入
+/shared/*
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=300

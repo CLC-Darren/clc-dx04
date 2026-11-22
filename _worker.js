@@ -459,7 +459,13 @@ export default {
     }
 
     if (env.ASSETS && env.ASSETS.fetch) {
-      return injectLfBack(await env.ASSETS.fetch(request));
+      const res = await env.ASSETS.fetch(request);
+      if (url.pathname.startsWith('/shared/')) { // 共用程式：允許其他網域載入
+        const out = new Response(res.body, res);
+        out.headers.set('Access-Control-Allow-Origin', '*');
+        return out;
+      }
+      return injectLfBack(res);
     }
     return new Response('Not found', { status: 404 });
   }

@@ -1,0 +1,31 @@
+/* CLC 共用桌面 v1：格子、抖動、長按選單、刪除確認。顏色跟著各站 CSS 變數（--text --bg --btn --border --pine），沒有就用預設值。 */
+.dk-root { min-height:calc(100dvh - var(--dk-top, 240px)); -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+.dk-root .grid-stack-item-content { overflow:visible; }
+.dk-root .dk-card > .grid-stack-item-content { overflow:auto; border-radius:18px; }
+.dk-root .dk-app > .grid-stack-item-content { display:grid; place-items:center; cursor:grab; touch-action:pan-y; }
+.dk-root .dk-app a, .dk-root .dk-app img { -webkit-user-drag:none; -webkit-touch-callout:none; }
+.dk-root .dk-card textarea, .dk-root .dk-card input, .dk-root .dk-card [contenteditable] { -webkit-user-select:text; user-select:text; }
+.dk-root .grid-stack-item.ui-draggable-dragging > .grid-stack-item-content { cursor:grabbing; opacity:.9; }
+.dk-root > .grid-stack-placeholder > .placeholder-content { border:2px dashed var(--border, rgba(127,127,127,.4)); border-radius:18px; background:transparent; }
+/* 長按／拖曳時一起抖動 */
+@keyframes dkWiggle { 0% { transform:rotate(-1.4deg); } 100% { transform:rotate(1.4deg); } }
+.dk-wiggle .dk-item > .grid-stack-item-content { animation:dkWiggle .14s ease-in-out infinite alternate; }
+.dk-wiggle .dk-item:nth-child(2n) > .grid-stack-item-content { animation-delay:-.07s; }
+.dk-wiggle .dk-card > .grid-stack-item-content { animation-name:dkWiggleS; }
+@keyframes dkWiggleS { 0% { transform:rotate(-.4deg); } 100% { transform:rotate(.4deg); } }
+@media (prefers-reduced-motion:reduce) { .dk-wiggle .dk-item > .grid-stack-item-content { animation:none; } }
+/* 搜尋：不符合的變淡 */
+.dk-searching .dk-dim { opacity:.15; pointer-events:none; transition:opacity .15s; }
+/* 選單 */
+.dk-menu { position:fixed; z-index:1000; min-width:168px; padding:6px; border-radius:14px; background:var(--bg, #fff); color:var(--text, #222);
+  border:1px solid var(--border, rgba(0,0,0,.12)); box-shadow:0 12px 32px rgba(0,0,0,.22); display:flex; flex-direction:column; }
+.dk-menu button { text-align:left; border:0; background:none; color:inherit; font:inherit; font-size:14px; font-weight:600; padding:10px 12px; border-radius:10px; cursor:pointer; }
+.dk-menu button:hover, .dk-menu button:focus-visible { background:var(--btn, rgba(0,0,0,.06)); outline:none; }
+.dk-danger { color:#B5483D !important; }
+/* 刪除確認 */
+.dk-confirm { border:1px solid var(--border, rgba(0,0,0,.12)); border-radius:18px; padding:20px 22px 16px; background:var(--bg, #fff); color:var(--text, #222); min-width:260px; }
+.dk-confirm::backdrop { background:rgba(0,0,0,.35); }
+.dk-confirm p { margin:0 0 16px; font-size:15px; font-weight:700; }
+.dk-confirm .dk-actions { display:flex; justify-content:flex-end; gap:8px; }
+.dk-confirm button { border:1px solid var(--border, rgba(0,0,0,.12)); background:var(--btn, #f3f3f3); color:inherit; font:inherit; font-weight:700; padding:8px 16px; border-radius:9999px; cursor:pointer; }
+.dk-confirm button.dk-danger { background:#B5483D; border-color:#B5483D; color:#fff !important; }
