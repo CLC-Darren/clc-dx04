@@ -34,6 +34,7 @@
 
     function norm(m) { return m ? JSON.stringify(Object.keys(m).sort().map(function (k) { var p = m[k] || {}; return [k, p.x, p.y, p.w, p.h]; })) : ''; }
     function cols() { return COLS[mode]; }
+    function marg() { var m = opts.margin == null ? 6 : opts.margin; return typeof m === 'object' ? m[mode] : m; }
     function clampPos(p, o) {
       var c = cols(), w = o.type === 'app' ? 1 : Math.max(2, Math.min(p.w || 2, c)), h = o.type === 'app' ? 1 : Math.max(1, p.h || 1);
       return { x: Math.max(0, Math.min(p.x, c - w)), y: Math.max(0, p.y), w: w, h: h };
@@ -100,8 +101,10 @@
     }
     function sizeCells() {
       if (!grid) return;
-      var w = root.clientWidth || window.innerWidth, ch = Math.round(w / cols());
-      grid.cellHeight(Math.min(opts.maxCell || 128, ch));
+      // 格子寬＝root 寬／欄數（root 的最大寬度由各站 CSS 決定）；高＝寬 × ratio（App 圖示＋名稱）
+      var w = root.clientWidth || window.innerWidth, cw = w / cols();
+      grid.cellHeight(Math.round(cw * (opts.ratio || 1)));
+      grid.margin(marg());
     }
 
     // ---------- 選單與刪除確認 ----------
@@ -111,7 +114,7 @@
       var list = (opts.menu ? opts.menu({ id: id, type: id ? items.get(id).type : null, cell: cell }) : []) || [];
       if (id && opts.onDelete) list = list.concat([{ label: '刪除', danger: true, run: function () { confirmDelete(id); } }]);
       if (!list.length) return;
-      root.classList.add('dk-wiggle');
+      if (id) root.classList.add('dk-wiggle'); // 只有可刪除的格子才抖
       menuEl = document.createElement('div'); menuEl.className = 'dk-menu'; menuEl.setAttribute('role', 'menu');
       list.forEach(function (m) {
         var b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'menuitem'); b.textContent = m.label;
@@ -168,7 +171,6 @@
       lp.timer = setTimeout(function () {
         lp.armed = true; if (navigator.vibrate) navigator.vibrate(12);
         openMenu(lp.sx, lp.sy, lp.id, lp.id ? null : cellAt(lp.sx, lp.sy));
-        root.classList.add('dk-wiggle');
       }, opts.longPress || 500);
     }, { capture: true, passive: true });
     root.addEventListener('touchmove', function (e) {
@@ -178,7 +180,7 @@
       e.preventDefault(); e.stopPropagation();
       if (!lp.handle) return;
       if (!lp.drag && moved > 8) {
-        if (menuEl) { menuEl.remove(); menuEl = null; }
+        closeMenu();
         lp.drag = true; mouse('mousedown', lp.handle, lp.sx, lp.sy);
       }
       if (lp.drag) mouse('mousemove', document, t.clientX, t.clientY);
@@ -187,7 +189,7 @@
       clearTimeout(lp.timer);
       if (lp.armed) {
         if (e.cancelable) e.preventDefault(); e.stopPropagation();
-        if (lp.drag) { var t = e.changedTouches[0]; mouse('mouseup', document, t.clientX, t.clientY); root.classList.remove('dk-wiggle'); }
+        if (lp.drag) { var t = e.changedTouches[0]; mouse('mouseup', document, t.clientX, t.clientY); }
       }
       lp.armed = false; lp.drag = false; lp.handle = null;
       setTimeout(function () { lp.touch = false; }, 600);
@@ -198,11 +200,11 @@
     // ---------- 啟動 ----------
     var ready = loadGridstack().then(function () {
       grid = GridStack.init({
-        column: cols(), cellHeight: 100, margin: opts.margin == null ? 6 : opts.margin, float: true, animate: true,
+        column: cols(), cellHeight: 100, margin: marg(), float: true, animate: true,
         handle: '.dk-handle', resizable: { handles: 'se' }
       }, root);
-      grid.on('dragstart resizestart', function () { if (menuEl) { menuEl.remove(); menuEl = null; } root.classList.add('dk-wiggle'); });
-      grid.on('dragstop resizestop', function () { justDragged = Date.now(); if (!menuEl) root.classList.remove('dk-wiggle'); });
+      grid.on('dragstart resizestart', function () { closeMenu(); }); // 移動時不抖動
+      grid.on('dragstop resizestop', function () { justDragged = Date.now(); });
       grid.on('change', queueSave);
       relayout();
     }).catch(function (e) { console.warn('gridstack 載入失敗', e); opts.error && opts.error(e); });
