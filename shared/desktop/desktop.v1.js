@@ -34,6 +34,14 @@
 
     function norm(m) { return m ? JSON.stringify(Object.keys(m).sort().map(function (k) { var p = m[k] || {}; return [k, p.x, p.y, p.w, p.h]; })) : ''; }
     function cols() { return COLS[mode]; }
+    // gridstack 10 的 CSS 只到 12 欄：其他欄數自己補寬度與位置，不然格子寬度會是 0
+    function colCss(n) {
+      if (n <= 12 || document.getElementById('dk-gs-' + n)) return;
+      var s = '.gs-' + n + '>.grid-stack-item{width:' + (100 / n) + '%}';
+      for (var i = 1; i <= n; i++) s += '.gs-' + n + '>.grid-stack-item[gs-x="' + i + '"]{left:' + (100 * i / n) + '%}.gs-' + n + '>.grid-stack-item[gs-w="' + i + '"]{width:' + (100 * i / n) + '%}';
+      var st = document.createElement('style'); st.id = 'dk-gs-' + n; st.textContent = s; document.head.appendChild(st);
+    }
+    colCss(COLS.desktop); colCss(COLS.phone);
     function marg() { var m = opts.margin == null ? 6 : opts.margin; return typeof m === 'object' ? m[mode] : m; }
     function clampPos(p, o) {
       var c = cols(), w = o.type === 'app' ? 1 : Math.max(2, Math.min(p.w || 2, c)), h = o.type === 'app' ? 1 : Math.max(1, p.h || 1);
