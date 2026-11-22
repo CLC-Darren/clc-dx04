@@ -210,29 +210,34 @@
     .dark .dx-card { background:#161924; border-color:rgba(255,255,255,.1); }
     .dx-card .todo-scroll { flex:1 1 0; min-height:0; }
     .dx-card h2.dk-handle, .dx-card .clock-main.dk-handle { cursor:grab; }
-    .dx-clock { overflow:auto; container-type:size; }
-    .dx-clock-inner { display:flex; flex-direction:column; gap:14px; }
-    @container (min-width:380px) {
-      .dx-clock-inner { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr); align-items:center; gap:12px; }
-      .dx-clock .clock-weather { border-top:0; border-left:1px solid rgba(148,163,184,.25); padding-top:0; padding-left:12px; }
+    /* 時鐘卡片：字和圖示跟著卡片大小縮放（container 單位）。扁長＝左右兩半平均；接近方形或直的＝上下排（同 Android 天氣小工具）；1 格高＝只留時間和天氣 */
+    .dx-clock { overflow:hidden; container-type:size; }
+    #dxDesk .dx-clock-inner { flex:1 1 auto; min-height:0; display:grid; grid-template-columns:minmax(0,1fr); align-content:center; justify-items:center; text-align:center; gap:min(5cqh,18px); }
+    #dxDesk .dx-clock .clock-main { min-width:0; }
+    #dxDesk .dx-clock .clock-main > p:first-child { justify-content:center; }
+    #dxDesk .dx-clock [data-widget-field="clockTime"] { font-size:clamp(28px, min(24cqw, 22cqh), 120px); line-height:1; }
+    #dxDesk .dx-clock [data-widget-field="clockSec"] { font-size:clamp(12px, min(7cqw, 6.5cqh), 40px); }
+    #dxDesk .dx-clock [data-widget-field="clockDate"] { font-size:clamp(11px, min(4.5cqw, 4.5cqh), 20px); line-height:1.4; margin-top:.35em; }
+    #dxDesk .dx-clock .clock-weather { min-width:0; border:0; padding:0; justify-content:center; gap:min(3cqw,14px); }
+    #dxDesk .dx-clock .clock-weather > div:last-child { flex:0 1 auto; text-align:left; }
+    #dxDesk .dx-clock .clock-weather > div:last-child > p:first-child { flex-wrap:nowrap; white-space:nowrap; gap:.3em; }
+    #dxDesk .dx-clock [data-widget-field="wxIcon"] { width:clamp(24px, min(16cqw, 15cqh), 96px); height:clamp(24px, min(16cqw, 15cqh), 96px); }
+    #dxDesk .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(20px, min(13cqw, 11cqh), 64px); line-height:1.05; }
+    #dxDesk .dx-clock [data-widget-field="wxDesc"] { font-size:clamp(12px, min(5cqw, 5cqh), 24px); }
+    #dxDesk .dx-clock [data-widget-field="wxMeta"] { display:block; font-size:clamp(11px, min(3.6cqw, 3.8cqh), 16px); }
+    @container (min-aspect-ratio: 3/2) {
+      #dxDesk .dx-clock-inner { grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:0; }
+      #dxDesk .dx-clock .clock-weather { justify-self:stretch; align-self:stretch; border-left:1px solid rgba(148,163,184,.25); padding-left:min(3cqw,16px); }
+      #dxDesk .dx-clock [data-widget-field="clockTime"] { font-size:clamp(26px, min(13cqw, 36cqh), 120px); }
+      #dxDesk .dx-clock [data-widget-field="clockSec"] { font-size:clamp(11px, min(4cqw, 11cqh), 40px); }
+      #dxDesk .dx-clock [data-widget-field="clockDate"] { font-size:clamp(11px, min(2.8cqw, 8cqh), 20px); }
+      #dxDesk .dx-clock [data-widget-field="wxIcon"] { width:clamp(22px, min(8.5cqw, 28cqh), 96px); height:clamp(22px, min(8.5cqw, 28cqh), 96px); }
+      #dxDesk .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(18px, min(7cqw, 22cqh), 64px); }
+      #dxDesk .dx-clock [data-widget-field="wxDesc"] { font-size:clamp(12px, min(3cqw, 9cqh), 24px); }
+      #dxDesk .dx-clock [data-widget-field="wxMeta"] { font-size:clamp(11px, min(2.2cqw, 6cqh), 16px); }
     }
-    @container (max-width:279px) {
-      .dx-clock [data-widget-field="clockTime"] { font-size:40px; }
-      .dx-clock [data-widget-field="clockSec"] { font-size:16px; }
-      .dx-clock .clock-weather { padding-top:12px; gap:10px; }
-      .dx-clock [data-widget-field="wxIcon"] { width:36px; height:36px; }
-    }
-    /* 時鐘卡片收到一格高時：時間和天氣並排，日期、地點不顯示 */
     @container (max-height:150px) {
-      .dx-clock-inner { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:14px; }
-      .dx-clock .clock-weather { border-top:0; border-left:1px solid rgba(148,163,184,.25); padding-top:0; padding-left:14px; gap:10px; }
-      .dx-clock [data-widget-field="clockTime"] { font-size:34px; }
-      .dx-clock [data-widget-field="clockSec"] { font-size:14px; }
-      .dx-clock :is([data-widget-field="clockDate"], [data-widget-field="wxMeta"]) { display:none; }
-      .dx-clock [data-widget-field="wxIcon"] { width:30px; height:30px; }
-      .dx-clock [data-widget-field="wxTemp"] { font-size:22px; }
-      .dx-clock-inner { flex:1 1 auto; align-content:center; } /* 精簡版上下置中 */
-      .dx-clock .clock-weather p:first-child { flex-wrap:nowrap; white-space:nowrap; } /* 溫度和天氣同一行 */
+      #dxDesk .dx-clock :is([data-widget-field="clockDate"], [data-widget-field="wxMeta"]) { display:none; }
     }
     .todo-area-drop { outline:2px solid #00a3b4 !important; outline-offset:2px; }
     .todo-drop-before { box-shadow: inset 0 2px #00a3b4; }
@@ -1078,7 +1083,7 @@
     })();
 
   </script>
-  <script src="clc-sso.js?v=20261122-desk"></script>
+  <script src="clc-sso.js?v=20261122-swipe"></script>
   <script src="header.js?v=20261120-entry"></script>
   <script type="text/plain" data-dx-private>
   (() => {

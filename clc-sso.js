@@ -400,7 +400,8 @@
     // 三站都是整個畫面都能滑（Header 除外；左右各留 10% 給瀏覽器的返回手勢）。
     // 從連結、App 圖示、待辦上開始滑也可以：輕點照常、長按照常（拖曳排序開始後就不會切站）。
     function blocked(node) {
-      const controls = 'button:not(.ha-tile):not(.slot-empty), input, textarea, select, dialog, [role="dialog"], [contenteditable="true"], .ha-menu, .slot-remove, .todo-trash, .todo-minus, .drag-handle, .reorder-handle, iframe, video, audio, .dk-card, .ui-resizable-handle'; // 桌面卡片上（含調整大小）不換站
+      // 像 Android 桌面：按鈕、App、卡片上都能開始滑；只有輸入框、對話框、影音、調整大小把手、可左右捲的區塊不滑（長按選單、選取、拖曳中由 canSwipe 擋）
+      const controls = 'input, textarea, select, dialog, [role="dialog"], [contenteditable="true"], iframe, video, audio, .ui-resizable-handle';
       if (node.closest(controls)) return true;
       for (let el = node; el && el !== document.body; el = el.parentElement) {
         if (el.scrollWidth > el.clientWidth + 4 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
