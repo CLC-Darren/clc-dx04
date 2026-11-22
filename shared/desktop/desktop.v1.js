@@ -32,7 +32,7 @@
 
     root.classList.add('grid-stack', 'dk-root');
 
-    function norm(m) { return m ? JSON.stringify(Object.keys(m).sort().map(function (k) { var p = m[k] || {}; return [k, p.x, p.y, p.w, p.h]; })) : ''; }
+    function norm(m) { return m ? JSON.stringify(m.__byCols || null) + JSON.stringify(Object.keys(m).filter(function (k) { return k.slice(0, 2) !== '__'; }).sort().map(function (k) { var p = m[k] || {}; return [k, p.x, p.y, p.w, p.h]; })) : ''; }
     // opts.cell[mode]：格子固定寬（px）→ 欄數＝畫面放得下幾格（電腦版 App 大小不隨視窗變）；沒設就用固定欄數 COLS
     var CELL = opts.cell || {}, curCols = 0, temp = {};
     function calcCols() {
@@ -62,11 +62,18 @@
       var c = cols(); return { w: Math.min(c, Math.max(minW(o), o.opt.w || 4)), h: Math.max(minH(o), o.opt.h || 3) };
     }
     // 手機第一次：用電腦版的順序（上到下、左到右）
+    // 電腦版：每個欄數（視窗放得下幾格）各記一份 __byCols[欄數]；這個欄數沒調整過 → 用欄數最接近的那份照順序排（不自動存）
+    function byOrder(src) { return { __order: Object.keys(src).filter(function (k) { return k.slice(0, 2) !== '__'; }).sort(function (a, b) { return (src[a].y - src[b].y) || (src[a].x - src[b].x); }) }; }
     function currentMap() {
       var m = layouts[mode];
+      if (m && mode === 'desktop' && CELL.desktop && m.__byCols) {
+        var c = calcCols(), by = m.__byCols, keys = Object.keys(by);
+        if (by[c]) return by[c];
+        if (keys.length) return byOrder(by[keys.sort(function (a, b) { return Math.abs(a - c) - Math.abs(b - c); })[0]]);
+      }
       if (m) return m;
       if (mode === 'phone' && layouts.desktop) {
-        var src = layouts.desktop, ids = Object.keys(src).sort(function (a, b) { return (src[a].y - src[b].y) || (src[a].x - src[b].x); });
+        var src = layouts.desktop, ids = Object.keys(src).filter(function (k) { return k.slice(0, 2) !== '__'; }).sort(function (a, b) { return (src[a].y - src[b].y) || (src[a].x - src[b].x); });
         return { __order: ids };
       }
       return {};
@@ -95,6 +102,7 @@
     function relayout() {
       if (!grid) return;
       var m = currentMap(), ord = m.__order;
+      derived = !!ord && mode === 'desktop'; // 先設好：重排時的 change 不要存
       grid.batchUpdate();
       grid.removeAll(false);
       flushSave(); curCols = calcCols(); colCss(curCols); temp = {};
@@ -105,7 +113,7 @@
       ids.filter(function (id) { return ord || !m[id]; }).forEach(function (id) { add(id, null); });
       grid.batchUpdate(false);
       sizeCells();
-      if (loaded[mode] && (ord || ids.some(function (id) { return !m[id]; }))) queueSave();
+      if (!derived && loaded[mode] && (ord || ids.some(function (id) { return !m[id]; }))) queueSave();
     }
     function merged() { // 暫時補位的格子存回原本位置
       var m = snapshot(); Object.keys(temp).forEach(function (id) { if (m[id]) m[id] = temp[id]; }); return m;
@@ -116,15 +124,18 @@
       (grid ? grid.engine.nodes : []).forEach(function (n) { if (n.id) out[n.id] = { x: n.x, y: n.y, w: n.w, h: n.h }; });
       return out;
     }
+    var derived = false;
     function queueSave() {
-      if (!loaded[mode]) return; // 雲端排列還沒讀到，不要蓋掉
+      if (!loaded[mode] || derived) return; // 照順序自動排的（這個欄數沒調整過）不存，使用者動過才存 // 雲端排列還沒讀到，不要蓋掉
       clearTimeout(saveT);
       saveT = setTimeout(doSave, 400);
     }
     function doSave() {
       saveT = null;
       {
-        var m = merged(); layouts[mode] = m;
+        var m = merged();
+        if (mode === 'desktop' && CELL.desktop) { var by = Object.assign({}, (layouts.desktop || {}).__byCols); by[curCols] = m; m = Object.assign({}, m, { __byCols: by }); }
+        layouts[mode] = m;
         if (opts.saveLayout) Promise.resolve(opts.saveLayout(mode, m)).catch(function (e) { console.warn('排列儲存失敗', e); opts.error && opts.error(e); });
       }
     }
@@ -249,7 +260,7 @@
         handle: '.dk-handle', resizable: { handles: 'n,ne,e,se,s,sw,w,nw' }
       }, root);
       grid.on('dragstart resizestart', function () { closeMenu(); }); // 開始移動或調整大小就收起選單
-      grid.on('dragstop resizestop', function (e, el) { justDragged = Date.now(); if (el) delete temp[el.getAttribute('gs-id')]; }); // 使用者動過的就照新位置存
+      grid.on('dragstop resizestop', function (e, el) { justDragged = Date.now(); derived = false; queueSave(); if (el) delete temp[el.getAttribute('gs-id')]; }); // 使用者動過的就照新位置存
       grid.on('change', queueSave);
       relayout();
     }).catch(function (e) { console.warn('gridstack 載入失敗', e); opts.error && opts.error(e); });
@@ -258,7 +269,16 @@
       if (grid && Object.keys(snapshot()).length) layouts[mode] = layouts[mode] || snapshot();
       mode = phoneMq.matches ? 'phone' : 'desktop'; relayout();
     });
-    var rT = 0; addEventListener('resize', function () { clearTimeout(rT); rT = setTimeout(function () { if (grid && calcCols() !== curCols) relayout(); else sizeCells(); }, 150); });
+    // 拉視窗：每一格當下就重算欄數（不等停手），拉的時候關動畫，App 不會先變形再彈回
+    var rF = 0, rT = 0;
+    addEventListener('resize', function () {
+      if (!grid || rF) return;
+      rF = requestAnimationFrame(function () {
+        rF = 0; grid.setAnimation(false); clearTimeout(rT);
+        rT = setTimeout(function () { grid.setAnimation(true); }, 300);
+        if (calcCols() !== curCols) relayout(); else sizeCells();
+      });
+    });
 
     return {
       ready: ready,
