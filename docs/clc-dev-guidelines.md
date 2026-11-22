@@ -87,3 +87,8 @@
 ## 10. 這份準則怎麼更新
 - 正本是 Skill「clc-dev-guidelines」。Darren 說「準則加一條／改一條」時：提出修改這個 Skill，確認存好後，再把同樣內容更新到 GitHub 備份 `CLC-Darren/clc-dx04/docs/clc-dev-guidelines.md`，並提醒 Darren 更新電腦上的備份。
 - 各專案裡不要再放一份通用準則的副本，只放各站自己的規則。
+
+## 共用程式（/shared）
+- 各站共用的程式放 `CLC-Darren/clc-dx04` 的 `/shared/`，用 `https://clc-dx04.pages.dev/shared/...` 載入；目錄與用法見 `/shared/README.md`。
+- 檔名帶版本（`desktop.v1.js`）；大改另開 v2，各站測好再切，舊版不改壞。
+- `/shared/*` 已允許跨網域載入（`_headers`＋`_worker.js`）。
