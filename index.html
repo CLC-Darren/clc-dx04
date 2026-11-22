@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/js/dashboard-widgets.css?v=12">
   <link rel="stylesheet" href="/shared/desktop/desktop.v1.css?v=6">
   <link rel="stylesheet" href="/shared/toolbar/toolbar.v1.css?v=1">
-  <script src="/shared/desktop/desktop.v1.js?v=8"></script>
+  <script src="/shared/desktop/desktop.v1.js?v=9"></script>
   <script src="/shared/toolbar/toolbar.v1.js?v=1"></script>
   <script src="/reorder.js?v=shared-todo-2"></script>
   <script src="https://linfamily.pages.dev/js/dashboard-todos.js"></script>
@@ -192,6 +192,8 @@
     @media (min-width:640px) { .dx-top { flex-wrap:nowrap; align-items:flex-end; } } /* 電腦：工具列底部和問候語底部切齊 */
     @media (max-width:639px) { #dxToolbar { width:100%; } }
     #dxSearchHost:empty, #dxSearchHost > [hidden] { display:none; }
+    #dxSearchHost:has(> [hidden]:only-child) { display:none; } /* 搜尋收起時不佔一格間距 */
+    @media (min-width:1024px) { #dxHome { margin-top:-8px; } } /* 工具列到 App 跟 LF 一樣 24px */
     #dxSearchHost .clc-tb-search { margin:0; }
     #dxHome[hidden], #dxUtility[hidden] { display:none; }
     #dxUtility { min-height:40vh; }
@@ -208,8 +210,6 @@
     .dark .dx-card { background:#161924; border-color:rgba(255,255,255,.1); }
     .dx-card .todo-scroll { flex:1 1 0; min-height:0; }
     .dx-card h2.dk-handle, .dx-card .clock-main.dk-handle { cursor:grab; }
-    .dx-grip { position:absolute; top:0; left:50%; width:44px; height:16px; transform:translateX(-50%); cursor:grab; touch-action:none; }
-    .dx-grip::after { content:""; position:absolute; top:6px; left:8px; right:8px; height:4px; border-radius:4px; background:rgba(148,163,184,.45); }
     .dx-clock { overflow:auto; container-type:size; }
     .dx-clock-inner { display:flex; flex-direction:column; gap:14px; }
     @container (min-width:380px) {
@@ -231,6 +231,8 @@
       .dx-clock :is([data-widget-field="clockDate"], [data-widget-field="wxMeta"]) { display:none; }
       .dx-clock [data-widget-field="wxIcon"] { width:30px; height:30px; }
       .dx-clock [data-widget-field="wxTemp"] { font-size:22px; }
+      .dx-clock-inner { flex:1 1 auto; align-content:center; } /* 精簡版上下置中 */
+      .dx-clock .clock-weather p:first-child { flex-wrap:nowrap; white-space:nowrap; } /* 溫度和天氣同一行 */
     }
     .todo-area-drop { outline:2px solid #00a3b4 !important; outline-offset:2px; }
     .todo-drop-before { box-shadow: inset 0 2px #00a3b4; }
@@ -1088,7 +1090,7 @@
     const deskRoot = $id('dxDesk');
     const isAdmin = () => !!window.isSuperuser;
     const CARD_TYPES = {
-      clock: { label: '時鐘與天氣', w: 3, h: 2, minW: 2, minH: 1 },
+      clock: { label: '時鐘與天氣', w: 3, h: 2, minW: 3, minH: 1 },
       todo: { label: '代辦事項', w: 4, h: 4, minW: 2, minH: 2 }
     };
     const LEGACY_KEY = 'clc_dx04_dashboard_widgets_v1';
@@ -1186,10 +1188,6 @@
       el.className = 'dx-card dash-widget';
       el.dataset.widget = c.type;
       el.dataset.widgetId = c.id;
-      const grip = document.createElement('div');
-      grip.className = 'dx-grip dk-handle';
-      grip.title = '拖曳移動';
-      el.append(grip);
       if (c.type === 'clock') {
         el.classList.add('dx-clock');
         el.setAttribute('aria-label', '時間與天氣');

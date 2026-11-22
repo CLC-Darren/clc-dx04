@@ -152,9 +152,20 @@
         menuEl.appendChild(b);
       });
       document.body.appendChild(menuEl);
-      var r = menuEl.getBoundingClientRect();
+      var r = menuEl.getBoundingClientRect(), top = y;
+      // 卡片：像 Android，選單放卡片下方，放不下放上方；都放不下就捲一點讓卡片和選單都看得到；卡片比螢幕高才浮在手指旁
+      var card = id && items.get(id) && items.get(id).type === 'card' && items.get(id).el;
+      if (card) {
+        var c = card.getBoundingClientRect(), g = 8;
+        if (c.bottom + g + r.height <= innerHeight - g) top = c.bottom + g;
+        else if (c.top - g - r.height >= g) top = c.top - g - r.height;
+        else if (c.height + g + r.height <= innerHeight - 2 * g) {
+          scrollBy(0, c.bottom + g + r.height - (innerHeight - g));
+          top = card.getBoundingClientRect().bottom + g;
+        }
+      }
       menuEl.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px';
-      menuEl.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
+      menuEl.style.top = Math.max(8, Math.min(top, innerHeight - r.height - 8)) + 'px';
     }
     var selEl = null;
     function select(el) { if (selEl) selEl.classList.remove('dk-sel'); selEl = el && el.classList.contains('dk-card') ? el : null; if (selEl) selEl.classList.add('dk-sel'); }
@@ -196,9 +207,10 @@
       if (e.touches.length !== 1 || !canEdit()) return;
       var t = e.touches[0], handle = e.target.closest('.dk-handle');
       var inItem = e.target.closest('.dk-item');
-      if (inItem && !handle) return; // 卡片內容（待辦等）照常操作
+      // 整張卡片都能長按；有自己操作的地方不攔截（輸入框、待辦項目拖曳排序等）
+      if (inItem && !handle && e.target.closest(opts.noPress || 'input,textarea,select,[contenteditable="true"],[data-dk-nopress],.todo-row')) return;
       if (handle) e.stopPropagation(); // gridstack 不直接接手觸控；長按後才交給它
-      lp.sx = t.clientX; lp.sy = t.clientY; lp.handle = handle; lp.id = hitId(e.target); lp.armed = false; lp.drag = false;
+      lp.sx = t.clientX; lp.sy = t.clientY; lp.own = !!handle; lp.handle = handle || (inItem && inItem.querySelector('.dk-handle')); lp.id = hitId(e.target); lp.armed = false; lp.drag = false;
       clearTimeout(lp.timer);
       lp.timer = setTimeout(function () {
         lp.armed = true; if (navigator.vibrate) navigator.vibrate(12);
@@ -208,7 +220,7 @@
     root.addEventListener('touchmove', function (e) {
       var t = e.touches[0]; if (!t) return;
       var moved = Math.abs(t.clientX - lp.sx) + Math.abs(t.clientY - lp.sy);
-      if (!lp.armed) { if (moved > 10) clearTimeout(lp.timer); if (lp.handle) e.stopPropagation(); return; }
+      if (!lp.armed) { if (moved > 10) clearTimeout(lp.timer); if (lp.own) e.stopPropagation(); return; }
       e.preventDefault(); e.stopPropagation();
       if (!lp.handle) return;
       if (!lp.drag && moved > 8) {
