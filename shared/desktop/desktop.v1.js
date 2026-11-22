@@ -137,7 +137,7 @@
     }
 
     // ---------- 選單與刪除確認 ----------
-    function closeMenu() { if (menuEl) { menuEl.remove(); menuEl = null; } }
+    function closeMenu() { if (menuEl) { var m = menuEl; menuEl = null; m.classList.add('dk-menu-out'); setTimeout(function () { m.remove(); }, 160); } } // 收合動畫
     function openMenu(x, y, id, cell) {
       closeMenu();
       var list = (opts.menu ? opts.menu({ id: id, type: id ? items.get(id).type : null, cell: cell }) : []) || [];
@@ -154,7 +154,7 @@
       document.body.appendChild(menuEl);
       var r = menuEl.getBoundingClientRect(), top = y;
       // 卡片：像 Android，選單放卡片下方，放不下放上方；都放不下就捲一點讓卡片和選單都看得到；卡片比螢幕高才浮在手指旁
-      var card = id && items.get(id) && items.get(id).type === 'card' && items.get(id).el;
+      var card = id && items.get(id) && items.get(id).el; // 卡片和 App 都一樣：選單不蓋住
       if (card) {
         var c = card.getBoundingClientRect(), g = 8;
         if (c.bottom + g + r.height <= innerHeight - g) top = c.bottom + g;
@@ -163,6 +163,7 @@
           scrollBy(0, c.bottom + g + r.height - (innerHeight - g));
           top = card.getBoundingClientRect().bottom + g;
         }
+        menuEl.style.transformOrigin = (top < c.top ? 'bottom ' : 'top ') + 'left';
       }
       menuEl.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px';
       menuEl.style.top = Math.max(8, Math.min(top, innerHeight - r.height - 8)) + 'px';
@@ -223,7 +224,7 @@
       if (!lp.armed) { if (moved > 10) clearTimeout(lp.timer); if (lp.own) e.stopPropagation(); return; }
       e.preventDefault(); e.stopPropagation();
       if (!lp.handle) return;
-      if (!lp.drag && moved > 8) {
+      if (!lp.drag && moved > 12) { // 像 Android：選單出來後手指移動超過一點點 → 選單收起、變成拖曳
         closeMenu();
         lp.drag = true; mouse('mousedown', lp.handle, lp.sx, lp.sy);
       }
