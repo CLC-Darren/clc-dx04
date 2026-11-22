@@ -209,6 +209,10 @@
       background:#fff; border:1px solid #e2e8f0; overflow:hidden; }
     .dark .dx-card { background:#161924; border-color:rgba(255,255,255,.1); }
     .dx-card .todo-scroll { flex:1 1 0; min-height:0; }
+    .dx-grip { position:absolute; top:0; left:50%; width:56px; height:16px; transform:translateX(-50%); cursor:grab; z-index:2; }
+    .dx-grip::after { content:""; position:absolute; top:6px; left:12px; right:12px; height:4px; border-radius:4px; background:rgba(148,163,184,.45); }
+    .dx-grip:hover::after { background:rgba(148,163,184,.8); }
+    @media (hover:none), (pointer:coarse) { .dx-grip { display:none; } }
     .dx-card h2.dk-handle, .dx-card .clock-main.dk-handle { cursor:grab; }
     /* 時鐘卡片（3×1～4×2）：字和圖示跟著卡片大小縮放（container 單位）。2 格高＝上下兩排（同 Android 天氣小工具）；1 格高＝左右兩半，拿掉日期、地點和「晴」，時間、圖示、溫度放大 */
     .dx-clock { overflow:hidden; container-type:size; }
@@ -1188,6 +1192,10 @@
       el.className = 'dx-card dash-widget';
       el.dataset.widget = c.type;
       el.dataset.widgetId = c.id;
+      const grip = document.createElement('div'); // 電腦版上方小橫槓：按住可移動（手機不顯示，手機用長按）
+      grip.className = 'dx-grip dk-handle';
+      grip.title = '拖曳移動';
+      el.append(grip);
       if (c.type === 'clock') {
         el.classList.add('dx-clock');
         el.setAttribute('aria-label', '時間與天氣');
