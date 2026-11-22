@@ -66,6 +66,7 @@
   - 「Open in new window」：電腦開新視窗；手機盡量用預設瀏覽器開（Android 用 `intent://`，LINE 內建瀏覽器在網址加 `openExternalBrowser=1`）。
   - 按在 App、按鈕、輸入框、圖片上不攔截；有選取文字時也不攔截。
 - **長按判定**：約 550ms；手指移動超過 10px 就取消；長按後要避免同時觸發點擊和文字選取。
+- **有「安裝」功能的網頁一律載入** `<script src="https://clc-dx04.pages.dev/open-external.js?v=1"></script>`（放 `<head>`）：在 LINE／FB／IG 內建瀏覽器開啟時自動改用預設瀏覽器（LINE 加 `openExternalBrowser=1`、Android 用 `intent://` 交給 Chrome），跳不出去就在頂部顯示提示條。沒有安裝功能的網頁不用載。程式正本在 `CLC-Darren/clc-dx04` 根目錄。
 - **提示訊息**用畫面上短暫出現的小提示（toast），不要用 `alert()`；確認、表單用 `<dialog>`。
 - **桌布／背景圖上的內容**：照 Apple 的做法，背景加一層遮罩（約 60% 底色）、按鈕與分頁框用霧面玻璃（半透明＋`backdrop-filter: blur`）、文字加淡淡的光暈，讓上面的東西浮出來。
 
