@@ -12,13 +12,6 @@
 .dk-root .dk-card textarea, .dk-root .dk-card input, .dk-root .dk-card [contenteditable] { -webkit-user-select:text; user-select:text; }
 .dk-root .grid-stack-item.ui-draggable-dragging > .grid-stack-item-content { cursor:grabbing; opacity:.9; }
 .dk-root > .grid-stack-placeholder > .placeholder-content { border:2px dashed var(--border, rgba(127,127,127,.4)); border-radius:18px; background:transparent; }
-/* 長按出現選單（可刪除）時一起抖動；移動時不抖 */
-@keyframes dkWiggle { 0% { transform:rotate(-1.4deg); } 100% { transform:rotate(1.4deg); } }
-.dk-wiggle .dk-item > .grid-stack-item-content { animation:dkWiggle .14s ease-in-out infinite alternate; }
-.dk-wiggle .dk-item:nth-child(2n) > .grid-stack-item-content { animation-delay:-.07s; }
-.dk-wiggle .dk-card > .grid-stack-item-content { animation-name:dkWiggleS; }
-@keyframes dkWiggleS { 0% { transform:rotate(-.4deg); } 100% { transform:rotate(.4deg); } }
-@media (prefers-reduced-motion:reduce) { .dk-wiggle .dk-item > .grid-stack-item-content { animation:none; } }
 /* 搜尋：不符合的變淡 */
 .dk-searching .dk-dim { opacity:.15; pointer-events:none; transition:opacity .15s; }
 /* 選單 */

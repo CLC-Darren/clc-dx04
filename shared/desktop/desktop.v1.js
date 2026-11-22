@@ -137,13 +137,12 @@
     }
 
     // ---------- 選單與刪除確認 ----------
-    function closeMenu() { if (menuEl) { menuEl.remove(); menuEl = null; } root.classList.remove('dk-wiggle'); }
+    function closeMenu() { if (menuEl) { menuEl.remove(); menuEl = null; } }
     function openMenu(x, y, id, cell) {
       closeMenu();
       var list = (opts.menu ? opts.menu({ id: id, type: id ? items.get(id).type : null, cell: cell }) : []) || [];
       if (id && opts.onDelete) list = list.concat([{ label: '刪除', danger: true, run: function () { confirmDelete(id); } }]);
       if (!list.length) return;
-      if (id) root.classList.add('dk-wiggle'); // 只有可刪除的格子才抖
       if (id && lp.touch) select(items.get(id) && items.get(id).el); // 手機：長按選取的卡片出現調整大小的圓點
       menuEl = document.createElement('div'); menuEl.className = 'dk-menu'; menuEl.setAttribute('role', 'menu');
       list.forEach(function (m) {
