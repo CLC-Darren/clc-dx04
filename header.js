@@ -562,7 +562,9 @@ document.addEventListener('DOMContentLoaded', renderHeaderComponent);
     menu.querySelector('button').focus({ preventScroll: true });
     if (navigator.vibrate) navigator.vibrate(10);
   }
-  const inHeader = t => t && t.closest && t.closest('#clc-header') && !t.closest(EXCLUDE);
+  // 桌面卡片／App 正在選取、開選單或拖曳時不跳（避開物件，同 LF）
+  const deskBusy = () => !!document.querySelector('.dk-menu:not(.dk-menu-out), .dk-sel, .ui-draggable-dragging, .ui-resizable-resizing');
+  const inHeader = t => t && t.closest && t.closest('#clc-header') && !t.closest(EXCLUDE + ', .dk-item, .dk-menu, .todo-more') && !deskBusy();
 
   // 電腦：右鍵
   document.addEventListener('contextmenu', e => {

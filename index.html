@@ -1083,7 +1083,7 @@
 
   </script>
   <script src="clc-sso.js?v=20261122-swipe"></script>
-  <script src="header.js?v=20261120-entry"></script>
+  <script src="header.js?v=20261122-desk"></script>
   <script type="text/plain" data-dx-private>
   (() => {
     // ---------- 共用桌面（shared/desktop）＋工具列（shared/toolbar） ----------
@@ -1095,7 +1095,7 @@
     const isAdmin = () => !!window.isSuperuser;
     const CARD_TYPES = {
       clock: { label: '時鐘與天氣', w: 3, h: 2, minW: 3, minH: 1, maxW: 4, maxH: 2 },
-      todo: { label: '代辦事項', w: 4, h: 4, minW: 2, minH: 2 }
+      todo: { label: '代辦事項', w: 4, h: 4, minW: 4, minH: 2 }
     };
     const LEGACY_KEY = 'clc_dx04_dashboard_widgets_v1';
     let uid = '', cards = [], cardsLoaded = false, migrating = false, pendingAreas = [];
@@ -1111,7 +1111,7 @@
     }
 
     const cardOf = id => cards.find(c => c.id === id);
-    const cardName = c => (c && (c.title || (c.id === 'todo' ? '今日待辦' : CARD_TYPES[c.type]?.label))) || '這張卡片';
+    const cardName = c => (c && (c.title || (c.id === 'todo' ? '代辦事項' : CARD_TYPES[c.type]?.label))) || '這張卡片';
     function addItems(cell) {
       if (!isAdmin()) return [];
       const list = [
@@ -1206,8 +1206,9 @@
       } else {
         el.append(window.clcBuildTodoFields(c.id === 'todo' ? undefined : c.id));
         const h = el.querySelector('h2');
-        if (c.title) h.textContent = c.title;
+        h.textContent = cardName(c);
         h.classList.add('dk-handle');
+        window.clcTodoTitleEdit(h, { canEdit: isAdmin, save: t => setCardTitle(c.id, t) });
         el.setAttribute('aria-labelledby', h.id);
       }
       return el;
@@ -1221,7 +1222,7 @@
       for (const c of cards) {
         if (c.hidden || !CARD_TYPES[c.type]) continue;
         const m = mounted.get(c.id);
-        if (m) { if (c.type === 'todo') m.el.querySelector('h2').textContent = cardName(c); continue; }
+        if (m) { const h = m.el.querySelector('h2'); if (c.type === 'todo' && !h.isContentEditable) h.textContent = cardName(c); continue; }
         const el = cardEl(c), t = CARD_TYPES[c.type];
         desk.put(c.id, el, { type: 'card', w: t.w, h: t.h, minW: t.minW, minH: t.minH, maxW: t.maxW, maxH: t.maxH,
           searchText: () => el.textContent + ' ' + Array.from(el.querySelectorAll('textarea,input'), x => x.value).join(' ') });
@@ -1248,6 +1249,9 @@
       const c = cardOf(id); if (!c) return;
       const t = prompt('區域名稱', cardName(c));
       if (t === null || !t.trim()) return;
+      setCardTitle(id, t);
+    }
+    function setCardTitle(id, t) {
       cards = cards.map(x => x.id === id ? { ...x, title: t.trim().slice(0, 30) } : x);
       syncCards(); saveCards();
     }
