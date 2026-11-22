@@ -384,7 +384,7 @@
     const isHome = () => /^\/(?:(?:ya|sr)\/)?(?:index\.html)?$/.test(location.pathname);
     const canSwipe = () => isHome() && !navigating && innerWidth <= 1023 && !!window.isSuperuser &&
       !document.documentElement.classList.contains('dx-locked') &&
-      !document.querySelector('dialog[open], .todo-edit, .reorder-source, .reorder-floating, .is-dragging, #siteGrid.is-editing, #homeApps.is-editing, .slot-grid.is-editing, .slot-floating, .clc-hmenu') &&
+      !document.querySelector('dialog[open], .todo-edit, .reorder-source, .reorder-floating, .is-dragging, #siteGrid.is-editing, #homeApps.is-editing, .slot-grid.is-editing, .slot-floating, .clc-hmenu, .dk-menu, .dk-sel, .ui-resizable-resizing, .ui-draggable-dragging') &&
       !Array.from(dirtyForms).some(form => form.isConnected && Array.from(form.elements).some(field => {
         if (field.disabled || ['submit', 'button', 'reset'].includes(field.type)) return false;
         if (['checkbox', 'radio'].includes(field.type)) return field.checked !== field.defaultChecked;
@@ -400,7 +400,7 @@
     // 三站都是整個畫面都能滑（Header 除外；左右各留 10% 給瀏覽器的返回手勢）。
     // 從連結、App 圖示、待辦上開始滑也可以：輕點照常、長按照常（拖曳排序開始後就不會切站）。
     function blocked(node) {
-      const controls = 'button:not(.ha-tile):not(.slot-empty), input, textarea, select, dialog, [role="dialog"], [contenteditable="true"], .ha-menu, .slot-remove, .todo-trash, .todo-minus, .drag-handle, .reorder-handle, iframe, video, audio';
+      const controls = 'button:not(.ha-tile):not(.slot-empty), input, textarea, select, dialog, [role="dialog"], [contenteditable="true"], .ha-menu, .slot-remove, .todo-trash, .todo-minus, .drag-handle, .reorder-handle, iframe, video, audio, .dk-card, .ui-resizable-handle'; // 桌面卡片上（含調整大小）不換站
       if (node.closest(controls)) return true;
       for (let el = node; el && el !== document.body; el = el.parentElement) {
         if (el.scrollWidth > el.clientWidth + 4 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;

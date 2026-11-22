@@ -188,6 +188,7 @@
     .dark { --text:#f1f5f9; --muted:#8A92A6; --bg:#161924; --btn:rgba(255,255,255,.06); --border:rgba(255,255,255,.12); }
     .dx-top { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:14px 20px; }
     .dx-top > #dx-swipe-zone { flex:1; min-width:0; }
+    @media (max-width:639px) { #dx-greeting { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:var(--dx-greeting-size, 1.875rem); } } /* 手機：問候語超過一行就縮小字（同 LF） */
     @media (min-width:640px) { .dx-top { flex-wrap:nowrap; align-items:flex-end; } } /* 電腦：工具列底部和問候語底部切齊 */
     @media (max-width:639px) { #dxToolbar { width:100%; } }
     #dxSearchHost:empty, #dxSearchHost > [hidden] { display:none; }
@@ -209,7 +210,7 @@
     .dx-card h2.dk-handle, .dx-card .clock-main.dk-handle { cursor:grab; }
     .dx-grip { position:absolute; top:0; left:50%; width:44px; height:16px; transform:translateX(-50%); cursor:grab; touch-action:none; }
     .dx-grip::after { content:""; position:absolute; top:6px; left:8px; right:8px; height:4px; border-radius:4px; background:rgba(148,163,184,.45); }
-    .dx-clock { overflow:auto; container-type:inline-size; }
+    .dx-clock { overflow:auto; container-type:size; }
     .dx-clock-inner { display:flex; flex-direction:column; gap:14px; }
     @container (min-width:380px) {
       .dx-clock-inner { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr); align-items:center; gap:12px; }
@@ -220,6 +221,16 @@
       .dx-clock [data-widget-field="clockSec"] { font-size:16px; }
       .dx-clock .clock-weather { padding-top:12px; gap:10px; }
       .dx-clock [data-widget-field="wxIcon"] { width:36px; height:36px; }
+    }
+    /* 時鐘卡片收到一格高時：時間和天氣並排，日期、地點不顯示 */
+    @container (max-height:150px) {
+      .dx-clock-inner { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:14px; }
+      .dx-clock .clock-weather { border-top:0; border-left:1px solid rgba(148,163,184,.25); padding-top:0; padding-left:14px; gap:10px; }
+      .dx-clock [data-widget-field="clockTime"] { font-size:34px; }
+      .dx-clock [data-widget-field="clockSec"] { font-size:14px; }
+      .dx-clock :is([data-widget-field="clockDate"], [data-widget-field="wxMeta"]) { display:none; }
+      .dx-clock [data-widget-field="wxIcon"] { width:30px; height:30px; }
+      .dx-clock [data-widget-field="wxTemp"] { font-size:22px; }
     }
     .todo-area-drop { outline:2px solid #00a3b4 !important; outline-offset:2px; }
     .todo-drop-before { box-shadow: inset 0 2px #00a3b4; }
@@ -851,8 +862,20 @@
               curLine = p.list[Math.floor(Math.random() * p.list.length)].replace('{d}', p.dayName);
             }
             const text = curLine.replace('{n}', userName());
-            if (el && el.textContent !== text) el.textContent = text;
+            if (el && el.textContent !== text) { el.textContent = text; fitGreeting(); }
           }
+          // 手機：問候語超過一行就縮小字（同 LF）
+          const greetMq = matchMedia('(max-width:639px)');
+          function fitGreeting() {
+            if (!el) return;
+            el.style.removeProperty('--dx-greeting-size');
+            if (!greetMq.matches) return;
+            const available = el.clientWidth, required = el.scrollWidth;
+            if (available > 0 && required > available) el.style.setProperty('--dx-greeting-size', Math.max(14, parseFloat(getComputedStyle(el).fontSize) * (available - 1) / required) + 'px');
+          }
+          if (el) new ResizeObserver(fitGreeting).observe(el.parentElement);
+          greetMq.addEventListener('change', fitGreeting);
+          document.fonts.ready.then(fitGreeting);
           render(true);
           setInterval(function () { render(false); }, 60000);
           window.addEventListener('clc-admin-changed', function () { render(false); });
@@ -1053,7 +1076,7 @@
     })();
 
   </script>
-  <script src="clc-sso.js?v=20261120-entry"></script>
+  <script src="clc-sso.js?v=20261122-desk"></script>
   <script src="header.js?v=20261120-entry"></script>
   <script type="text/plain" data-dx-private>
   (() => {
@@ -1065,7 +1088,7 @@
     const deskRoot = $id('dxDesk');
     const isAdmin = () => !!window.isSuperuser;
     const CARD_TYPES = {
-      clock: { label: '時鐘與天氣', w: 3, h: 2, minW: 2, minH: 2 },
+      clock: { label: '時鐘與天氣', w: 3, h: 2, minW: 2, minH: 1 },
       todo: { label: '代辦事項', w: 4, h: 4, minW: 2, minH: 2 }
     };
     const LEGACY_KEY = 'clc_dx04_dashboard_widgets_v1';
