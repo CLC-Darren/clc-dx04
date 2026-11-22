@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/js/dashboard-widgets.css?v=12">
   <link rel="stylesheet" href="/shared/desktop/desktop.v1.css?v=6">
   <link rel="stylesheet" href="/shared/toolbar/toolbar.v1.css?v=1">
-  <script src="/shared/desktop/desktop.v1.js?v=9"></script>
+  <script src="/shared/desktop/desktop.v1.js?v=10"></script>
   <script src="/shared/toolbar/toolbar.v1.js?v=1"></script>
   <script src="/reorder.js?v=shared-todo-2"></script>
   <script src="https://linfamily.pages.dev/js/dashboard-todos.js"></script>
@@ -210,34 +210,29 @@
     .dark .dx-card { background:#161924; border-color:rgba(255,255,255,.1); }
     .dx-card .todo-scroll { flex:1 1 0; min-height:0; }
     .dx-card h2.dk-handle, .dx-card .clock-main.dk-handle { cursor:grab; }
-    /* 時鐘卡片：字和圖示跟著卡片大小縮放（container 單位）。扁長＝左右兩半平均；接近方形或直的＝上下排（同 Android 天氣小工具）；1 格高＝只留時間和天氣 */
+    /* 時鐘卡片（3×1～4×2）：字和圖示跟著卡片大小縮放（container 單位）。2 格高＝上下兩排（同 Android 天氣小工具）；1 格高＝左右兩半，拿掉日期、地點和「晴」，時間、圖示、溫度放大 */
     .dx-clock { overflow:hidden; container-type:size; }
-    #dxDesk .dx-clock-inner { flex:1 1 auto; min-height:0; display:grid; grid-template-columns:minmax(0,1fr); align-content:center; justify-items:center; text-align:center; gap:min(5cqh,18px); }
+    #dxDesk .dx-clock-inner { flex:1 1 auto; min-height:0; display:grid; grid-template-columns:minmax(0,1fr); align-content:center; justify-items:center; text-align:center; gap:min(4cqh,14px); }
     #dxDesk .dx-clock .clock-main { min-width:0; }
     #dxDesk .dx-clock .clock-main > p:first-child { justify-content:center; }
-    #dxDesk .dx-clock [data-widget-field="clockTime"] { font-size:clamp(28px, min(24cqw, 22cqh), 120px); line-height:1; }
-    #dxDesk .dx-clock [data-widget-field="clockSec"] { font-size:clamp(12px, min(7cqw, 6.5cqh), 40px); }
-    #dxDesk .dx-clock [data-widget-field="clockDate"] { font-size:clamp(11px, min(4.5cqw, 4.5cqh), 20px); line-height:1.4; margin-top:.35em; }
-    #dxDesk .dx-clock .clock-weather { min-width:0; border:0; padding:0; justify-content:center; gap:min(3cqw,14px); }
+    #dxDesk .dx-clock [data-widget-field="clockTime"] { font-size:clamp(28px, min(22cqw, 34cqh), 110px); line-height:1; }
+    #dxDesk .dx-clock [data-widget-field="clockSec"] { font-size:clamp(12px, min(6.5cqw, 10cqh), 36px); }
+    #dxDesk .dx-clock [data-widget-field="clockDate"] { font-size:clamp(11px, min(4.5cqw, 7cqh), 20px); line-height:1.4; margin-top:.3em; }
+    #dxDesk .dx-clock .clock-weather { min-width:0; border:0; padding:0; justify-content:center; gap:min(3cqw,12px); }
     #dxDesk .dx-clock .clock-weather > div:last-child { flex:0 1 auto; text-align:left; }
     #dxDesk .dx-clock .clock-weather > div:last-child > p:first-child { flex-wrap:nowrap; white-space:nowrap; gap:.3em; }
-    #dxDesk .dx-clock [data-widget-field="wxIcon"] { width:clamp(24px, min(16cqw, 15cqh), 96px); height:clamp(24px, min(16cqw, 15cqh), 96px); }
-    #dxDesk .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(20px, min(13cqw, 11cqh), 64px); line-height:1.05; }
-    #dxDesk .dx-clock [data-widget-field="wxDesc"] { font-size:clamp(12px, min(5cqw, 5cqh), 24px); }
-    #dxDesk .dx-clock [data-widget-field="wxMeta"] { display:block; font-size:clamp(11px, min(3.6cqw, 3.8cqh), 16px); }
-    @container (min-aspect-ratio: 3/2) {
-      #dxDesk .dx-clock-inner { grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:0; }
-      #dxDesk .dx-clock .clock-weather { justify-self:stretch; align-self:stretch; border-left:1px solid rgba(148,163,184,.25); padding-left:min(3cqw,16px); }
-      #dxDesk .dx-clock [data-widget-field="clockTime"] { font-size:clamp(26px, min(13cqw, 36cqh), 120px); }
-      #dxDesk .dx-clock [data-widget-field="clockSec"] { font-size:clamp(11px, min(4cqw, 11cqh), 40px); }
-      #dxDesk .dx-clock [data-widget-field="clockDate"] { font-size:clamp(11px, min(2.8cqw, 8cqh), 20px); }
-      #dxDesk .dx-clock [data-widget-field="wxIcon"] { width:clamp(22px, min(8.5cqw, 28cqh), 96px); height:clamp(22px, min(8.5cqw, 28cqh), 96px); }
-      #dxDesk .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(18px, min(7cqw, 22cqh), 64px); }
-      #dxDesk .dx-clock [data-widget-field="wxDesc"] { font-size:clamp(12px, min(3cqw, 9cqh), 24px); }
-      #dxDesk .dx-clock [data-widget-field="wxMeta"] { font-size:clamp(11px, min(2.2cqw, 6cqh), 16px); }
-    }
+    #dxDesk .dx-clock [data-widget-field="wxIcon"] { width:clamp(24px, min(14cqw, 20cqh), 80px); height:clamp(24px, min(14cqw, 20cqh), 80px); }
+    #dxDesk .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(20px, min(11cqw, 17cqh), 56px); line-height:1.05; }
+    #dxDesk .dx-clock [data-widget-field="wxDesc"] { font-size:clamp(12px, min(5cqw, 8cqh), 22px); }
+    #dxDesk .dx-clock [data-widget-field="wxMeta"] { display:block; font-size:clamp(11px, min(3.4cqw, 5.5cqh), 15px); }
     @container (max-height:150px) {
-      #dxDesk .dx-clock :is([data-widget-field="clockDate"], [data-widget-field="wxMeta"]) { display:none; }
+      #dxDesk .dx-clock-inner { grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:0; }
+      #dxDesk .dx-clock .clock-weather { justify-self:stretch; align-self:stretch; border-left:1px solid rgba(148,163,184,.25); }
+      #dxDesk .dx-clock :is([data-widget-field="clockDate"], [data-widget-field="wxMeta"], [data-widget-field="wxDesc"]) { display:none; }
+      #dxDesk .dx-clock [data-widget-field="clockTime"] { font-size:clamp(24px, min(15cqw, 56cqh), 80px); }
+      #dxDesk .dx-clock [data-widget-field="clockSec"] { font-size:clamp(11px, min(4.5cqw, 17cqh), 28px); }
+      #dxDesk .dx-clock [data-widget-field="wxIcon"] { width:clamp(22px, min(11cqw, 44cqh), 64px); height:clamp(22px, min(11cqw, 44cqh), 64px); }
+      #dxDesk .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(20px, min(11cqw, 44cqh), 60px); }
     }
     .todo-area-drop { outline:2px solid #00a3b4 !important; outline-offset:2px; }
     .todo-drop-before { box-shadow: inset 0 2px #00a3b4; }
@@ -1095,7 +1090,7 @@
     const deskRoot = $id('dxDesk');
     const isAdmin = () => !!window.isSuperuser;
     const CARD_TYPES = {
-      clock: { label: '時鐘與天氣', w: 3, h: 2, minW: 3, minH: 1 },
+      clock: { label: '時鐘與天氣', w: 3, h: 2, minW: 3, minH: 1, maxW: 4, maxH: 2 },
       todo: { label: '代辦事項', w: 4, h: 4, minW: 2, minH: 2 }
     };
     const LEGACY_KEY = 'clc_dx04_dashboard_widgets_v1';
@@ -1220,7 +1215,7 @@
         const m = mounted.get(c.id);
         if (m) { if (c.type === 'todo') m.el.querySelector('h2').textContent = cardName(c); continue; }
         const el = cardEl(c), t = CARD_TYPES[c.type];
-        desk.put(c.id, el, { type: 'card', w: t.w, h: t.h, minW: t.minW, minH: t.minH,
+        desk.put(c.id, el, { type: 'card', w: t.w, h: t.h, minW: t.minW, minH: t.minH, maxW: t.maxW, maxH: t.maxH,
           searchText: () => el.textContent + ' ' + Array.from(el.querySelectorAll('textarea,input'), x => x.value).join(' ') });
         const dispose = c.type === 'clock' ? window.dxMountClock(el) : mountTodo?.(el, c.id);
         mounted.set(c.id, { el, dispose });

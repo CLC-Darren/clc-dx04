@@ -51,7 +51,7 @@
 
     function marg() { var m = opts.margin == null ? 6 : opts.margin; return typeof m === 'object' ? m[mode] : m; }
     function clampPos(p, o) {
-      var c = cols(), w = o.type === 'app' ? 1 : Math.max(minW(o), Math.min(p.w || 2, c)), h = o.type === 'app' ? 1 : Math.max(minH(o), p.h || 1);
+      var c = cols(), w = o.type === 'app' ? 1 : Math.max(minW(o), Math.min(p.w || 2, c, o.opt.maxW || c)), h = o.type === 'app' ? 1 : Math.max(minH(o), Math.min(p.h || 1, o.opt.maxH || 99));
       return { x: Math.max(0, Math.min(p.x, c - w)), y: Math.max(0, p.y), w: w, h: h };
     }
     // 卡片最小尺寸由每種卡片自己決定（像 Android widget）：put 的 o.minW / o.minH，可到 1×1；沒指定時 2×1
@@ -88,7 +88,7 @@
       else if (placeAt && grid.isAreaEmpty(placeAt.x, placeAt.y, s.w, s.h)) { it.setAttribute('gs-x', placeAt.x); it.setAttribute('gs-y', placeAt.y); placeAt = null; }
       else it.setAttribute('gs-auto-position', 'true');
       it.setAttribute('gs-w', s.w); it.setAttribute('gs-h', s.h);
-      if (o.type === 'app') it.setAttribute('gs-no-resize', 'true'); else { it.setAttribute('gs-min-w', minW(o)); it.setAttribute('gs-min-h', minH(o)); it.removeAttribute('gs-no-resize'); }
+      if (o.type === 'app') it.setAttribute('gs-no-resize', 'true'); else { it.setAttribute('gs-min-w', minW(o)); it.setAttribute('gs-min-h', minH(o)); if (o.opt.maxW) it.setAttribute('gs-max-w', o.opt.maxW); if (o.opt.maxH) it.setAttribute('gs-max-h', o.opt.maxH); it.removeAttribute('gs-no-resize'); } // 最大尺寸（可選）：put 的 o.maxW / o.maxH
       root.appendChild(it); grid.makeWidget(it);
     }
     // 依目前裝置的排列重排全部
