@@ -144,6 +144,7 @@
       if (id && opts.onDelete) list = list.concat([{ label: '刪除', danger: true, run: function () { confirmDelete(id); } }]);
       if (!list.length) return;
       if (id) root.classList.add('dk-wiggle'); // 只有可刪除的格子才抖
+      if (id && lp.touch) select(items.get(id) && items.get(id).el); // 手機：長按選取的卡片出現調整大小的圓點
       menuEl = document.createElement('div'); menuEl.className = 'dk-menu'; menuEl.setAttribute('role', 'menu');
       list.forEach(function (m) {
         var b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'menuitem'); b.textContent = m.label;
@@ -156,6 +157,9 @@
       menuEl.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px';
       menuEl.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
     }
+    var selEl = null;
+    function select(el) { if (selEl) selEl.classList.remove('dk-sel'); selEl = el && el.classList.contains('dk-card') ? el : null; if (selEl) selEl.classList.add('dk-sel'); }
+    document.addEventListener('touchstart', function (e) { if (selEl && !selEl.contains(e.target) && !(menuEl && menuEl.contains(e.target))) select(null); }, { capture: true, passive: true });
     function confirmDelete(id) {
       if (!dlg) {
         dlg = document.createElement('dialog'); dlg.className = 'dk-confirm';
@@ -230,7 +234,7 @@
     var ready = loadGridstack().then(function () {
       grid = GridStack.init({
         column: cols(), cellHeight: 100, margin: marg(), float: true, animate: true,
-        handle: '.dk-handle', resizable: { handles: 'se' }
+        handle: '.dk-handle', resizable: { handles: 'n,ne,e,se,s,sw,w,nw' }
       }, root);
       grid.on('dragstart resizestart', function () { closeMenu(); }); // 移動時不抖動
       grid.on('dragstop resizestop', function (e, el) { justDragged = Date.now(); if (el) delete temp[el.getAttribute('gs-id')]; }); // 使用者動過的就照新位置存

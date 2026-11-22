@@ -34,3 +34,32 @@
 .dk-confirm .dk-actions { display:flex; justify-content:flex-end; gap:8px; }
 .dk-confirm button { border:1px solid var(--border, rgba(0,0,0,.12)); background:var(--btn, #f3f3f3); color:inherit; font:inherit; font-weight:700; padding:8px 16px; border-radius:9999px; cursor:pointer; }
 .dk-confirm button.dk-danger { background:#B5483D; border-color:#B5483D; color:#fff !important; }
+/* 調整大小：電腦四邊四角都能直接拉（像 Windows 視窗），不顯示箭頭圖示 */
+.dk-root .grid-stack-item > .ui-resizable-handle { display:block !important; background:none !important; transform:none !important; touch-action:none; }
+.dk-root .grid-stack-item > .ui-resizable-n, .dk-root .grid-stack-item > .ui-resizable-s { left:12px; right:12px; width:auto; height:10px; }
+.dk-root .grid-stack-item > .ui-resizable-e, .dk-root .grid-stack-item > .ui-resizable-w { top:12px; bottom:12px; height:auto; width:10px; }
+.dk-root .grid-stack-item > .ui-resizable-ne, .dk-root .grid-stack-item > .ui-resizable-se,
+.dk-root .grid-stack-item > .ui-resizable-sw, .dk-root .grid-stack-item > .ui-resizable-nw { width:16px; height:16px; }
+.dk-root .grid-stack-item > .ui-resizable-n { top:0; bottom:auto; cursor:ns-resize; }
+.dk-root .grid-stack-item > .ui-resizable-s { bottom:0; top:auto; cursor:ns-resize; }
+.dk-root .grid-stack-item > .ui-resizable-e { right:0; left:auto; cursor:ew-resize; }
+.dk-root .grid-stack-item > .ui-resizable-w { left:0; right:auto; cursor:ew-resize; }
+.dk-root .grid-stack-item > .ui-resizable-ne { top:0; right:0; bottom:auto; left:auto; cursor:nesw-resize; }
+.dk-root .grid-stack-item > .ui-resizable-sw { bottom:0; left:0; top:auto; right:auto; cursor:nesw-resize; }
+.dk-root .grid-stack-item > .ui-resizable-nw { top:0; left:0; bottom:auto; right:auto; cursor:nwse-resize; }
+.dk-root .grid-stack-item > .ui-resizable-se { bottom:0; right:0; top:auto; left:auto; cursor:nwse-resize; }
+/* 手機：像 Android 小工具，長按選取卡片後出現外框和四邊圓點，拖圓點調整大小；平常不顯示 */
+@media (pointer:coarse) {
+  .dk-root .grid-stack-item > .ui-resizable-handle { display:none !important; }
+  .dk-root .grid-stack-item.dk-sel > .ui-resizable-n, .dk-root .grid-stack-item.dk-sel > .ui-resizable-s,
+  .dk-root .grid-stack-item.dk-sel > .ui-resizable-e, .dk-root .grid-stack-item.dk-sel > .ui-resizable-w { display:block !important; z-index:20; }
+  .dk-root .grid-stack-item.dk-sel > .ui-resizable-n, .dk-root .grid-stack-item.dk-sel > .ui-resizable-s { height:32px; }
+  .dk-root .grid-stack-item.dk-sel > .ui-resizable-n { top:-12px; }
+  .dk-root .grid-stack-item.dk-sel > .ui-resizable-s { bottom:-12px; }
+  .dk-root .grid-stack-item.dk-sel > .ui-resizable-e, .dk-root .grid-stack-item.dk-sel > .ui-resizable-w { width:32px; }
+  .dk-root .grid-stack-item.dk-sel > .ui-resizable-e { right:-12px; }
+  .dk-root .grid-stack-item.dk-sel > .ui-resizable-w { left:-12px; }
+  .dk-root .grid-stack-item.dk-sel > .ui-resizable-handle::after { content:""; position:absolute; left:50%; top:50%; width:14px; height:14px; margin:-7px 0 0 -7px;
+    border-radius:50%; background:#fff; border:2px solid var(--pine, #007E8A); box-shadow:0 1px 4px rgba(0,0,0,.35); }
+  .dk-root .grid-stack-item.dk-sel > .grid-stack-item-content { outline:2px solid rgba(255,255,255,.85); outline-offset:2px; }
+}

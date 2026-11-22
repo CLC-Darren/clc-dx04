@@ -354,17 +354,3 @@ body:has(.widget-drawer[open]) { overflow: hidden; }
   .is-compact-clock .clock-weather-separator { display: none; }
   .is-compact-clock :is(#wxRefresh, [data-widget-field="wxRefresh"]) { font-size: 11px; padding: 4px 6px; }
 }
-
-/* 手機（觸控）：像 Android 小工具，長按選取後外框邊上出現圓點，拖圓點調整大小。 */
-@media (pointer: coarse) {
-  .widget-grid .widget-resize:is([data-edge="n"], [data-edge="s"]) { height: 28px; }
-  .widget-grid .widget-resize[data-edge="n"] { top: -19px; }
-  .widget-grid .widget-resize[data-edge="s"] { bottom: -19px; }
-  .widget-grid .widget-resize:is([data-edge="e"], [data-edge="w"]) { width: 28px; }
-  .widget-grid .widget-resize[data-edge="e"] { right: -19px; }
-  .widget-grid .widget-resize[data-edge="w"] { left: -19px; }
-  .widget-grid .is-widget-selected > .widget-resize:is([data-edge="n"], [data-edge="s"], [data-edge="e"], [data-edge="w"])::after {
-    content: ""; position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px;
-    border-radius: 50%; background: #fff; border: 2px solid #8796a5; box-shadow: 0 1px 4px #0004;
-  }
-}
