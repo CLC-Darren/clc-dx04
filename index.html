@@ -191,6 +191,9 @@
     @media (max-width:639px) { #dx-greeting { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:var(--dx-greeting-size, 1.875rem); } } /* 手機：問候語超過一行就縮小字（同 LF） */
     @media (min-width:640px) { .dx-top { flex-wrap:nowrap; align-items:flex-end; } } /* 電腦：工具列底部和問候語底部切齊 */
     @media (max-width:639px) { #dxToolbar { width:100%; } }
+    #dxToolbar .clc-tb-add { order:-1; } /* ＋ 在分頁列左邊（同 LF） */
+    @media (max-width:639px) { #dxToolbar { justify-content:flex-start; } #dxToolbar .clc-tb-add { order:0; } } /* 手機：分頁列靠左、＋ 緊接在放大鏡旁邊（同 LF） */
+    @media (min-width:1024px) { #dx-main { padding-top:28px; } } /* 電腦：問候語那一排往上一點（原本 48px） */
     #dxSearchHost:empty, #dxSearchHost > [hidden] { display:none; }
     #dxSearchHost:has(> [hidden]:only-child) { display:none; } /* 搜尋收起時不佔一格間距 */
     @media (min-width:1024px) { #dxHome { margin-top:-8px; } } /* 工具列到 App 跟 LF 一樣 24px */
