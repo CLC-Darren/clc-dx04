@@ -232,6 +232,18 @@
     #dxDesk .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(20px, min(11cqw, 17cqh), 56px); line-height:1.05; }
     #dxDesk .dx-clock [data-widget-field="wxDesc"] { font-size:clamp(12px, min(5cqw, 8cqh), 22px); }
     #dxDesk .dx-clock [data-widget-field="wxMeta"] { display:block; font-size:clamp(11px, min(3.4cqw, 5.5cqh), 15px); }
+    /* 寬扁的卡片（寬 ≥ 高的 2.2 倍，例如 8×2）：左右兩半、中間一條直線（舊版樣式），時間在左、天氣在右，日期和地點都保留 */
+    @container (min-aspect-ratio:2.2/1) and (min-height:151px) {
+      #dxDesk .dx-clock-inner { grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:0; }
+      #dxDesk .dx-clock .clock-weather { justify-self:stretch; align-self:stretch; border-left:1px solid rgba(148,163,184,.25); }
+      #dxDesk .dx-clock [data-widget-field="clockTime"] { font-size:clamp(28px, min(11cqw, 42cqh), 110px); }
+      #dxDesk .dx-clock [data-widget-field="clockSec"] { font-size:clamp(12px, min(3.4cqw, 13cqh), 36px); }
+      #dxDesk .dx-clock [data-widget-field="clockDate"] { font-size:clamp(11px, min(2.2cqw, 9cqh), 20px); }
+      #dxDesk .dx-clock [data-widget-field="wxIcon"] { width:clamp(28px, min(7cqw, 30cqh), 80px); height:clamp(28px, min(7cqw, 30cqh), 80px); }
+      #dxDesk .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(20px, min(5.5cqw, 24cqh), 56px); }
+      #dxDesk .dx-clock [data-widget-field="wxDesc"] { font-size:clamp(12px, min(2.4cqw, 10cqh), 22px); }
+      #dxDesk .dx-clock [data-widget-field="wxMeta"] { font-size:clamp(11px, min(1.7cqw, 7.5cqh), 15px); }
+    }
     @container (max-height:150px) {
       #dxDesk .dx-clock-inner { grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:0; }
       #dxDesk .dx-clock .clock-weather { justify-self:stretch; align-self:stretch; border-left:1px solid rgba(148,163,184,.25); }
