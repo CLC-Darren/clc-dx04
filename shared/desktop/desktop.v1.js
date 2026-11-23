@@ -64,12 +64,15 @@
     // 手機第一次：用電腦版的順序（上到下、左到右）
     // 電腦版：每個欄數（視窗放得下幾格）各記一份 __byCols[欄數]；這個欄數沒調整過 → 用欄數最接近的那份照順序排（不自動存）
     function byOrder(src) { return { __order: Object.keys(src).filter(function (k) { return k.slice(0, 2) !== '__'; }).sort(function (a, b) { return (src[a].y - src[b].y) || (src[a].x - src[b].x); }) }; }
+    var fromBy = false;
     function currentMap() {
-      var m = layouts[mode];
-      if (m && mode === 'desktop' && CELL.desktop && m.__byCols) {
-        var c = calcCols(), by = m.__byCols, keys = Object.keys(by);
+      var m = layouts[mode]; fromBy = false;
+      // 手機也固定格寬後：舊的手機排列都是 4 欄排的，當成 4 欄那份
+      var by = m && CELL[mode] ? (m.__byCols || (mode === 'phone' ? { 4: m } : null)) : null;
+      if (by) {
+        var c = calcCols(), keys = Object.keys(by);
         if (by[c]) return by[c];
-        if (keys.length) return byOrder(by[keys.sort(function (a, b) { return Math.abs(a - c) - Math.abs(b - c); })[0]]);
+        if (keys.length) { fromBy = true; return byOrder(by[keys.sort(function (a, b) { return Math.abs(a - c) - Math.abs(b - c); })[0]]); }
       }
       if (m) return m;
       if (mode === 'phone' && layouts.desktop) {
@@ -102,7 +105,7 @@
     function relayout() {
       if (!grid) return;
       var m = currentMap(), ord = m.__order;
-      derived = !!ord && mode === 'desktop'; // 先設好：重排時的 change 不要存
+      derived = fromBy; // 照最接近欄數自動排的先不存；先設好：重排時的 change 不要存
       grid.batchUpdate();
       grid.removeAll(false);
       flushSave(); curCols = calcCols(); colCss(curCols); temp = {};
@@ -134,7 +137,7 @@
       saveT = null;
       {
         var m = merged();
-        if (mode === 'desktop' && CELL.desktop) { var by = Object.assign({}, (layouts.desktop || {}).__byCols); by[curCols] = m; m = Object.assign({}, m, { __byCols: by }); }
+        if (CELL[mode]) { var old = layouts[mode] || {}, by = Object.assign({}, old.__byCols || (mode === 'phone' && Object.keys(old).length ? { 4: old } : null)); by[curCols] = m; m = Object.assign({}, m, { __byCols: by }); }
         layouts[mode] = m;
         if (opts.saveLayout) Promise.resolve(opts.saveLayout(mode, m)).catch(function (e) { console.warn('排列儲存失敗', e); opts.error && opts.error(e); });
       }

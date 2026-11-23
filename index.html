@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/js/dashboard-widgets.css?v=12">
   <link rel="stylesheet" href="/shared/desktop/desktop.v1.css?v=8">
   <link rel="stylesheet" href="/shared/toolbar/toolbar.v1.css?v=1">
-  <script src="/shared/desktop/desktop.v1.js?v=12"></script>
+  <script src="/shared/desktop/desktop.v1.js?v=13"></script>
   <script src="/shared/toolbar/toolbar.v1.js?v=1"></script>
   <script src="/reorder.js?v=shared-todo-2"></script>
   <script src="https://linfamily.pages.dev/js/dashboard-todos.js"></script>
@@ -1124,7 +1124,7 @@
       return list;
     }
     const desk = window.clcDesktop(deskRoot, {
-      cols: { desktop: 16, phone: 4 }, cell: { desktop: 104 }, ratio: 1.3, margin: { desktop: 11, phone: 8 },
+      cols: { desktop: 16, phone: 4 }, cell: { desktop: 104, phone: 88 }, ratio: 1.3, margin: { desktop: 11, phone: 8 },
       waitLayout: true,
       canEdit: isAdmin,
       label: id => appApi.name?.(id) || cardName(cardOf(id)),
