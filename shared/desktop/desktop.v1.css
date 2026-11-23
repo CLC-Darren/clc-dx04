@@ -56,6 +56,7 @@
   .dk-root .grid-stack-item.dk-sel > :is(.ui-resizable-s, .ui-resizable-se, .ui-resizable-sw) { bottom:calc(var(--dk-m, 8px) - 16px); top:auto; }
   .dk-root .grid-stack-item.dk-sel > :is(.ui-resizable-e, .ui-resizable-ne, .ui-resizable-se) { right:calc(var(--dk-m, 8px) - 16px); left:auto; }
   .dk-root .grid-stack-item.dk-sel > :is(.ui-resizable-w, .ui-resizable-nw, .ui-resizable-sw) { left:calc(var(--dk-m, 8px) - 16px); right:auto; }
+  .dk-root .grid-stack-item.dk-sel > :is(.ui-resizable-ne, .ui-resizable-nw, .ui-resizable-se, .ui-resizable-sw) { display:none !important; } /* 卡片是圓角，四個角不放圓點，只留四邊 */
   .dk-root .grid-stack-item.dk-sel > .ui-resizable-handle::after { content:""; position:absolute; left:50%; top:50%; width:10px; height:10px; margin:-5px 0 0 -5px;
     border-radius:50%; background:#fff; border:1.5px solid var(--pine, #007E8A); box-shadow:0 1px 3px rgba(0,0,0,.3); }
   .dk-root .grid-stack-item.dk-sel > .grid-stack-item-content { outline:1px solid rgba(255,255,255,.45); outline-offset:0; }
