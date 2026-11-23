@@ -264,6 +264,10 @@
         handle: '.dk-handle', resizable: { handles: 'n,ne,e,se,s,sw,w,nw' }
       }, root);
       root.style.setProperty('--dk-m', marg() + 'px');
+      // 拖曳時最多只能放到「目前最下面一排」再往下 2 排；要更下面就再拖一次（手機、電腦都一樣）。新增的卡片不受限制。
+      function setMaxRow(n) { grid.opts.maxRow = n; if (grid.engine) grid.engine.maxRow = n; }
+      grid.on('dragstart', function () { var b = 0; grid.engine.nodes.forEach(function (n) { b = Math.max(b, n.y + n.h); }); setMaxRow(b + 2); });
+      grid.on('dragstop', function () { setMaxRow(0); });
       grid.on('dragstart resizestart', function () { closeMenu(); }); // 開始移動或調整大小就收起選單
       grid.on('dragstop resizestop', function (e, el) { justDragged = Date.now(); derived = false; queueSave(); if (el) delete temp[el.getAttribute('gs-id')]; }); // 使用者動過的就照新位置存
       grid.on('change', queueSave);
@@ -306,6 +310,8 @@
       },
       has: function (id) { return items.has(id); },
       ids: function () { return order.slice(); },
+      // 往上整理：把空出來的列往上補齊（排得太長時用），存成這台裝置模式（手機／電腦）的新排列
+      compact: function () { if (!grid) return; derived = false; grid.compact(); queueSave(); },
       // 雲端排列進來（另一台裝置改的）
       setLayout: function (m, map) {
         map = map && typeof map === 'object' ? map : null;
