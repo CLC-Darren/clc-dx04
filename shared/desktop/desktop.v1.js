@@ -100,6 +100,7 @@
       it.setAttribute('gs-w', s.w); it.setAttribute('gs-h', s.h);
       if (o.type === 'app') it.setAttribute('gs-no-resize', 'true'); else { it.setAttribute('gs-min-w', minW(o)); it.setAttribute('gs-min-h', minH(o)); if (o.opt.maxW) it.setAttribute('gs-max-w', o.opt.maxW); if (o.opt.maxH) it.setAttribute('gs-max-h', o.opt.maxH); it.removeAttribute('gs-no-resize'); } // 最大尺寸（可選）：put 的 o.maxW / o.maxH
       root.appendChild(it); grid.makeWidget(it);
+      if (o.type === 'app') grid.update(it, { noResize: true, w: 1, h: 1, minW: 1, maxW: 1, minH: 1, maxH: 1 }); // App 圖示固定 1×1，不能拖拉放大
     }
     // 依目前裝置的排列重排全部
     function relayout() {

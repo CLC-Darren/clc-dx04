@@ -31,7 +31,7 @@
 .dk-confirm button { border:1px solid var(--border, rgba(0,0,0,.12)); background:var(--btn, #f3f3f3); color:inherit; font:inherit; font-weight:700; padding:8px 16px; border-radius:9999px; cursor:pointer; }
 .dk-confirm button.dk-danger { background:#B5483D; border-color:#B5483D; color:#fff !important; }
 /* 調整大小：電腦四邊四角都能直接拉（像 Windows 視窗），不顯示箭頭圖示 */
-.dk-root .grid-stack-item > .ui-resizable-handle { display:block !important; background:none !important; transform:none !important; touch-action:none; }
+.dk-root .grid-stack-item:not(.dk-app) > .ui-resizable-handle { display:block !important; background:none !important; transform:none !important; touch-action:none; }
 .dk-root .grid-stack-item > .ui-resizable-n, .dk-root .grid-stack-item > .ui-resizable-s { left:24px; right:24px; width:auto; height:10px; }
 .dk-root .grid-stack-item > .ui-resizable-e, .dk-root .grid-stack-item > .ui-resizable-w { top:24px; bottom:24px; height:auto; width:10px; }
 /* 電腦：四個角 24×24 比邊大、角優先（像 Windows），斜拉比較好抓 */
@@ -60,3 +60,5 @@
     border-radius:50%; background:#fff; border:2px solid var(--pine, #007E8A); box-shadow:0 1px 4px rgba(0,0,0,.35); }
   .dk-root .grid-stack-item.dk-sel > .grid-stack-item-content { outline:2px solid rgba(255,255,255,.85); outline-offset:2px; }
 }
+
+.dk-root .dk-app > .ui-resizable-handle { display:none !important; pointer-events:none !important; } /* App 圖示不能調大小（只有卡片可以） */
