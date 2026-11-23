@@ -148,7 +148,7 @@
       // 格子寬＝root 寬／欄數（root 的最大寬度由各站 CSS 決定）；高＝寬 × ratio（App 圖示＋名稱）
       var w = root.clientWidth || window.innerWidth, cw = CELL[mode] || w / cols();
       grid.cellHeight(Math.round(cw * (opts.ratio || 1)));
-      grid.margin(marg());
+      grid.margin(marg()); root.style.setProperty('--dk-m', marg() + 'px'); // 給手機選取框、圓點對齊卡片邊緣用
     }
 
     // ---------- 選單與刪除確認 ----------
@@ -263,6 +263,7 @@
         column: cols(), cellHeight: 100, margin: marg(), float: true, animate: true,
         handle: '.dk-handle', resizable: { handles: 'n,ne,e,se,s,sw,w,nw' }
       }, root);
+      root.style.setProperty('--dk-m', marg() + 'px');
       grid.on('dragstart resizestart', function () { closeMenu(); }); // 開始移動或調整大小就收起選單
       grid.on('dragstop resizestop', function (e, el) { justDragged = Date.now(); derived = false; queueSave(); if (el) delete temp[el.getAttribute('gs-id')]; }); // 使用者動過的就照新位置存
       grid.on('change', queueSave);

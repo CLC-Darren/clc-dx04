@@ -48,17 +48,17 @@
 /* 手機：像 Android 小工具，長按選取卡片後出現外框和四邊圓點，拖圓點調整大小；平常不顯示 */
 @media (pointer:coarse) {
   .dk-root .grid-stack-item > .ui-resizable-handle { display:none !important; }
-  .dk-root .grid-stack-item.dk-sel > .ui-resizable-n, .dk-root .grid-stack-item.dk-sel > .ui-resizable-s,
-  .dk-root .grid-stack-item.dk-sel > .ui-resizable-e, .dk-root .grid-stack-item.dk-sel > .ui-resizable-w { display:block !important; z-index:20; }
-  .dk-root .grid-stack-item.dk-sel > .ui-resizable-n, .dk-root .grid-stack-item.dk-sel > .ui-resizable-s { height:32px; }
-  .dk-root .grid-stack-item.dk-sel > .ui-resizable-n { top:-12px; }
-  .dk-root .grid-stack-item.dk-sel > .ui-resizable-s { bottom:-12px; }
-  .dk-root .grid-stack-item.dk-sel > .ui-resizable-e, .dk-root .grid-stack-item.dk-sel > .ui-resizable-w { width:32px; }
-  .dk-root .grid-stack-item.dk-sel > .ui-resizable-e { right:-12px; }
-  .dk-root .grid-stack-item.dk-sel > .ui-resizable-w { left:-12px; }
-  .dk-root .grid-stack-item.dk-sel > .ui-resizable-handle::after { content:""; position:absolute; left:50%; top:50%; width:14px; height:14px; margin:-7px 0 0 -7px;
-    border-radius:50%; background:#fff; border:2px solid var(--pine, #007E8A); box-shadow:0 1px 4px rgba(0,0,0,.35); }
-  .dk-root .grid-stack-item.dk-sel > .grid-stack-item-content { outline:2px solid rgba(255,255,255,.85); outline-offset:2px; }
+  /* 手機長按選取：圓點的中心正好落在卡片外框線上（卡片內容比格子內縮 --dk-m），圓點小一點、框線淡一點 */
+  .dk-root .grid-stack-item.dk-sel > .ui-resizable-handle { display:block !important; z-index:20; width:32px; height:32px; }
+  .dk-root .grid-stack-item.dk-sel > .ui-resizable-n, .dk-root .grid-stack-item.dk-sel > .ui-resizable-s { left:calc(50% - 16px); right:auto; }
+  .dk-root .grid-stack-item.dk-sel > .ui-resizable-e, .dk-root .grid-stack-item.dk-sel > .ui-resizable-w { top:calc(50% - 16px); bottom:auto; }
+  .dk-root .grid-stack-item.dk-sel > :is(.ui-resizable-n, .ui-resizable-ne, .ui-resizable-nw) { top:calc(var(--dk-m, 8px) - 16px); bottom:auto; }
+  .dk-root .grid-stack-item.dk-sel > :is(.ui-resizable-s, .ui-resizable-se, .ui-resizable-sw) { bottom:calc(var(--dk-m, 8px) - 16px); top:auto; }
+  .dk-root .grid-stack-item.dk-sel > :is(.ui-resizable-e, .ui-resizable-ne, .ui-resizable-se) { right:calc(var(--dk-m, 8px) - 16px); left:auto; }
+  .dk-root .grid-stack-item.dk-sel > :is(.ui-resizable-w, .ui-resizable-nw, .ui-resizable-sw) { left:calc(var(--dk-m, 8px) - 16px); right:auto; }
+  .dk-root .grid-stack-item.dk-sel > .ui-resizable-handle::after { content:""; position:absolute; left:50%; top:50%; width:10px; height:10px; margin:-5px 0 0 -5px;
+    border-radius:50%; background:#fff; border:1.5px solid var(--pine, #007E8A); box-shadow:0 1px 3px rgba(0,0,0,.3); }
+  .dk-root .grid-stack-item.dk-sel > .grid-stack-item-content { outline:1px solid rgba(255,255,255,.45); outline-offset:0; }
 }
 
 .dk-root .dk-app > .ui-resizable-handle { display:none !important; pointer-events:none !important; } /* App 圖示不能調大小（只有卡片可以） */
