@@ -167,7 +167,8 @@
         menuEl.appendChild(b);
       });
       document.body.appendChild(menuEl);
-      var r = menuEl.getBoundingClientRect(), top = y;
+      // 用實際大小（offset），不用 getBoundingClientRect：選單出現時有縮放動畫（.92），量到的會偏小，放在卡片上方就會壓到卡片
+      var r = { width: menuEl.offsetWidth, height: menuEl.offsetHeight }, top = y;
       // 卡片：像 Android，選單放卡片下方，放不下放上方；都放不下就捲一點讓卡片和選單都看得到；卡片比螢幕高才浮在手指旁
       var card = id && items.get(id) && items.get(id).el; // 卡片和 App 都一樣：選單不蓋住
       if (card) {
@@ -270,7 +271,11 @@
       root.style.setProperty('--dk-m', marg() + 'px');
       // 拖曳時最多只能放到「目前最下面一排」再往下 2 排；要更下面就再拖一次（手機、電腦都一樣）。新增的卡片不受限制。
       function setMaxRow(n) { grid.opts.maxRow = n; if (grid.engine) grid.engine.maxRow = n; }
-      grid.on('dragstart', function () { var b = 0; grid.engine.nodes.forEach(function (n) { b = Math.max(b, n.y + n.h); }); setMaxRow(b + 2); });
+      grid.on('dragstart', function (e, el) { // 「最下面一排」不算正在拖的這張（不然拖最下面那張，每拖一次又能再往下 2 排，等於沒有限制）
+        var me = el && el.gridstackNode, b = 0;
+        grid.engine.nodes.forEach(function (n) { if (n !== me) b = Math.max(b, n.y + n.h); });
+        setMaxRow(me ? Math.max(b + 2 + me.h, me.y + me.h) : b + 2);
+      });
       grid.on('dragstop', function () { setMaxRow(0); });
       grid.on('dragstart resizestart', function () { closeMenu(); }); // 開始移動或調整大小就收起選單
       grid.on('dragstop resizestop', function (e, el) { justDragged = Date.now(); derived = false; queueSave(); if (el) delete temp[el.getAttribute('gs-id')]; }); // 使用者動過的就照新位置存
