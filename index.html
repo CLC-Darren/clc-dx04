@@ -251,18 +251,20 @@
       #dxDesk .dx-clock [data-widget-field="wxIcon"] { width:clamp(26px, 42cqh, 60px); height:clamp(26px, 42cqh, 60px); }
       #dxDesk .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(22px, 40cqh, 56px); }
     }
-    /* 5×2：左右兩半、中間一條直線；左邊時間＋日期，右邊完整天氣 */
+    /* 5×2：左右兩半、中間一條直線；左邊時間＋日期，右邊完整天氣。字和圖示盡量放大，填滿版面 */
     @container (min-height:151px) and (min-width:430px) {
-      #dxDesk .dx-clock-inner { grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:0; }
-      #dxDesk .dx-clock .clock-weather { justify-self:stretch; align-self:stretch; border-left:1px solid rgba(148,163,184,.25); padding-left:4%; }
+      #dxDesk .dx-clock-inner { grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr); align-items:center; gap:0; }
+      #dxDesk .dx-clock .clock-main { padding-right:3%; }
+      #dxDesk .dx-clock .clock-main > p:first-child { gap:.06em; }
+      #dxDesk .dx-clock .clock-weather { justify-self:stretch; align-self:stretch; flex-direction:column; align-items:flex-start; justify-content:center; gap:min(2cqh,8px); border-left:1px solid rgba(148,163,184,.25); padding-left:6%; }
       #dxDesk .dx-clock .clock-weather > div:last-child > p:first-child { flex-wrap:wrap; }
-      #dxDesk .dx-clock [data-widget-field="clockTime"] { font-size:clamp(32px, min(11.5cqw, 42cqh), 120px); }
-      #dxDesk .dx-clock [data-widget-field="clockSec"] { font-size:clamp(12px, min(3.4cqw, 12cqh), 36px); }
-      #dxDesk .dx-clock [data-widget-field="clockDate"] { font-size:clamp(12px, min(2.7cqw, 9cqh), 22px); }
-      #dxDesk .dx-clock [data-widget-field="wxIcon"] { width:clamp(28px, min(8.5cqw, 30cqh), 90px); height:clamp(28px, min(8.5cqw, 30cqh), 90px); }
-      #dxDesk .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(22px, min(7.5cqw, 28cqh), 72px); }
-      #dxDesk .dx-clock [data-widget-field="wxDesc"] { font-size:clamp(12px, min(3cqw, 11cqh), 24px); }
-      #dxDesk .dx-clock [data-widget-field="wxMeta"] { font-size:clamp(11px, min(2.2cqw, 8cqh), 17px); white-space:normal; }
+      #dxDesk .dx-clock [data-widget-field="clockTime"] { font-size:clamp(32px, min(17.5cqw, 50cqh), 140px); }
+      #dxDesk .dx-clock [data-widget-field="clockSec"] { font-size:clamp(12px, min(5cqw, 14cqh), 40px); }
+      #dxDesk .dx-clock [data-widget-field="clockDate"] { font-size:clamp(12px, min(3.6cqw, 10cqh), 26px); margin-top:.5em; }
+      #dxDesk .dx-clock [data-widget-field="wxIcon"] { width:clamp(28px, min(11cqw, 26cqh), 96px); height:clamp(28px, min(11cqw, 26cqh), 96px); margin-left:-.15em; }
+      #dxDesk .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(22px, min(11cqw, 30cqh), 84px); }
+      #dxDesk .dx-clock [data-widget-field="wxDesc"] { font-size:clamp(12px, min(4.2cqw, 12cqh), 30px); }
+      #dxDesk .dx-clock [data-widget-field="wxMeta"] { font-size:clamp(11px, min(2.8cqw, 8cqh), 20px); white-space:normal; margin-top:.4em; }
     }
     .todo-area-drop { outline:2px solid #00a3b4 !important; outline-offset:2px; }
     .todo-drop-before { box-shadow: inset 0 2px #00a3b4; }
