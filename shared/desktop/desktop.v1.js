@@ -273,7 +273,9 @@
       function setMaxRow(n) { grid.opts.maxRow = n; if (grid.engine) grid.engine.maxRow = n; }
       // 拖曳／調整大小開始：記下每一格原本的位置；拖曳另外算出「最多到哪一排」（不算正在拖的這張）
       var pre = null, limitY = null;
+      // 注意：gridstack 的 dragstart／dragstop 等事件每種只能掛一個處理函式（後掛的會蓋掉前面的），所以全部寫在同一個裡
       grid.on('dragstart resizestart', function (e, el) {
+        closeMenu(); // 開始移動或調整大小就收起選單
         var me = el && el.gridstackNode, b = 0; pre = new Map();
         grid.engine.nodes.forEach(function (n) { pre.set(n, { x: n.x, y: n.y }); if (n !== me) b = Math.max(b, n.y + n.h); });
         limitY = e.type === 'dragstart' && me ? Math.max(b + 2, me.y) : null; // 這張的上緣最多到其他東西最下面再往下 2 排
@@ -302,9 +304,8 @@
             });
         }
         pre = null; limitY = null;
+        justDragged = Date.now(); derived = false; queueSave(); if (el) delete temp[el.getAttribute('gs-id')]; // 使用者動過的就照新位置存
       });
-      grid.on('dragstart resizestart', function () { closeMenu(); }); // 開始移動或調整大小就收起選單
-      grid.on('dragstop resizestop', function (e, el) { justDragged = Date.now(); derived = false; queueSave(); if (el) delete temp[el.getAttribute('gs-id')]; }); // 使用者動過的就照新位置存
       grid.on('change', queueSave);
       relayout();
     }).catch(function (e) { console.warn('gridstack 載入失敗', e); opts.error && opts.error(e); });
