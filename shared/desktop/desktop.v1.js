@@ -271,12 +271,38 @@
       root.style.setProperty('--dk-m', marg() + 'px');
       // 拖曳時最多只能放到「目前最下面一排」再往下 2 排；要更下面就再拖一次（手機、電腦都一樣）。新增的卡片不受限制。
       function setMaxRow(n) { grid.opts.maxRow = n; if (grid.engine) grid.engine.maxRow = n; }
-      grid.on('dragstart', function (e, el) { // 「最下面一排」不算正在拖的這張（不然拖最下面那張，每拖一次又能再往下 2 排，等於沒有限制）
-        var me = el && el.gridstackNode, b = 0;
-        grid.engine.nodes.forEach(function (n) { if (n !== me) b = Math.max(b, n.y + n.h); });
-        setMaxRow(me ? Math.max(b + 2 + me.h, me.y + me.h) : b + 2);
+      // 拖曳／調整大小開始：記下每一格原本的位置；拖曳另外算出「最多到哪一排」（不算正在拖的這張）
+      var pre = null, limitY = null;
+      grid.on('dragstart resizestart', function (e, el) {
+        var me = el && el.gridstackNode, b = 0; pre = new Map();
+        grid.engine.nodes.forEach(function (n) { pre.set(n, { x: n.x, y: n.y }); if (n !== me) b = Math.max(b, n.y + n.h); });
+        limitY = e.type === 'dragstart' && me ? Math.max(b + 2, me.y) : null; // 這張的上緣最多到其他東西最下面再往下 2 排
+        if (limitY != null) setMaxRow(limitY + me.h);
       });
-      grid.on('dragstop', function () { setMaxRow(0); });
+      function overlaps(n, x, y) {
+        return grid.engine.nodes.some(function (o) { return o !== n && x < o.x + o.w && x + n.w > o.x && y < o.y + o.h && y + n.h > o.y; });
+      }
+      grid.on('dragstop resizestop', function (e, el) {
+        var me = el && el.gridstackNode;
+        setMaxRow(0);
+        // 保險：拖曳中沒擋住的話，放手時拉回到限制內
+        if (me && limitY != null && me.y > limitY && !overlaps(me, me.x, limitY)) grid.update(me.el, { y: limitY });
+        // 被擠開往下掉的格子：先往上找最近的空位補進去，沒有才留在下面（自己留的空格不動）
+        if (pre) {
+          var cols = grid.getColumn();
+          grid.engine.nodes.filter(function (n) { var p = pre.get(n); return n !== me && p && n.y > p.y; })
+            .sort(function (a, b) { return pre.get(a).y - pre.get(b).y; })
+            .forEach(function (n) {
+              var p = pre.get(n), best = null, bd = 1e9;
+              for (var y = p.y; y >= 0; y--) for (var x = 0; x + n.w <= cols; x++) {
+                var d = (p.y - y) * cols + Math.abs(x - p.x);
+                if (d < bd && !overlaps(n, x, y)) { best = { x: x, y: y }; bd = d; }
+              }
+              if (best) grid.update(n.el, best);
+            });
+        }
+        pre = null; limitY = null;
+      });
       grid.on('dragstart resizestart', function () { closeMenu(); }); // 開始移動或調整大小就收起選單
       grid.on('dragstop resizestop', function (e, el) { justDragged = Date.now(); derived = false; queueSave(); if (el) delete temp[el.getAttribute('gs-id')]; }); // 使用者動過的就照新位置存
       grid.on('change', queueSave);
