@@ -369,6 +369,7 @@ async function triggerAdminLogin(options = {}) {
     else alert(message);
   };
   const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' }); // 每次登入都跳出 Google 帳號選單（可選個人或工作帳號）
   try {
     const result = await window.auth.signInWithPopup(provider);
     const email = result.user.email.toLowerCase();
