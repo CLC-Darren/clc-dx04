@@ -31,6 +31,18 @@
     var grid = null, saveT = null, justDragged = 0, placeAt = null, menuEl = null, dlg = null;
 
     root.classList.add('grid-stack', 'dk-root');
+    // 手指還是滑鼠：一開始看裝置（任何一種是觸控就算），之後每次按下依實際輸入切換 .dk-touch（CSS 依此決定調整大小的方式）
+    root.classList.toggle('dk-touch', matchMedia('(pointer:coarse), (any-pointer:coarse)').matches);
+    function guardTouch(e) {
+      var touch = e.type === 'touchstart' || e.pointerType === 'touch' || e.pointerType === 'pen';
+      if (e.type === 'pointerdown' || touch) root.classList.toggle('dk-touch', touch);
+      // 手指：卡片沒被長按選取時，邊緣不能直接拉大小（這次按下的事件不交給 gridstack）
+      var h = touch && e.target.closest && e.target.closest('.ui-resizable-handle');
+      if (h && !(h.parentElement && h.parentElement.classList.contains('dk-sel'))) e.stopPropagation();
+    }
+    root.addEventListener('pointerdown', guardTouch, { capture: true, passive: true });
+    root.addEventListener('touchstart', guardTouch, { capture: true, passive: true });
+    root.addEventListener('pointermove', function (e) { if (e.pointerType === 'mouse' && root.classList.contains('dk-touch')) root.classList.remove('dk-touch'); }, { passive: true }); // 觸控筆電：滑鼠一移動就換回電腦的拉邊方式
 
     function norm(m) { return m ? JSON.stringify(m.__byCols || null) + JSON.stringify(Object.keys(m).filter(function (k) { return k.slice(0, 2) !== '__'; }).sort().map(function (k) { var p = m[k] || {}; return [k, p.x, p.y, p.w, p.h]; })) : ''; }
     // opts.cell[mode]：格子固定寬（px）→ 欄數＝畫面放得下幾格（電腦版 App 大小不隨視窗變）；沒設就用固定欄數 COLS
