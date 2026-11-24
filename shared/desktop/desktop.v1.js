@@ -291,8 +291,16 @@
         var me = el && el.gridstackNode, b = 0; pre = new Map();
         grid.engine.nodes.forEach(function (n) { pre.set(n, { x: n.x, y: n.y }); if (n !== me) b = Math.max(b, n.y + n.h); });
         limitY = e.type === 'dragstart' && me ? Math.max(b + 2, me.y) : null; // 這張的上緣最多到其他東西最下面再往下 2 排
+        dragNode = limitY != null ? me : null;
         if (limitY != null) setMaxRow(limitY + me.h);
       });
+      // gridstack 的 maxRow 會跟著「目前最下面一排」一起變大（拖下去一排，限制就多一排），慢慢往下拖等於沒有限制；
+      // 所以拖曳中每一步直接把位置夾在限制內，畫面上就拖不下去
+      var dragNode = null, moveCheck = grid.engine.moveNodeCheck;
+      grid.engine.moveNodeCheck = function (n, o) {
+        if (n === dragNode && limitY != null && o && o.y > limitY) o = Object.assign({}, o, { y: limitY });
+        return moveCheck.call(this, n, o);
+      };
       function overlaps(n, x, y) {
         return grid.engine.nodes.some(function (o) { return o !== n && x < o.x + o.w && x + n.w > o.x && y < o.y + o.h && y + n.h > o.y; });
       }
@@ -301,6 +309,7 @@
         setMaxRow(0);
         // 保險：拖曳中沒擋住的話，放手時拉回到限制內
         if (me && limitY != null && me.y > limitY && !overlaps(me, me.x, limitY)) grid.update(me.el, { y: limitY });
+        dragNode = null;
         // 被擠開往下掉的格子：先往上找最近的空位補進去，沒有才留在下面（自己留的空格不動）
         if (pre) {
           var cols = grid.getColumn();
