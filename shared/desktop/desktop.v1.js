@@ -175,9 +175,13 @@
         if (c.bottom + g + r.height <= innerHeight - g) top = c.bottom + g;
         else if (c.top - g - r.height >= g) top = c.top - g - r.height;
         else if (c.height + g + r.height <= innerHeight - 2 * g) {
-          scrollBy(0, c.bottom + g + r.height - (innerHeight - g));
-          top = card.getBoundingClientRect().bottom + g;
+          // 捲動的是桌面外面那層（LF 是 section，不是整個視窗），找到真正會捲的那層來捲
+          var sp = root.parentElement, dy = c.bottom + g + r.height - (innerHeight - g);
+          while (sp && sp !== document.body && !(sp.scrollHeight > sp.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(sp).overflowY))) sp = sp.parentElement;
+          if (sp && sp !== document.body) sp.scrollTop += dy; else scrollBy(0, dy);
+          c = card.getBoundingClientRect(); top = c.bottom + g;
         }
+        x = c.left; // 像 Android：選單跟卡片左邊切齊
         menuEl.style.transformOrigin = (top < c.top ? 'bottom ' : 'top ') + 'left';
       }
       menuEl.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px';

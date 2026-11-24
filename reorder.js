@@ -252,6 +252,8 @@ window.clcReorder = function (container, options) {
     if (!pointer?.touch) return;
     if (Array.from(e.touches).some(t => t.identifier === pointer.id)) return;
     const held = pointer.armed && !pointer.moved;
+    // 長按不動就放開：浮起的那一列直接拿掉，不播「落回去」淡出（不然接著出現「−」重畫清單時會閃一下）
+    if (held && floating) { floating.remove(); floating = null; }
     finish(pointer.moved);
     if (held) options.hold?.();
   });
