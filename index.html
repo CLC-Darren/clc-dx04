@@ -217,7 +217,7 @@
     .dx-grip:hover::after { background:rgba(148,163,184,.8); }
     @media (hover:none), (pointer:coarse) { .dx-grip { display:none; } }
     .dx-card h2.dk-handle, .dx-card .clock-main.dk-handle { cursor:grab; }
-    /* 時鐘卡片（3×1～4×2）：字和圖示跟著卡片大小縮放（container 單位）。2 格高＝上下兩排（同 Android 天氣小工具）；1 格高＝左右兩半，拿掉日期、地點和「晴」，時間、圖示、溫度放大 */
+    /* 時鐘卡片（寬×高，只有 4×1、5×1、4×2、5×2）：字和圖示跟著卡片大小縮放（container 單位）。4×2＝上下兩排；1 格高和 5×2＝左右兩半 */
     .dx-clock { overflow:hidden; container-type:size; }
     #dxDesk .dx-clock-inner { flex:1 1 auto; min-height:0; display:grid; grid-template-columns:minmax(0,1fr); align-content:center; justify-items:center; text-align:center; gap:min(4cqh,14px); }
     #dxDesk .dx-clock .clock-main { min-width:0; }
@@ -236,21 +236,21 @@
       #dxDesk .dx-clock-inner { grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:0; }
       #dxDesk .dx-clock .clock-weather { justify-self:stretch; align-self:stretch; border-left:1px solid rgba(148,163,184,.25); }
       #dxDesk .dx-clock :is([data-widget-field="clockDate"], [data-widget-field="wxMeta"], [data-widget-field="wxDesc"]) { display:none; }
-      #dxDesk .dx-clock [data-widget-field="clockTime"] { font-size:clamp(24px, min(calc(11cqw + 14px), 56cqh), 80px); } /* 4×1 比 3×1 稍大一點，不會差太多 */
+      #dxDesk .dx-clock [data-widget-field="clockTime"] { font-size:clamp(24px, min(calc(11cqw + 14px), 56cqh), 80px); } 
       #dxDesk .dx-clock [data-widget-field="clockSec"] { font-size:clamp(11px, min(4.5cqw, 17cqh), 28px); }
       #dxDesk .dx-clock [data-widget-field="wxIcon"] { width:clamp(22px, min(11cqw, 44cqh), 64px); height:clamp(22px, min(11cqw, 44cqh), 64px); }
       #dxDesk .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(20px, min(11cqw, 44cqh), 60px); }
     }
-    /* 1 格高、5～6 格寬：多放日期和「陰」，天氣放大 */
-    @container (max-height:150px) and (min-width:540px) {
+    /* 5×1：多放日期和「陰」，天氣放大（4 格寬內容約 360～400px、5 格約 460～520px，用 430px 分開） */
+    @container (max-height:150px) and (min-width:430px) {
       #dxDesk .dx-clock [data-widget-field="clockDate"] { display:block; font-size:clamp(11px, 10cqh, 15px); }
       #dxDesk .dx-clock [data-widget-field="wxDesc"] { display:inline; font-size:clamp(12px, 12cqh, 18px); }
       #dxDesk .dx-clock [data-widget-field="clockTime"] { font-size:clamp(24px, 40cqh, 60px); }
       #dxDesk .dx-clock [data-widget-field="wxIcon"] { width:clamp(26px, 42cqh, 60px); height:clamp(26px, 42cqh, 60px); }
       #dxDesk .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(22px, 40cqh, 56px); }
     }
-    /* 2 格高、5～6 格寬：左右兩半、中間一條直線；左邊時間＋日期，右邊完整天氣 */
-    @container (min-height:151px) and (min-width:540px) {
+    /* 5×2：左右兩半、中間一條直線；左邊時間＋日期，右邊完整天氣 */
+    @container (min-height:151px) and (min-width:430px) {
       #dxDesk .dx-clock-inner { grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:0; }
       #dxDesk .dx-clock .clock-weather { justify-self:stretch; align-self:stretch; border-left:1px solid rgba(148,163,184,.25); padding-left:4%; }
       #dxDesk .dx-clock .clock-weather > div:last-child > p:first-child { flex-wrap:wrap; }
@@ -1119,7 +1119,7 @@
     const deskRoot = $id('dxDesk');
     const isAdmin = () => !!window.isSuperuser;
     const CARD_TYPES = {
-      clock: { label: '時鐘與天氣', w: 3, h: 2, minW: 3, minH: 1, maxW: 6, maxH: 2 },
+      clock: { label: '時鐘與天氣', w: 4, h: 2, minW: 4, minH: 1, maxW: 5, maxH: 2 }, // 只有 4×1、5×1、4×2、5×2 四種
       todo: { label: '代辦事項', w: 4, h: 4, minW: 4, minH: 2 }
     };
     const LEGACY_KEY = 'clc_dx04_dashboard_widgets_v1';
