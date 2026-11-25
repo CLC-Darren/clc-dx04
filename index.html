@@ -266,6 +266,20 @@
       #dxDesk .dx-clock [data-widget-field="wxDesc"] { font-size:clamp(12px, min(4.2cqw, 12cqh), 30px); }
       #dxDesk .dx-clock [data-widget-field="wxMeta"] { font-size:clamp(11px, min(2.8cqw, 8cqh), 20px); white-space:normal; margin-top:.4em; }
     }
+    /* 最大時鐘卡片：圖示、溫度與天氣同列，詳細資料固定分兩行。 */
+    @container (min-height:151px) and (min-width:430px) {
+      #dxDesk .grid-stack-item[gs-w="5"][gs-h="2"] .dx-clock .dx-clock-inner { grid-template-columns:minmax(0,1.18fr) minmax(0,.82fr); }
+      #dxDesk .grid-stack-item[gs-w="5"][gs-h="2"] .dx-clock .clock-weather { display:grid; grid-template-columns:auto minmax(0,1fr); align-content:center; align-items:center; justify-content:normal; column-gap:min(2cqw,10px); row-gap:min(3cqh,12px); padding-left:10%; }
+      #dxDesk .grid-stack-item[gs-w="5"][gs-h="2"] .dx-clock .clock-weather > div:last-child { display:contents; }
+      #dxDesk .grid-stack-item[gs-w="5"][gs-h="2"] .dx-clock .clock-weather > div:last-child > p:first-child { flex-wrap:nowrap; gap:.2em; min-width:0; }
+      #dxDesk .grid-stack-item[gs-w="5"][gs-h="2"] .dx-clock [data-widget-field="wxIcon"] { width:clamp(26px, 9cqw, 72px); height:clamp(26px, 9cqw, 72px); margin-left:0; }
+      #dxDesk .grid-stack-item[gs-w="5"][gs-h="2"] .dx-clock [data-widget-field="wxTemp"] { font-size:clamp(22px, 10cqw, 76px); }
+      #dxDesk .grid-stack-item[gs-w="5"][gs-h="2"] .dx-clock [data-widget-field="wxDesc"] { font-size:clamp(11px, 3.6cqw, 26px); white-space:normal; overflow-wrap:anywhere; }
+      #dxDesk .grid-stack-item[gs-w="5"][gs-h="2"] .dx-clock [data-widget-field="wxMeta"] { grid-column:1 / -1; font-size:clamp(11px, 2.9cqw, 20px); line-height:1.9; margin-top:0; text-align:left; }
+      #dxDesk .grid-stack-item[gs-w="5"][gs-h="2"] .dx-clock .clock-weather-detail:last-child:not(:first-child):nth-child(5) { display:block; }
+      #dxDesk .grid-stack-item[gs-w="5"][gs-h="2"] .dx-clock .clock-weather-separator:nth-child(4) { display:none; }
+      #dxDesk .grid-stack-item[gs-w="5"][gs-h="2"] .dx-clock [data-widget-field="wxRefresh"] { grid-column:1 / -1; justify-self:start; }
+    }
     .todo-area-drop { outline:2px solid #00a3b4 !important; outline-offset:2px; }
     .todo-drop-before { box-shadow: inset 0 2px #00a3b4; }
     .todo-drop-after { box-shadow: inset 0 -2px #00a3b4; }
