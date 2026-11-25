@@ -196,7 +196,7 @@ window.clcReorder = function (container, options) {
     const handle = e.target.closest('.reorder-handle');
     if (!handle && !options.directMouse) return; // Apps keep native desktop drag/drop.
     const next = item(e.target); if (!next) return;
-    source = next; pointer = { id: e.pointerId, x: e.clientX, y: e.clientY, armed: false, moved: false };
+    source = next; pointer = { id: e.pointerId, x: e.clientX, y: e.clientY, armed: false, moved: false, downAt: performance.now() };
     if (handle) { e.preventDefault(); e.stopPropagation(); }
   }, true);
   container.addEventListener('pointermove', e => {
@@ -218,7 +218,12 @@ window.clcReorder = function (container, options) {
     const moved = pointer.moved;
     if (moved && preview && options.crossTarget) updatePreview(e.clientX, e.clientY);
     if (container.hasPointerCapture(e.pointerId)) container.releasePointerCapture(e.pointerId);
+    const held = !moved && !pointer.armed && options.hold && performance.now() - pointer.downAt >= 600;
     finish(moved);
+    if (held) {
+      suppressUntil = Date.now() + 500;
+      options.hold();
+    }
   });
   for (const event of ['pointercancel', 'lostpointercapture']) {
     container.addEventListener(event, e => {
