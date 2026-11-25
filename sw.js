@@ -1,6 +1,3 @@
-const CACHE_NAME = 'clc-dx04-v1';
-self.addEventListener('install', () => { self.skipWaiting(); });
-self.addEventListener('activate', (e) => { e.waitUntil(clients.claim()); });
-self.addEventListener('fetch', () => {
-  // 交由網路直接處理
-});
+importScripts('./offline-navigation.v1.js');
+
+installOfflineNavigation({ title: 'CLC DX04', version: '1', exclude: ['lf', 'sr', 'ya'] });
