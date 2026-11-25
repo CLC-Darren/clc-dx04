@@ -49,7 +49,7 @@ function installOfflineNavigation(config) {
       const abort = new AbortController();
       const timer = setTimeout(() => abort.abort(), 5000);
       try {
-        const online = await fetch(request, { signal: abort.signal });
+        const online = await fetch(request, { signal: abort.signal, cache: 'no-cache' });
         if (online.status < 500) return online;
       } catch (_) {
         // 網路失敗時提供離線入口。
