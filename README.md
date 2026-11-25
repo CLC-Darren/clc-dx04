@@ -143,3 +143,7 @@
 - `manifest.json`、`sw.js`、`favicon.svg`：PWA 安裝設定
 
 部署：Cloudflare Pages 連接此 repo，Build command 留空，Output directory 為 `/`。
+
+## 離線導覽
+
+四站共用固定版本的 Service Worker 導覽程式，依 LF → DX → SR → YA 逐站啟用。第一階段支援離線入口及 🏠 返回，後續再做子頁閱讀與離線同步。[開發原則與驗收方式](docs/clc-dev-guidelines.md)

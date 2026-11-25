@@ -93,3 +93,13 @@
 - 各站共用的程式放 `CLC-Darren/clc-dx04` 的 `/shared/`，用 `https://clc-dx04.pages.dev/shared/...` 載入；目錄與用法見 `/shared/README.md`。
 - 檔名帶版本（`desktop.v1.js`）；大改另開 v2，各站測好再切，舊版不改壞。
 - `/shared/*` 已允許跨網域載入（`_headers`＋`_worker.js`）。
+
+## 離線導覽與分站放行
+
+1. **入口與導覽。** 各站以自己的 `sw.js` 註冊，載入固定版本的 `offline-navigation.v1.js`。共用程式以 [LinFamily 原始檔](https://github.com/DX04L/LinFamily/blob/main/offline-navigation.v1.js) 為準，經該站驗收後才把相同版本帶到下一站。新站設定自己的標題與版本，並確認 Service Worker 的 scope 和必要離線程式。DX 根 scope 排除 `/lf/`、`/sr/`、`/ya/`，各分站接管自己的路徑。
+2. **子頁與離線閱讀（後續）。** 先挑一個子 App 驗證，再擴充各站已瀏覽頁面和可離線閱讀的資料。顯示最後更新時間並依帳號隔離。
+3. **離線編輯與同步（後續）。** 按功能設計本機佇列、權限、重試及跨裝置衝突處理，再擴充共用程式。
+
+第一階段連網優先，網路失敗時顯示離線入口及 🏠 返回連結。LF 在本機登入帳號可辨識時顯示該帳號上次的唯讀 App 清單，按保存的排列順序顯示。Service Worker 只下載離線入口必要的明確列出程式，登入、API、寫入與受保護資料沿用原本網路流程。
+
+依 LF → DX → SR → YA 逐站放行。每站先驗證連網開啟、Service Worker 更新、斷網重開入口與 🏠 返回，以及恢復連線。LF 同時測獨立網址和 DX 的 `/lf/`。放行後觀察兩天並詢問使用者。遇到白屏、登入卡住或回首頁失敗時暫停下一站。回退應發布能啟用的新 Service Worker 以接回原流程，並清除此站的 `clc-offline-` 版本快取。
