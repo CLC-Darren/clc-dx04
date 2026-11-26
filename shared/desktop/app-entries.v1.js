@@ -101,13 +101,35 @@
 
   const entries = app => Array.isArray(app.menu) ? app.menu.filter(row => row && row.name && row.url) : [];
 
+  function installModeStyles() {
+    if (document.getElementById('dk-open-mode-style')) return;
+    const style = document.createElement('style');
+    style.id = 'dk-open-mode-style';
+    style.textContent = `
+      .dk-open-mode { display:grid;gap:6px;color:#475569;font-weight:700 }
+      .dk-open-mode select {
+        color-scheme:light;
+        width:100%;min-height:44px;border:1px solid #b8c5d3;border-radius:12px;
+        padding:6px 10px;background:#f1f5f9;color:#1e293b;font:inherit;
+      }
+      .dk-open-mode option { background:#fff;color:#1e293b }
+      .dark .dk-open-mode { color:#cbd5e1 }
+      .dark .dk-open-mode select {
+        color-scheme:dark;
+        background:#212432;color:#f1f5f9;border-color:#465165;
+      }
+      .dark .dk-open-mode option { background:#212432;color:#f1f5f9 }
+      .dk-open-mode select:focus-visible { outline:2px solid #0d9488;outline-offset:2px }
+    `;
+    document.head.append(style);
+  }
+
   function modeField(parent, entry, after) {
+    installModeStyles();
     const label = document.createElement('label');
     label.className = 'dk-open-mode';
-    label.style.cssText = 'display:grid;gap:4px;font-size:inherit;color:inherit';
     label.append('開啟方式');
     const select = document.createElement('select');
-    select.style.cssText = 'width:100%;min-height:40px;border:1px solid currentColor;border-radius:8px;padding:4px 8px;background:var(--bg,Canvas);color:inherit';
     for (const [value, text] of [['','依原設定／網址'],['inside','站內開啟'],['external','在瀏覽器另開']]) {
       select.add(new Option(text,value));
     }
