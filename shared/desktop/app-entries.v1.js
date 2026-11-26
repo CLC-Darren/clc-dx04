@@ -49,7 +49,8 @@
     if (remove) rows.push({ label: '刪除', danger: true, run: () => {
       const dialog = document.createElement('dialog');
       dialog.className = 'dk-confirm';
-      dialog.innerHTML = '<form method="dialog"><p></p><div class="dk-actions"><button value="cancel">取消</button><button value="remove" class="dk-danger">刪除</button></div></form>';
+      dialog.setAttribute('aria-label', '刪除確認');
+      dialog.innerHTML = '<form method="dialog"><h2>刪除確認</h2><p></p><div class="dk-actions"><button value="cancel" autofocus>取消</button><button value="remove" class="dk-danger">刪除</button></div></form>';
       dialog.querySelector('p').textContent = '確認刪除「' + name + '」？';
       dialog.addEventListener('close', () => {
         if (dialog.returnValue === 'remove') remove();
@@ -146,13 +147,13 @@
     const dialog = document.createElement('dialog');
     dialog.className = 'dk-confirm dk-entry-dialog';
     dialog.setAttribute('aria-label', '新增選項');
-    dialog.innerHTML = '<form><p>新增選項</p><div data-rows></div><div role="alert"></div><div class="dk-actions"><button type="button">取消</button><button type="submit">儲存</button></div></form>';
+    dialog.innerHTML = '<form><h2>新增選項</h2><div data-rows></div><div role="alert"></div><div class="dk-actions"><button type="button">取消</button><button type="submit" data-primary>儲存</button></div></form>';
     const form = dialog.querySelector('form');
     const rows = entries(app);
     const fields = [];
     for (let i = 0; i < Math.max(4, rows.length); i++) {
       const fieldset = document.createElement('fieldset');
-      fieldset.innerHTML = '<legend></legend><div class="dk-entry-fields"><input placeholder="網址" aria-label="網址" inputmode="url"><input placeholder="選單名稱" aria-label="選單名稱"></div>';
+      fieldset.innerHTML = '<legend></legend><div class="dk-entry-fields"><label>網址<input inputmode="url"></label><label>選單名稱<input></label></div>';
       fieldset.querySelector('legend').textContent = '選項 ' + (i + 1);
       const [address, name] = fieldset.querySelectorAll('input');
       address.value = rows[i]?.url || (i === 0 ? url : '');
