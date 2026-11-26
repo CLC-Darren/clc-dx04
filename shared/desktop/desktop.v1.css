@@ -23,7 +23,7 @@
 .dk-menu button { text-align:left; border:0; background:none; color:inherit; font:inherit; font-size:14px; font-weight:600; padding:10px 12px; border-radius:10px; cursor:pointer; }
 .dk-menu button:hover, .dk-menu button:focus-visible { background:var(--btn, rgba(0,0,0,.06)); outline:none; }
 .dk-app-menu { width:218px; min-width:0; max-width:calc(100vw - 16px); max-height:calc(100dvh - 16px); overflow:auto; box-sizing:border-box; }
-.dk-app-menu-header { margin:-6px -6px 4px; padding:13px 16px 11px; text-align:center; background:var(--btn, rgba(127,127,127,.14)); }
+.dk-app-menu-header { margin:-6px -6px 4px; padding:13px 16px 11px; text-align:left; background:var(--btn, rgba(127,127,127,.14)); }
 .dk-app-menu-header strong { font-size:15px; line-height:1.35; overflow-wrap:anywhere; }
 @media (prefers-reduced-motion: reduce) {
   .dk-app-menu, .dk-app-menu.dk-menu-out { animation:none; transition:none; }
@@ -69,3 +69,15 @@
 .dk-root.dk-touch .grid-stack-item.dk-sel > .grid-stack-item-content { outline:2px solid rgba(255,255,255,.45); outline-offset:0; }
 
 .dk-root .dk-app > .ui-resizable-handle { display:none !important; pointer-events:none !important; } /* App 圖示不能調大小（只有卡片可以） */
+
+.dk-entry-trigger { appearance:none; border:0; padding:0; background:none; cursor:pointer; font:inherit; }
+.dk-entry-trigger [data-dk-app-name]::after { content:' ⌄'; }
+.dk-entry-menu { border-inline-start:3px solid var(--pine, var(--teal, #007e8a)); animation:none; overflow:auto; max-height:calc(100dvh - 16px); max-width:calc(100vw - 16px); box-sizing:border-box; }
+.dk-entry-menu a { padding:10px 12px; border-radius:10px; color:inherit; text-decoration:none; font-size:14px; font-weight:600; overflow-wrap:anywhere; }
+.dk-entry-menu a:is(:hover,:focus-visible) { background:var(--btn, rgba(127,127,127,.15)); }
+.dk-entry-dialog { width:min(92vw, 420px); min-width:0; max-height:calc(100dvh - 24px); box-sizing:border-box; }
+.dk-entry-dialog fieldset { border:0; padding:0; margin:0 0 12px; }
+.dk-entry-dialog legend { margin-bottom:4px; font-size:13px; font-weight:700; }
+.dk-entry-dialog .dk-entry-fields { display:grid; grid-template-columns:minmax(0, 3fr) minmax(0, 2fr); gap:8px; }
+.dk-entry-fields input { min-width:0; border:1px solid var(--border, #94a3b8); border-radius:8px; padding:8px; background:var(--btn, #f1f5f9); color:inherit; font:inherit; font-size:14px; }
+.dk-entry-dialog [role=alert] { color:#B5483D; font-size:13px; min-height:1em; }
