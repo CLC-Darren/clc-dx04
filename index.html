@@ -6,9 +6,9 @@
   <script src="/verse-wait.js?v=2"></script>
   <script src="/login-gate.js?v=20261119-verse-wait"></script>
   <link rel="stylesheet" href="/js/dashboard-widgets.css?v=12">
-  <link rel="stylesheet" href="/shared/desktop/desktop.v1.css?v=13">
+  <link rel="stylesheet" href="/shared/desktop/desktop.v1.css?v=14">
   <link rel="stylesheet" href="/shared/toolbar/toolbar.v1.css?v=1">
-  <script src="/shared/desktop/desktop.v1.js?v=22"></script>
+  <script src="/shared/desktop/desktop.v1.js?v=23"></script>
   <script src="/shared/toolbar/toolbar.v1.js?v=1"></script>
   <script src="/reorder.js?v=shared-todo-4"></script>
   <link rel="stylesheet" href="https://linfamily.pages.dev/css/dashboard-todos.v1.css?v=20261125c">
@@ -1117,12 +1117,12 @@
       waitLayout: true,
       canEdit: isAdmin,
       label: id => appApi.name?.(id) || cardName(cardOf(id)),
-      menu: ({ id, type, cell }) => {
+      appMenu: id => appApi.info?.(id),
+      menu: ({ id, type }) => {
         if (!isAdmin()) return [];
-        const m = [];
-        if (type === 'app') m.push({ label: '編輯 App', run: () => appApi.openEdit(id) });
-        if (type === 'card' && cardOf(id)?.type === 'todo') m.push({ label: '重新命名', run: () => renameCard(id) });
-        return m.concat(addItems(cell), id ? [] : [{ label: '往上整理', run: () => desk.compact() }]); // 點空白處：排太長時把空列往上補齊
+        if (type === 'app') return [{ label: '編輯 App', run: () => appApi.openEdit(id) }];
+        if (type === 'card' && cardOf(id)?.type === 'todo') return [{ label: '重新命名', run: () => renameCard(id) }];
+        return id ? [] : [{ label: '往上整理', run: () => desk.compact() }];
       },
       onDelete: (id, type) => type === 'card' ? hideCard(id) : appApi.remove(id),
       saveLayout: (mode, map) => {
@@ -1576,6 +1576,7 @@
         icon.append(logo(app));
         const name = document.createElement('span');
         name.className = 'dx-name';
+        name.setAttribute('data-dk-app-name', '');
         name.textContent = app.name;
         a.append(icon, name);
         return a;
@@ -1799,7 +1800,7 @@
         finish?.();
         console.warn('分站清單無法連線資料庫', err);
       }
-      Object.assign(appApi, { openAdd, openEdit, remove: removeApp, name: id => apps.find(a => a.id === id)?.name || '' });
+      Object.assign(appApi, { openAdd, openEdit, remove: removeApp, info: id => apps.find(a => a.id === id), name: id => apps.find(a => a.id === id)?.name || '' });
     }
     // 登入狀態（header.js 的 Firebase auth）
     start(window.auth?.currentUser);

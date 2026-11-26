@@ -28,7 +28,7 @@
     var layouts = { desktop: null, phone: null };
     var mode = phoneMq.matches ? 'phone' : 'desktop';
     var loaded = { desktop: !opts.waitLayout, phone: !opts.waitLayout };
-    var grid = null, saveT = null, justDragged = 0, placeAt = null, menuEl = null, dlg = null;
+    var grid = null, saveT = null, justDragged = 0, placeAt = null, menuEl = null, dlg = null, infoDialog = null;
 
     root.classList.add('grid-stack', 'dk-root');
     // 手指還是滑鼠：一開始看裝置（任何一種是觸控就算），之後每次按下依實際輸入切換 .dk-touch（CSS 依此決定調整大小的方式）
@@ -167,11 +167,26 @@
     function closeMenu() { if (menuEl) { var m = menuEl; menuEl = null; m.classList.add('dk-menu-out'); setTimeout(function () { m.remove(); }, 160); } } // 收合動畫
     function openMenu(x, y, id, cell) {
       closeMenu();
-      var list = (opts.menu ? opts.menu({ id: id, type: id ? items.get(id).type : null, cell: cell }) : []) || [];
+      var item = id && items.get(id);
+      var list = (opts.menu ? opts.menu({ id: id, type: item ? item.type : null, cell: cell }) : []) || [];
+      var app = item && item.type === 'app' && opts.appMenu && opts.appMenu(id);
       if (id && opts.onDelete) list = list.concat([{ label: '刪除', danger: true, run: function () { confirmDelete(id); } }]);
       if (!list.length) return;
       if (id && lp.touch) select(items.get(id) && items.get(id).el); // 手機：長按選取的卡片出現調整大小的圓點
       menuEl = document.createElement('div'); menuEl.className = 'dk-menu'; menuEl.setAttribute('role', 'menu');
+      if (app) {
+        menuEl.classList.add('dk-app-menu');
+        menuEl.setAttribute('aria-label', app.name);
+        var header = document.createElement('div'); header.className = 'dk-app-menu-header';
+        var title = document.createElement('strong'); title.textContent = app.name;
+        var info = document.createElement('button'); info.type = 'button'; info.className = 'dk-app-menu-info';
+        info.setAttribute('role', 'menuitem');
+        info.setAttribute('aria-label', 'App 資訊');
+        info.textContent = 'ⓘ';
+        info.addEventListener('click', function () { closeMenu(); showAppInfo(app); });
+        header.append(title, info);
+        menuEl.appendChild(header);
+      }
       list.forEach(function (m) {
         var b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'menuitem'); b.textContent = m.label;
         if (m.danger) b.className = 'dk-danger';
@@ -182,8 +197,13 @@
       // 用實際大小（offset），不用 getBoundingClientRect：選單出現時有縮放動畫（.92），量到的會偏小，放在卡片上方就會壓到卡片
       var r = { width: menuEl.offsetWidth, height: menuEl.offsetHeight }, top = y;
       // 卡片：像 Android，選單放卡片下方，放不下放上方；都放不下就捲一點讓卡片和選單都看得到；卡片比螢幕高才浮在手指旁
-      var card = id && items.get(id) && items.get(id).el; // 卡片和 App 都一樣：選單不蓋住
-      if (card) {
+      var card = item && item.el;
+      if (app && card) {
+        var bounds = card.getBoundingClientRect();
+        var label = card.querySelector('[data-dk-app-name]');
+        x = bounds.left;
+        top = label ? label.getBoundingClientRect().top - 6 : bounds.bottom - 20;
+      } else if (card) {
         var c = card.getBoundingClientRect(), g = 8;
         if (c.bottom + g + r.height <= innerHeight - g) top = c.bottom + g;
         else if (c.top - g - r.height >= g) top = c.top - g - r.height;
@@ -203,6 +223,18 @@
     var selEl = null;
     function select(el) { if (selEl) selEl.classList.remove('dk-sel'); selEl = el && el.classList.contains('dk-card') ? el : null; if (selEl) selEl.classList.add('dk-sel'); }
     document.addEventListener('touchstart', function (e) { if (selEl && !selEl.contains(e.target) && !(menuEl && menuEl.contains(e.target))) select(null); }, { capture: true, passive: true });
+    function showAppInfo(app) {
+      if (!infoDialog) {
+        infoDialog = document.createElement('dialog');
+        infoDialog.className = 'dk-confirm dk-app-info-dialog';
+        infoDialog.setAttribute('aria-label', 'App 資訊');
+        infoDialog.innerHTML = '<form method="dialog"><p></p><div class="dk-app-info-url"></div><div class="dk-actions"><button autofocus>關閉</button></div></form>';
+        document.body.appendChild(infoDialog);
+      }
+      infoDialog.querySelector('p').textContent = app.name;
+      infoDialog.querySelector('.dk-app-info-url').textContent = app.url || '';
+      infoDialog.showModal();
+    }
     function confirmDelete(id) {
       if (!dlg) {
         dlg = document.createElement('dialog'); dlg.className = 'dk-confirm';
