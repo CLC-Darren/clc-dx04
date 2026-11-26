@@ -6,9 +6,9 @@
   <script src="/verse-wait.js?v=2"></script>
   <script src="/login-gate.js?v=20261119-verse-wait"></script>
   <link rel="stylesheet" href="/js/dashboard-widgets.css?v=12">
-  <link rel="stylesheet" href="/shared/desktop/desktop.v1.css?v=14">
+  <link rel="stylesheet" href="/shared/desktop/desktop.v1.css?v=15">
   <link rel="stylesheet" href="/shared/toolbar/toolbar.v1.css?v=1">
-  <script src="/shared/desktop/desktop.v1.js?v=23"></script>
+  <script src="/shared/desktop/desktop.v1.js?v=24"></script>
   <script src="/shared/toolbar/toolbar.v1.js?v=1"></script>
   <script src="/reorder.js?v=shared-todo-4"></script>
   <link rel="stylesheet" href="https://linfamily.pages.dev/css/dashboard-todos.v1.css?v=20261125c">
@@ -1117,7 +1117,7 @@
       waitLayout: true,
       canEdit: isAdmin,
       label: id => appApi.name?.(id) || cardName(cardOf(id)),
-      appMenu: id => appApi.info?.(id),
+      appMenu: id => appApi.name?.(id),
       menu: ({ id, type }) => {
         if (!isAdmin()) return [];
         if (type === 'app') return [{ label: '編輯 App', run: () => appApi.openEdit(id) }];
@@ -1572,6 +1572,7 @@
         a.setAttribute('aria-label', app.name);
         const icon = document.createElement('span');
         icon.className = 'app-tile';
+        icon.setAttribute('data-dk-app-icon', '');
         icon.dataset.appId = app.id;
         icon.append(logo(app));
         const name = document.createElement('span');
@@ -1800,7 +1801,7 @@
         finish?.();
         console.warn('分站清單無法連線資料庫', err);
       }
-      Object.assign(appApi, { openAdd, openEdit, remove: removeApp, info: id => apps.find(a => a.id === id), name: id => apps.find(a => a.id === id)?.name || '' });
+      Object.assign(appApi, { openAdd, openEdit, remove: removeApp, name: id => apps.find(a => a.id === id)?.name || '' });
     }
     // 登入狀態（header.js 的 Firebase auth）
     start(window.auth?.currentUser);
