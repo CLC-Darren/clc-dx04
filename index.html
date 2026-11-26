@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/js/dashboard-widgets.css?v=12">
   <link rel="stylesheet" href="/shared/desktop/desktop.v1.css?v=16">
   <link rel="stylesheet" href="/shared/toolbar/toolbar.v1.css?v=1">
-  <script src="/shared/desktop/desktop.v1.js?v=25"></script>
+  <script src="/shared/desktop/desktop.v1.js?v=26"></script>
   <script src="/shared/desktop/app-entries.v1.js?v=1"></script>
   <script src="/shared/toolbar/toolbar.v1.js?v=1"></script>
   <script src="/reorder.js?v=shared-todo-4"></script>
@@ -1107,11 +1107,7 @@
       if (!isAdmin()) return [];
       const list = [
         { label: '新增 APP', run: () => appApi.openAdd(cell) },
-        { label: '新增代辦事項區域', run: () => {
-          const hidden = cards.find(card => card.hidden && card.type === 'todo');
-          if (hidden) showCard(hidden.id, cell);
-          else addCard('todo', cell);
-        } },
+        { label: '新增代辦事項區域', run: () => addCard('todo', cell) },
         { label: '新增時鐘與天氣', run: () => addCard('clock', cell) }
       ];
       cards.filter(c => c.hidden && c.type !== 'todo' && CARD_TYPES[c.type]).forEach(c => list.push({ label: '復原「' + cardName(c) + '」', run: () => showCard(c.id, cell) }));
@@ -1132,7 +1128,10 @@
         if (type === 'card' && cardOf(id)?.type === 'todo') return [{ label: '重新命名', run: () => renameCard(id) }];
         return id ? [] : [{ label: '往上整理', run: () => desk.compact() }];
       },
-      onDelete: (id, type) => type === 'card' ? hideCard(id) : appApi.remove(id),
+      deleteMessage: id => cardOf(id)?.type === 'todo'
+        ? '確認刪除「' + cardName(cardOf(id)) + '」？這會一併刪除區域內的所有待辦事項。'
+        : '',
+      onDelete: (id, type) => type === 'card' ? deleteCard(id) : appApi.remove(id),
       saveLayout: (mode, map) => {
         if (!uid) return;
         try { localStorage.setItem(layoutKey(mode), JSON.stringify(map)); } catch (_) {}
@@ -1242,8 +1241,53 @@
       syncCards(); saveCards();
       if (type === 'todo') requestAnimationFrame(() => mounted.get(id)?.el.querySelector('textarea')?.focus({ preventScroll: true }));
     }
-    // 刪除＝收起來（待辦資料留著），選單可「復原」（同舊版）
-    function hideCard(id) { cards = cards.map(c => c.id === id ? { ...c, hidden: true } : c); syncCards(); saveCards(); }
+    let deletingTodoArea = false;
+    async function deleteCard(id) {
+      const card = cardOf(id);
+      if (!card || !uid || !cardsLoaded || !isAdmin()) return;
+      if (card.type !== 'todo') {
+        cards = cards.map(c => c.id === id ? { ...c, hidden: true } : c);
+        syncCards(); saveCards();
+        return;
+      }
+      if (deletingTodoArea) return;
+      deletingTodoArea = true;
+      const db = window.db;
+      const home = deskRef('home');
+      const account = uid;
+      const byId = db.collection('dx04_todos').orderBy(firebase.firestore.FieldPath.documentId());
+      const prefix = '~' + id + '~';
+      const area = id === 'todo' ? byId.endBefore('~') : byId.startAt(prefix).endBefore(prefix + '\uf8ff');
+      const batchSize = 400;
+      try {
+        while (uid === account) {
+          const snapshot = await area.limit(batchSize).get({ source: 'server' });
+          if (uid !== account) return;
+          if (snapshot.size === batchSize) {
+            const batch = db.batch();
+            snapshot.docs.forEach(todo => batch.delete(todo.ref));
+            await batch.commit();
+            continue;
+          }
+          await db.runTransaction(async tx => {
+            const current = await tx.get(home);
+            if (!current.exists) throw new Error('找不到目前的桌面設定');
+            const saved = current.data().cards || [];
+            snapshot.docs.forEach(todo => tx.delete(todo.ref));
+            // 保留隱藏的區域 ID，避免分頁收到舊待辦快照時自動重建卡片。
+            tx.update(home, {
+              cards: saved.map(c => c.id === id ? { ...c, hidden: true } : c),
+              updatedAt: ts()
+            });
+          });
+          return;
+        }
+      } catch (error) {
+        if (uid === account) notice('待辦區域刪除未完成，可再試一次：' + errText(error));
+      } finally {
+        deletingTodoArea = false;
+      }
+    }
     function showCard(id, cell) { if (cell) desk.placeNext(cell); cards = cards.map(c => c.id === id ? { ...c, hidden: false } : c); syncCards(); saveCards(); }
     function renameCard(id) {
       const c = cardOf(id); if (!c) return;

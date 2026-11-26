@@ -235,7 +235,7 @@
         document.body.appendChild(dlg);
       }
       var name = opts.label ? opts.label(id) : '';
-      dlg.querySelector('p').textContent = '確認刪除' + (name ? '「' + name + '」' : '') + '？';
+      dlg.querySelector('p').textContent = (opts.deleteMessage && opts.deleteMessage(id)) || ('確認刪除' + (name ? '「' + name + '」' : '') + '？');
       dlg.returnValue = '';
       dlg.onclose = function () { if (dlg.returnValue === 'yes') opts.onDelete(id, items.get(id) && items.get(id).type); };
       dlg.showModal();
