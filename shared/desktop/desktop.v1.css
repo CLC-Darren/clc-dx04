@@ -29,13 +29,36 @@
   .dk-app-menu, .dk-app-menu.dk-menu-out { animation:none; transition:none; }
 }
 .dk-danger { color:#B5483D !important; }
-/* 刪除確認 */
-.dk-confirm { border:1px solid var(--border, rgba(0,0,0,.12)); border-radius:18px; padding:20px 22px 16px; background:var(--bg, #fff); color:var(--text, #222); min-width:260px; }
-.dk-confirm::backdrop { background:rgba(0,0,0,.35); }
-.dk-confirm p { margin:0 0 16px; font-size:15px; font-weight:700; }
-.dk-confirm .dk-actions { display:flex; justify-content:flex-end; gap:8px; }
-.dk-confirm button { border:1px solid var(--border, rgba(0,0,0,.12)); background:var(--btn, #f3f3f3); color:inherit; font:inherit; font-weight:700; padding:8px 16px; border-radius:9999px; cursor:pointer; }
-.dk-confirm button.dk-danger { background:#B5483D; border-color:#B5483D; color:#fff !important; }
+/* 首頁 App 對話框：沿用「修改 App」的尺寸與操作列，各站以主題變數提供顏色。 */
+dialog.dk-confirm {
+  --dk-dialog-surface:var(--surface, #fff);
+  --dk-dialog-text:var(--text, #0f172a);
+  --dk-dialog-muted:var(--muted, #64748b);
+  --dk-dialog-field:var(--btn, #f1f5f9);
+  --dk-dialog-border:var(--border, #e2e8f0);
+  --dk-dialog-primary:var(--pine, #007e8a);
+  --dk-dialog-danger:var(--danger, #b5483d);
+  box-sizing:border-box; width:min(92vw, 400px); max-height:calc(100dvh - 24px);
+  overflow:auto; overscroll-behavior:contain; padding:0; border:0; border-radius:20px;
+  background:var(--dk-dialog-surface); color:var(--dk-dialog-text); text-align:left;
+}
+.dark dialog.dk-confirm {
+  --dk-dialog-surface:var(--surface, #161924);
+  --dk-dialog-text:var(--text, #f1f5f9);
+  --dk-dialog-muted:var(--muted, #8a92a6);
+  --dk-dialog-field:var(--btn, rgba(255,255,255,.04));
+  --dk-dialog-border:var(--border, rgba(255,255,255,.1));
+}
+.dk-confirm::backdrop { background:rgba(0,0,0,.6); }
+.dk-confirm form { padding:22px; display:flex; flex-direction:column; gap:12px; }
+.dk-confirm h2 { margin:0; font-size:18px; font-weight:800; line-height:1.35; }
+.dk-confirm p { margin:0; font-size:15px; line-height:1.5; overflow-wrap:anywhere; }
+.dk-confirm .dk-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:4px; }
+.dk-confirm button { min-height:42px; padding:0 18px; border-radius:12px; background:transparent; color:inherit; border:0; font:inherit; font-weight:700; font-size:15px; cursor:pointer; }
+.dk-confirm button[data-primary] { background:var(--dk-dialog-primary); color:#fff; }
+.dk-confirm button.dk-danger { background:var(--dk-dialog-danger); color:#fff !important; }
+.dk-confirm button:focus-visible { outline:2px solid var(--dk-dialog-primary); outline-offset:2px; }
+.dk-confirm button:disabled { opacity:.55; cursor:default; }
 /* 調整大小：電腦四邊四角都能直接拉（像 Windows 視窗），不顯示箭頭圖示 */
 .dk-root .grid-stack-item:not(.dk-app) > .ui-resizable-handle { display:block !important; background:none !important; transform:none !important; touch-action:none; }
 .dk-root .grid-stack-item > .ui-resizable-n, .dk-root .grid-stack-item > .ui-resizable-s { left:24px; right:24px; width:auto; height:10px; }
@@ -79,9 +102,12 @@
 .dk-entry-menu { border-inline-start:3px solid var(--pine, var(--teal, #007e8a)); animation:none; overflow:auto; max-height:calc(100dvh - 16px); max-width:calc(100vw - 16px); box-sizing:border-box; }
 .dk-entry-menu a { padding:10px 12px; border-radius:10px; color:inherit; text-decoration:none; font-size:14px; font-weight:600; overflow-wrap:anywhere; }
 .dk-entry-menu a:is(:hover,:focus-visible) { background:var(--btn, rgba(127,127,127,.15)); }
-.dk-entry-dialog { width:min(92vw, 420px); min-width:0; max-height:calc(100dvh - 24px); box-sizing:border-box; }
-.dk-entry-dialog fieldset { border:0; padding:0; margin:0 0 12px; }
-.dk-entry-dialog legend { margin-bottom:4px; font-size:13px; font-weight:700; }
+.dk-entry-dialog fieldset { min-width:0; border:0; padding:0; margin:0; }
+.dk-entry-dialog fieldset + fieldset { margin-top:12px; }
+.dk-entry-dialog legend { margin-bottom:5px; font-size:13px; font-weight:700; color:var(--dk-dialog-text); }
 .dk-entry-dialog .dk-entry-fields { display:grid; grid-template-columns:minmax(0, 3fr) minmax(0, 2fr); gap:8px; }
-.dk-entry-fields input { min-width:0; border:1px solid var(--border, #94a3b8); border-radius:8px; padding:8px; background:var(--btn, #f1f5f9); color:inherit; font:inherit; font-size:14px; }
-.dk-entry-dialog [role=alert] { color:#B5483D; font-size:13px; min-height:1em; }
+.dk-entry-fields label { min-width:0; display:flex; flex-direction:column; gap:6px; color:var(--dk-dialog-muted); font-size:13px; font-weight:700; }
+.dk-entry-fields input { box-sizing:border-box; width:100%; min-width:0; height:44px; border:1px solid var(--dk-dialog-border); border-radius:12px; padding:0 12px; background:var(--dk-dialog-field); color:var(--dk-dialog-text); font:inherit; font-size:15px; outline:none; }
+.dk-entry-fields input:focus { border-color:var(--dk-dialog-primary); }
+.dk-entry-dialog [role=alert] { color:var(--dk-dialog-danger); font-size:13px; }
+.dk-entry-dialog [role=alert]:empty { display:none; }

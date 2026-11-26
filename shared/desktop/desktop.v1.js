@@ -237,7 +237,8 @@
     function confirmDelete(id) {
       if (!dlg) {
         dlg = document.createElement('dialog'); dlg.className = 'dk-confirm';
-        dlg.innerHTML = '<form method="dialog"><p></p><div class="dk-actions"><button value="no">取消</button><button value="yes" class="dk-danger">刪除</button></div></form>';
+        dlg.setAttribute('aria-label', '刪除確認');
+        dlg.innerHTML = '<form method="dialog"><h2>刪除確認</h2><p></p><div class="dk-actions"><button value="no" autofocus>取消</button><button value="yes" class="dk-danger">刪除</button></div></form>';
         document.body.appendChild(dlg);
       }
       var name = opts.label ? opts.label(id) : '';
