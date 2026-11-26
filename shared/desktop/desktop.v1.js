@@ -164,7 +164,7 @@
     }
 
     // ---------- 選單與刪除確認 ----------
-    function closeMenu() { if (menuEl) { var m = menuEl; menuEl = null; m.classList.add('dk-menu-out'); setTimeout(function () { m.remove(); }, 160); } } // 收合動畫
+    function closeMenu() { if (appIconMotion) { appIconMotion.cancel(); appIconMotion = null; } if (menuEl) { var m = menuEl; menuEl = null; m.classList.add('dk-menu-out'); setTimeout(function () { m.remove(); }, 160); } } // 收合動畫
     var appIconMotion = null;
     function openMenu(x, y, id, cell) {
       closeMenu();
@@ -206,7 +206,7 @@
           appIconMotion = icon.animate([
             { translate: '0 0' }, { translate: '0 -4px', offset: .4 },
             { translate: '0 1px', offset: .72 }, { translate: '0 0' }
-          ], { duration: 230, easing: 'ease-out' });
+          ], { duration: lp.touch ? 620 : 230, iterations: lp.touch ? Infinity : 1, easing: 'ease-in-out' });
         }
       } else if (card) {
         var c = card.getBoundingClientRect(), g = 8;

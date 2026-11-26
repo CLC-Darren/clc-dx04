@@ -6,9 +6,10 @@
   <script src="/verse-wait.js?v=2"></script>
   <script src="/login-gate.js?v=20261119-verse-wait"></script>
   <link rel="stylesheet" href="/js/dashboard-widgets.css?v=12">
-  <link rel="stylesheet" href="/shared/desktop/desktop.v1.css?v=15">
+  <link rel="stylesheet" href="/shared/desktop/desktop.v1.css?v=16">
   <link rel="stylesheet" href="/shared/toolbar/toolbar.v1.css?v=1">
-  <script src="/shared/desktop/desktop.v1.js?v=24"></script>
+  <script src="/shared/desktop/desktop.v1.js?v=25"></script>
+  <script src="/shared/desktop/app-entries.v1.js?v=1"></script>
   <script src="/shared/toolbar/toolbar.v1.js?v=1"></script>
   <script src="/reorder.js?v=shared-todo-4"></script>
   <link rel="stylesheet" href="https://linfamily.pages.dev/css/dashboard-todos.v1.css?v=20261125c">
@@ -1106,10 +1107,14 @@
       if (!isAdmin()) return [];
       const list = [
         { label: '新增 APP', run: () => appApi.openAdd(cell) },
-        { label: '新增代辦事項區域', run: () => addCard('todo', cell) },
+        { label: '新增代辦事項區域', run: () => {
+          const hidden = cards.find(card => card.hidden && card.type === 'todo');
+          if (hidden) showCard(hidden.id, cell);
+          else addCard('todo', cell);
+        } },
         { label: '新增時鐘與天氣', run: () => addCard('clock', cell) }
       ];
-      cards.filter(c => c.hidden && CARD_TYPES[c.type]).forEach(c => list.push({ label: '復原「' + cardName(c) + '」', run: () => showCard(c.id, cell) }));
+      cards.filter(c => c.hidden && c.type !== 'todo' && CARD_TYPES[c.type]).forEach(c => list.push({ label: '復原「' + cardName(c) + '」', run: () => showCard(c.id, cell) }));
       return list;
     }
     const desk = window.clcDesktop(deskRoot, {
@@ -1120,7 +1125,10 @@
       appMenu: id => appApi.name?.(id),
       menu: ({ id, type }) => {
         if (!isAdmin()) return [];
-        if (type === 'app') return [{ label: '編輯 App', run: () => appApi.openEdit(id) }];
+        if (type === 'app') return [
+          { label: '編輯 App', run: () => appApi.openEdit(id) },
+          { label: '新增選項', run: () => appApi.openEntries(id) }
+        ];
         if (type === 'card' && cardOf(id)?.type === 'todo') return [{ label: '重新命名', run: () => renameCard(id) }];
         return id ? [] : [{ label: '往上整理', run: () => desk.compact() }];
       },
@@ -1565,7 +1573,14 @@
       function renderTile(app) {
         const a = document.createElement('a');
         a.className = 'dx-app';
-        const link = linkFor(app);
+        const rows = (window.clcAppEntries?.entries(app) || []).flatMap(row => {
+          const url = safeUrl(row.url);
+          if (!url) return [];
+          const original = url === safeUrl(app.url) || (app.site && url === safeUrl(hrefFor(app)));
+          const destination = original ? linkFor(app) : { href: url, newTab: !isSameSite(url) };
+          return [{ ...destination, name: row.name }];
+        });
+        const link = rows.length === 1 ? rows[0] : linkFor(app);
         a.href = link.href;
         if (link.newTab) { a.target = '_blank'; a.rel = 'noopener'; }
         a.title = app.name;
@@ -1580,7 +1595,7 @@
         name.setAttribute('data-dk-app-name', '');
         name.textContent = app.name;
         a.append(icon, name);
-        return a;
+        return window.clcAppEntries?.mount(a, rows, app.name) || a;
       }
       let addPos = null, shown = new Set();
       function render() {
@@ -1801,7 +1816,14 @@
         finish?.();
         console.warn('分站清單無法連線資料庫', err);
       }
-      Object.assign(appApi, { openAdd, openEdit, remove: removeApp, name: id => apps.find(a => a.id === id)?.name || '' });
+      function openEntries(id) {
+        const app = apps.find(item => item.id === id);
+        if (!app || !isAdmin()) return;
+        const originalUrl = app.site ? hrefFor(app) : app.url;
+        window.clcAppEntries?.edit(app, originalUrl, value => safeUrl(value) || normalizeInputUrl(value),
+          menu => persist(apps.map(item => item.id === id ? { ...item, menu } : item)));
+      }
+      Object.assign(appApi, { openAdd, openEdit, openEntries, remove: removeApp, name: id => apps.find(a => a.id === id)?.name || '' });
     }
     // 登入狀態（header.js 的 Firebase auth）
     start(window.auth?.currentUser);
