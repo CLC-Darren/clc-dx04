@@ -5,7 +5,79 @@
     { opacity: 1, transform: 'translateY(0)', clipPath: 'inset(0 round 14px)' }
   ];
   const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let active;
+  let active, management;
+  function pulse(icon, repeat = false) {
+    if (!icon || reducedMotion()) return;
+    return icon.animate([
+      { translate: '0 0', scale: '1', offset: 0, easing: 'cubic-bezier(.2,.8,.3,1)' },
+      { translate: '0 -4px', scale: '1.025', offset: .29, easing: 'cubic-bezier(.55,.05,.7,.7)' },
+      { translate: '0 1px', scale: '.99', offset: .55, easing: 'ease-out' },
+      { translate: '0 -1px', scale: '1', offset: .69 },
+      { translate: '0 0', scale: '1', offset: .83 },
+      { translate: '0 0', scale: '1', offset: 1 }
+    ], { duration: repeat ? 840 : 360, iterations: repeat ? Infinity : 1 });
+  }
+  function badge(icon) {
+    if (!icon || icon.querySelector('.dk-entry-badge')) return;
+    icon.classList.add('dk-entry-icon');
+    const arrow = document.createElement('span');
+    arrow.className = 'dk-entry-badge';
+    arrow.setAttribute('aria-hidden', 'true');
+    arrow.style.animationDelay = (2 + Math.random() * 5) + 's';
+    icon.append(arrow);
+  }
+  function closeManagement() {
+    if (!management) return;
+    management.animation?.cancel();
+    management.menu.remove();
+    management = null;
+  }
+  function manage({ name, icon, touch, actions, remove }) {
+    close(false);
+    closeManagement();
+    const menu = document.createElement('div');
+    menu.className = 'dk-menu dk-app-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', name);
+    const header = document.createElement('div');
+    header.className = 'dk-app-menu-header';
+    const title = document.createElement('strong');
+    title.textContent = name;
+    header.append(title);
+    menu.append(header);
+    const rows = [...actions];
+    if (remove) rows.push({ label: '刪除', danger: true, run: () => {
+      const dialog = document.createElement('dialog');
+      dialog.className = 'dk-confirm';
+      dialog.innerHTML = '<form method="dialog"><p></p><div class="dk-actions"><button value="cancel">取消</button><button value="remove" class="dk-danger">刪除</button></div></form>';
+      dialog.querySelector('p').textContent = '確認刪除「' + name + '」？';
+      dialog.addEventListener('close', () => {
+        if (dialog.returnValue === 'remove') remove();
+        dialog.remove();
+      }, { once: true });
+      document.body.append(dialog);
+      dialog.showModal();
+    } });
+    for (const row of rows) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.setAttribute('role', 'menuitem');
+      button.textContent = row.label;
+      if (row.danger) button.className = 'dk-danger';
+      button.onclick = () => { closeManagement(); row.run(); };
+      menu.append(button);
+    }
+    document.body.append(menu);
+    const rect = icon.getBoundingClientRect();
+    menu.style.left = Math.max(8, Math.min(rect.left, innerWidth - menu.offsetWidth - 8)) + 'px';
+    menu.style.top = Math.max(8, Math.min(rect.bottom + 4, innerHeight - menu.offsetHeight - 8)) + 'px';
+    management = { menu, animation: pulse(icon, touch) };
+  }
+  document.addEventListener('pointerdown', event => {
+    if (management && !management.menu.contains(event.target)) closeManagement();
+  }, true);
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') closeManagement(); });
+  window.addEventListener('resize', closeManagement);
   function close(animate = true) {
     if (!active) return;
     const { button, menu } = active;
@@ -38,6 +110,7 @@
     button.setAttribute('role', 'button');
     button.setAttribute('aria-label', appName);
     button.setAttribute('aria-expanded', 'false');
+    badge(button.querySelector('[data-dk-app-icon]'));
     button.addEventListener('keydown', event => {
       if (event.key === ' ') { event.preventDefault(); button.click(); }
     });
@@ -58,6 +131,7 @@
       button.after(menu);
       const icon = button.querySelector('[data-dk-app-icon]') || button;
       const { left, bottom } = icon.getBoundingClientRect();
+      pulse(icon);
       menu.style.left = Math.max(8, Math.min(left, innerWidth - menu.offsetWidth - 8)) + 'px';
       menu.style.top = Math.max(8, Math.min(bottom + 4, innerHeight - menu.offsetHeight - 8)) + 'px';
       button.setAttribute('aria-expanded', 'true');
@@ -123,5 +197,5 @@
     dialog.showModal();
   }
 
-  window.clcAppEntries = { entries, mount, edit };
+  window.clcAppEntries = { entries, mount, edit, pulse, badge, manage, closeManagement };
 })();

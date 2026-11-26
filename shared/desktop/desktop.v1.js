@@ -164,13 +164,19 @@
     }
 
     // ---------- 選單與刪除確認 ----------
-    function closeMenu() { if (appIconMotion) { appIconMotion.cancel(); appIconMotion = null; } if (menuEl) { var m = menuEl; menuEl = null; m.classList.add('dk-menu-out'); setTimeout(function () { m.remove(); }, 160); } } // 收合動畫
+    function closeMenu() { window.clcAppEntries?.closeManagement(); if (appIconMotion) { appIconMotion.cancel(); appIconMotion = null; } if (menuEl) { var m = menuEl; menuEl = null; m.classList.add('dk-menu-out'); setTimeout(function () { m.remove(); }, 160); } } // 收合動畫
     var appIconMotion = null;
     function openMenu(x, y, id, cell) {
       closeMenu();
       var item = id && items.get(id);
       var list = (opts.menu ? opts.menu({ id: id, type: item ? item.type : null, cell: cell }) : []) || [];
       var appName = item && item.type === 'app' && opts.appMenu && opts.appMenu(id);
+      var appIcon = appName && item.el.querySelector('[data-dk-app-icon]');
+      if (appIcon && window.clcAppEntries?.manage) {
+        window.clcAppEntries.manage({ name: appName, icon: appIcon, touch: lp.touch, actions: list,
+          remove: opts.onDelete ? function () { opts.onDelete(id, item.type); } : null });
+        return;
+      }
       if (id && opts.onDelete) list = list.concat([{ label: '刪除', danger: true, run: function () { confirmDelete(id); } }]);
       if (!list.length) return;
       if (id && lp.touch) select(items.get(id) && items.get(id).el); // 手機：長按選取的卡片出現調整大小的圓點
