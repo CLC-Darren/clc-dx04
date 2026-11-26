@@ -165,13 +165,24 @@
 
     // ---------- 選單與刪除確認 ----------
     function closeMenu() { if (menuEl) { var m = menuEl; menuEl = null; m.classList.add('dk-menu-out'); setTimeout(function () { m.remove(); }, 160); } } // 收合動畫
+    var appIconMotion = null;
     function openMenu(x, y, id, cell) {
       closeMenu();
-      var list = (opts.menu ? opts.menu({ id: id, type: id ? items.get(id).type : null, cell: cell }) : []) || [];
+      var item = id && items.get(id);
+      var list = (opts.menu ? opts.menu({ id: id, type: item ? item.type : null, cell: cell }) : []) || [];
+      var appName = item && item.type === 'app' && opts.appMenu && opts.appMenu(id);
       if (id && opts.onDelete) list = list.concat([{ label: '刪除', danger: true, run: function () { confirmDelete(id); } }]);
       if (!list.length) return;
       if (id && lp.touch) select(items.get(id) && items.get(id).el); // 手機：長按選取的卡片出現調整大小的圓點
       menuEl = document.createElement('div'); menuEl.className = 'dk-menu'; menuEl.setAttribute('role', 'menu');
+      if (appName) {
+        menuEl.classList.add('dk-app-menu');
+        menuEl.setAttribute('aria-label', appName);
+        var header = document.createElement('div'); header.className = 'dk-app-menu-header';
+        var title = document.createElement('strong'); title.textContent = appName;
+        header.appendChild(title);
+        menuEl.appendChild(header);
+      }
       list.forEach(function (m) {
         var b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'menuitem'); b.textContent = m.label;
         if (m.danger) b.className = 'dk-danger';
@@ -182,8 +193,22 @@
       // 用實際大小（offset），不用 getBoundingClientRect：選單出現時有縮放動畫（.92），量到的會偏小，放在卡片上方就會壓到卡片
       var r = { width: menuEl.offsetWidth, height: menuEl.offsetHeight }, top = y;
       // 卡片：像 Android，選單放卡片下方，放不下放上方；都放不下就捲一點讓卡片和選單都看得到；卡片比螢幕高才浮在手指旁
-      var card = id && items.get(id) && items.get(id).el; // 卡片和 App 都一樣：選單不蓋住
-      if (card) {
+      var card = item && item.el;
+      if (appName && card) {
+        var bounds = card.getBoundingClientRect();
+        var icon = card.querySelector('[data-dk-app-icon]');
+        var label = card.querySelector('[data-dk-app-name]');
+        var iconBounds = icon && icon.getBoundingClientRect();
+        x = iconBounds ? iconBounds.left : bounds.left;
+        top = iconBounds ? iconBounds.bottom + 4 : label ? label.getBoundingClientRect().top : bounds.bottom - 20;
+        if (icon && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          if (appIconMotion) appIconMotion.cancel();
+          appIconMotion = icon.animate([
+            { translate: '0 0' }, { translate: '0 -4px', offset: .4 },
+            { translate: '0 1px', offset: .72 }, { translate: '0 0' }
+          ], { duration: 230, easing: 'ease-out' });
+        }
+      } else if (card) {
         var c = card.getBoundingClientRect(), g = 8;
         if (c.bottom + g + r.height <= innerHeight - g) top = c.bottom + g;
         else if (c.top - g - r.height >= g) top = c.top - g - r.height;

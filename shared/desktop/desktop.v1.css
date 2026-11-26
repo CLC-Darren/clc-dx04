@@ -22,6 +22,12 @@
 @keyframes dk-menu-in { from { opacity:0; transform:scale(.92); } }
 .dk-menu button { text-align:left; border:0; background:none; color:inherit; font:inherit; font-size:14px; font-weight:600; padding:10px 12px; border-radius:10px; cursor:pointer; }
 .dk-menu button:hover, .dk-menu button:focus-visible { background:var(--btn, rgba(0,0,0,.06)); outline:none; }
+.dk-app-menu { width:218px; min-width:0; max-width:calc(100vw - 16px); max-height:calc(100dvh - 16px); overflow:auto; box-sizing:border-box; }
+.dk-app-menu-header { margin:-6px -6px 4px; padding:13px 16px 11px; text-align:center; background:var(--btn, rgba(127,127,127,.14)); }
+.dk-app-menu-header strong { font-size:15px; line-height:1.35; overflow-wrap:anywhere; }
+@media (prefers-reduced-motion: reduce) {
+  .dk-app-menu, .dk-app-menu.dk-menu-out { animation:none; transition:none; }
+}
 .dk-danger { color:#B5483D !important; }
 /* 刪除確認 */
 .dk-confirm { border:1px solid var(--border, rgba(0,0,0,.12)); border-radius:18px; padding:20px 22px 16px; background:var(--bg, #fff); color:var(--text, #222); min-width:260px; }
