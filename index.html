@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/shared/desktop/desktop.v1.css?v=18">
   <link rel="stylesheet" href="/shared/toolbar/toolbar.v1.css?v=1">
   <script src="/shared/desktop/desktop.v1.js?v=28"></script>
-  <script src="/shared/desktop/app-entries.v1.js?v=3"></script>
+  <script src="/shared/desktop/app-entries.v1.js?v=4"></script>
   <script src="/shared/toolbar/toolbar.v1.js?v=1"></script>
   <script src="/reorder.js?v=shared-todo-4"></script>
   <link rel="stylesheet" href="https://linfamily.pages.dev/css/dashboard-todos.v1.css?v=20261125c">
@@ -1487,7 +1487,7 @@
       }
       // 回傳 { href, newTab }：YA、SR 照 CLC_SITES；本站網址直接開；允許內嵌的外部網站開在 DX04 Header 底下；
       // 不允許內嵌（或還不確定時讀不到）的外部網站直接開新分頁。
-      function linkFor(app) {
+      function legacyLinkFor(app) {
         const site = app.site && (window.CLC_SITES || []).find(s => s.key === app.site);
         if (site) return { href: site.url, newTab: false };
         const url = safeUrl(app.url);
@@ -1496,7 +1496,15 @@
         if (embeddableOf(app) === false) return { href: url, newTab: true };
         return { href: '/open.html?id=' + encodeURIComponent(app.id), newTab: false };
       }
-      function hrefFor(app) { return linkFor(app).href; }
+      function directAppUrl(app) {
+        const site = app.site && (window.CLC_SITES || []).find(item => item.key === app.site);
+        return site?.url || safeUrl(app.url) || '';
+      }
+      function hrefFor(app) { return directAppUrl(app) || legacyLinkFor(app).href; }
+      function linkFor(app) {
+        const fallback = legacyLinkFor(app);
+        return window.clcAppEntries?.resolveLink?.(app, directAppUrl(app), fallback) || fallback;
+      }
       // 字母圖示（同 LinFamily）：彩色圓角方塊＋名稱第一個字（中文一個字、英文最多兩個字母）
       const MONO_COLORS = ['#4E8B7E', '#B5835A', '#5F77A8', '#A8607A', '#4F8FA0', '#7E6FAE', '#6E8B4E'];
       function initials(name) {
@@ -1621,12 +1629,17 @@
           const url = safeUrl(row.url);
           if (!url) return [];
           const original = url === safeUrl(app.url) || (app.site && url === safeUrl(hrefFor(app)));
-          const destination = original ? linkFor(app) : { href: url, newTab: !isSameSite(url) };
+          const fallback = original ? legacyLinkFor(app) : { href: url, newTab: !isSameSite(url) };
+          const entry = row.openMode ? row : (original ? app : row);
+          const destination = window.clcAppEntries?.resolveLink?.(entry, url, fallback) || fallback;
           return [{ ...destination, name: row.name }];
         });
         const link = rows.length === 1 ? rows[0] : linkFor(app);
-        a.href = link.href;
-        if (link.newTab) { a.target = '_blank'; a.rel = 'noopener'; }
+        if (window.clcAppEntries?.applyLink) window.clcAppEntries.applyLink(a, link);
+        else {
+          a.href = link.href;
+          if (link.newTab) { a.target = '_blank'; a.rel = 'noopener'; }
+        }
         a.title = app.name;
         a.setAttribute('aria-label', app.name);
         const icon = document.createElement('span');
@@ -1713,7 +1726,7 @@
       const errEl = find('appFormError');
       const statusEl = find('appStatus');
       const saveBtn = find('appSaveBtn');
-      let editingId = null, auto = {}, fetchSeq = 0, fetchTimer = 0, uploadedIcon = '';
+      let editingId = null, auto = {}, fetchSeq = 0, fetchTimer = 0, uploadedIcon = '', modeField;
       const placeholderIcon = fIcon.placeholder;
       function setUploaded(icon) {
         uploadedIcon = icon || '';
@@ -1753,6 +1766,10 @@
         find('appTitle').textContent = app ? '修改 App' : '新增 App';
         fUrl.value = app ? (app.site ? hrefFor(app) : app.url) : '';
         fUrl.readOnly = !!(app && app.site);
+        modeField?.parentElement.remove();
+        const form = dialog.querySelector('form');
+        const urlLabel = fUrl.closest('label');
+        modeField = window.clcAppEntries?.modeField(form, app, urlLabel?.parentElement === form ? urlLabel : null);
         fUrl.title = app && app.site ? 'YA、SR 的網址跟著 header.js 的 CLC_SITES' : '';
         fName.value = app ? app.name : '';
         const icon = app ? displayedIcon(app) : '';
@@ -1816,6 +1833,7 @@
         }
         saveBtn.disabled = true;
         const patch = { name, url, icon, iconMode };
+        if (modeField) patch.openMode = window.clcAppEntries.modeValue(modeField, url, old);
         if (auto.embeddable !== null && !(old && old.site)) patch.embeddable = auto.embeddable;
         const base = withPos();
         let next;

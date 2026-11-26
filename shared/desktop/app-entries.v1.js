@@ -101,9 +101,121 @@
 
   const entries = app => Array.isArray(app.menu) ? app.menu.filter(row => row && row.name && row.url) : [];
 
+  function modeField(parent, entry, after) {
+    const label = document.createElement('label');
+    label.className = 'dk-open-mode';
+    label.style.cssText = 'display:grid;gap:4px;font-size:inherit;color:inherit';
+    label.append('開啟方式');
+    const select = document.createElement('select');
+    select.style.cssText = 'width:100%;min-height:40px;border:1px solid currentColor;border-radius:8px;padding:4px 8px;background:var(--bg,Canvas);color:inherit';
+    for (const [value, text] of [['','依原設定／網址'],['inside','站內開啟'],['external','在瀏覽器另開']]) {
+      select.add(new Option(text,value));
+    }
+    select.value = entry?.openMode || '';
+    label.append(select);
+    if (after?.parentElement === parent) after.after(label);
+    else parent.prepend(label);
+    return select;
+  }
+
+  function webURL(value) {
+    if (!value || value === '#') return null;
+    try {
+      const url = new URL(value,location.href);
+      return ['https:','http:'].includes(url.protocol) && !url.username && !url.password ? url : null;
+    } catch (_) { return null; }
+  }
+
+  function modeValue(field, href, previous) {
+    if (field.value === 'inside' || field.value === 'external') return field.value;
+    if (previous) return '';
+    const url = webURL(href);
+    return url?.origin === location.origin ? 'inside' : 'external';
+  }
+
+  function resolveLink(entry, href, fallback, inside) {
+    const url = webURL(href);
+    if (!url) return fallback;
+    if (entry.openMode === 'external') return { href:url.href,newTab:true };
+    if (entry.openMode !== 'inside') return fallback;
+    if (inside) return inside(url.href);
+    if (url.origin === location.origin) return { href:url.href,newTab:false };
+    return { href:url.href,newTab:false,embed:true };
+  }
+
+  let openFrame;
+  function showInHeader(destination, trigger) {
+    const header = document.getElementById('clc-header');
+    if (!header || !header.getBoundingClientRect().height) return false;
+    openFrame?.();
+    const section = document.createElement('section');
+    section.setAttribute('aria-label','站內網站');
+    section.style.cssText = 'position:fixed;inset-inline:0;bottom:0;z-index:30;display:flex;flex-direction:column;background:var(--bg,Canvas);color:var(--text,CanvasText)';
+    const tools = document.createElement('div');
+    tools.style.cssText = 'display:flex;justify-content:flex-end;gap:14px;padding:6px 14px;border-bottom:1px solid #8a8a8a44';
+    const direct = document.createElement('a');
+    direct.textContent = '在瀏覽器另開 ↗';
+    direct.href = destination.href;
+    direct.target = '_blank';
+    direct.rel = 'noopener noreferrer';
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.textContent = '關閉';
+    const frame = document.createElement('iframe');
+    frame.title = trigger.textContent.trim() || '站內網站';
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-popups allow-downloads');
+    frame.setAttribute('allow','fullscreen');
+    frame.style.cssText = 'display:block;flex:1;min-height:0;width:100%;border:0;background:white';
+    tools.append(direct,closeButton);
+    section.append(tools,frame);
+    const oldOverflow = document.body.style.overflow;
+    function position() { section.style.top = Math.max(0,header.getBoundingClientRect().bottom)+'px'; }
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(position);
+    function escape(event) { if (event.key === 'Escape') closeFrame(); }
+    function closeFrame() {
+      section.remove();
+      document.body.style.overflow = oldOverflow;
+      observer?.disconnect();
+      window.removeEventListener('resize',position);
+      document.removeEventListener('keydown',escape);
+      openFrame = null;
+      if (trigger.isConnected) trigger.focus();
+    }
+    openFrame = closeFrame;
+    closeButton.onclick = closeFrame;
+    position();
+    observer?.observe(header);
+    window.addEventListener('resize',position);
+    document.addEventListener('keydown',escape);
+    document.body.style.overflow = 'hidden';
+    document.body.append(section);
+    frame.src = destination.href;
+    closeButton.focus();
+    return true;
+  }
+
+  function applyLink(link, destination) {
+    link.href = destination.href;
+    link.removeAttribute('target');
+    link.removeAttribute('rel');
+    if (destination.newTab || destination.embed) { link.target = '_blank'; link.rel = 'noopener noreferrer'; }
+    if (link.clcEmbedListener) link.removeEventListener('click',link.clcEmbedListener);
+    if (!destination.embed) return;
+    link.clcEmbedListener = event => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (showInHeader(destination,link)) event.preventDefault();
+    };
+    link.addEventListener('click',link.clcEmbedListener);
+  }
+
   function mount(link, rows, appName) {
     if (rows.length < 2) return link;
     const button = link;
+    if (button.clcEmbedListener) {
+      button.removeEventListener('click',button.clcEmbedListener);
+      delete button.clcEmbedListener;
+    }
     button.classList.add('dk-entry-trigger');
     button.removeAttribute('target');
     button.removeAttribute('rel');
@@ -123,9 +235,8 @@
       menu.className = 'dk-menu dk-entry-menu';
       for (const row of rows) {
         const anchor = document.createElement('a');
-        anchor.href = row.href;
+        applyLink(anchor, row);
         anchor.textContent = row.name;
-        if (row.newTab) { anchor.target = '_blank'; anchor.rel = 'noopener'; }
         anchor.addEventListener('click', () => close());
         menu.append(anchor);
       }
@@ -158,7 +269,8 @@
       const [address, name] = fieldset.querySelectorAll('input');
       address.value = rows[i]?.url || (i === 0 ? url : '');
       name.value = rows[i]?.name || (i === 0 ? app.name : '');
-      fields.push({ address, name });
+      const mode = modeField(fieldset, rows[i] || (i === 0 ? app : null));
+      fields.push({ address, name, mode, previous: rows[i] || (i === 0 ? app : null) });
       form.querySelector('[data-rows]').append(fieldset);
     }
     let saving = false;
@@ -170,7 +282,7 @@
       if (saving) return;
       const error = form.querySelector('[role=alert]');
       const next = [];
-      for (const { address, name } of fields) {
+      for (const { address, name, mode, previous } of fields) {
         if (!address.value.trim() && !name.value.trim()) continue;
         const normalized = normalize(address.value);
         let parsed;
@@ -180,7 +292,7 @@
           (!normalized || !parsed ? address : name).focus();
           return;
         }
-        next.push({ name: name.value.trim(), url: normalized });
+        next.push({ name: name.value.trim(), url: normalized, openMode: modeValue(mode, normalized, previous) });
       }
       if (!next.length) { error.textContent = '請至少保留一個入口。'; return; }
       saving = true;
@@ -198,5 +310,5 @@
     dialog.showModal();
   }
 
-  window.clcAppEntries = { entries, mount, edit, pulse, badge, manage, closeManagement };
+  window.clcAppEntries = { entries, mount, edit, pulse, badge, manage, closeManagement, modeField, modeValue, resolveLink, applyLink };
 })();
