@@ -71,7 +71,11 @@
 .dk-root .dk-app > .ui-resizable-handle { display:none !important; pointer-events:none !important; } /* App 圖示不能調大小（只有卡片可以） */
 
 .dk-entry-trigger { appearance:none; border:0; padding:0; background:none; cursor:pointer; font:inherit; }
-.dk-entry-trigger [data-dk-app-name]::after { content:' ⌄'; }
+.dk-entry-icon { position:relative; }
+.dk-entry-badge { position:absolute; right:6px; bottom:6px; display:grid; place-items:center; width:21px; height:21px; border-radius:50%; background:#172026e6; color:white; pointer-events:none; animation:dk-badge-nudge 8.7s infinite; }
+.dk-entry-badge::after { content:''; width:6px; height:6px; border:solid currentColor; border-width:0 2px 2px 0; transform:translateY(-2px) rotate(45deg); }
+@keyframes dk-badge-nudge { 0%,91%,100% { translate:0 0; } 94% { translate:0 -3px; } 97% { translate:0 1px; } }
+@media (prefers-reduced-motion:reduce) { .dk-entry-badge { animation:none; } }
 .dk-entry-menu { border-inline-start:3px solid var(--pine, var(--teal, #007e8a)); animation:none; overflow:auto; max-height:calc(100dvh - 16px); max-width:calc(100vw - 16px); box-sizing:border-box; }
 .dk-entry-menu a { padding:10px 12px; border-radius:10px; color:inherit; text-decoration:none; font-size:14px; font-weight:600; overflow-wrap:anywhere; }
 .dk-entry-menu a:is(:hover,:focus-visible) { background:var(--btn, rgba(127,127,127,.15)); }
