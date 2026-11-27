@@ -166,6 +166,9 @@
   }
 
   let openFrame;
+  const useHeaderMenu = location.origin === 'https://clc-ya-portal.pages.dev' ||
+    location.origin === 'https://clc-sr-portal.pages.dev' ||
+    (location.origin === 'https://clc-dx04.pages.dev' && /^\/(?:ya|sr)(?:\/|$)/.test(location.pathname));
   function showInHeader(destination, trigger) {
     const header = document.getElementById('clc-header');
     if (!header || !header.getBoundingClientRect().height) return false;
@@ -173,28 +176,43 @@
     const section = document.createElement('section');
     section.setAttribute('aria-label','站內網站');
     section.style.cssText = 'position:fixed;inset-inline:0;bottom:0;z-index:30;display:flex;flex-direction:column;background:var(--bg,Canvas);color:var(--text,CanvasText)';
-    const tools = document.createElement('div');
-    tools.style.cssText = 'display:flex;justify-content:flex-end;gap:14px;padding:6px 14px;border-bottom:1px solid #8a8a8a44';
-    const direct = document.createElement('a');
-    direct.textContent = '在瀏覽器另開 ↗';
-    direct.href = destination.href;
-    direct.target = '_blank';
-    direct.rel = 'noopener noreferrer';
-    const closeButton = document.createElement('button');
-    closeButton.type = 'button';
-    closeButton.textContent = '關閉';
+    let closeButton;
+    if (!useHeaderMenu) {
+      const tools = document.createElement('div');
+      tools.style.cssText = 'display:flex;justify-content:flex-end;gap:14px;padding:6px 14px;border-bottom:1px solid #8a8a8a44';
+      const direct = document.createElement('a');
+      direct.textContent = '在瀏覽器另開 ↗';
+      direct.href = destination.href;
+      direct.target = '_blank';
+      direct.rel = 'noopener noreferrer';
+      closeButton = document.createElement('button');
+      closeButton.type = 'button';
+      closeButton.textContent = '關閉';
+      closeButton.onclick = dismiss;
+      tools.append(direct, closeButton);
+      section.append(tools);
+    }
     const frame = document.createElement('iframe');
     frame.title = trigger.textContent.trim() || '站內網站';
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
     frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-popups allow-downloads');
     frame.setAttribute('allow','fullscreen');
     frame.style.cssText = 'display:block;flex:1;min-height:0;width:100%;border:0;background:white';
-    tools.append(direct,closeButton);
-    section.append(tools,frame);
+    if (useHeaderMenu && !document.getElementById('appFrame')) {
+      // YA、SR 的既有 Header 選單從 appFrame 讀取站內開啟的網址。
+      frame.id = 'appFrame';
+      frame.dataset.src = destination.href;
+    }
+    section.append(frame);
     const oldOverflow = document.body.style.overflow;
     function position() { section.style.top = Math.max(0,header.getBoundingClientRect().bottom)+'px'; }
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(position);
-    function escape(event) { if (event.key === 'Escape') closeFrame(); }
+    function dismiss() {
+      const goBack = useHeaderMenu && history.state?.clcAppEntriesFrame;
+      closeFrame();
+      if (goBack) history.back();
+    }
+    function escape(event) { if (event.key === 'Escape') dismiss(); }
     function closeFrame() {
       section.remove();
       document.body.style.overflow = oldOverflow;
@@ -205,15 +223,22 @@
       if (trigger.isConnected) trigger.focus();
     }
     openFrame = closeFrame;
-    closeButton.onclick = closeFrame;
     position();
     observer?.observe(header);
     window.addEventListener('resize',position);
     document.addEventListener('keydown',escape);
     document.body.style.overflow = 'hidden';
-    document.body.append(section);
+    if (useHeaderMenu) {
+      // 讓手機的返回鍵先關閉內嵌頁，原本站首頁仍在上一筆紀錄。
+      if (!history.state?.clcAppEntriesFrame) {
+        try { history.pushState({ ...history.state, clcAppEntriesFrame:true }, ''); } catch (_) {}
+      }
+      window.addEventListener('popstate',closeFrame);
+    }
     frame.src = destination.href;
-    closeButton.focus();
+    document.body.append(section);
+    section.tabIndex = -1;
+    (closeButton || section).focus({ preventScroll:true });
     return true;
   }
 
