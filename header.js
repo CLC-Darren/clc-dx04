@@ -520,6 +520,9 @@ document.addEventListener('DOMContentLoaded', renderHeaderComponent);
       // 分享的連結不帶 LF App 的返回狀態。
       if (u.searchParams.has('lfhome')) u.searchParams.delete('lfhome');
     }
+    const lfPath = site && site[1].toLowerCase() === 'lf' ? site[2] || '/' :
+      u.origin === ORIGINAL_HOSTS.lf ? u.pathname : '';
+    if (/^\/(?:index(?:\.html)?)?$/.test(lfPath)) return 'https://' + DX_HOST + '/lf/' + u.search + u.hash;
     if (site) return ORIGINAL_HOSTS[site[1].toLowerCase()] + (site[2] || '/') + u.search + u.hash;
     return u.href;
   }
