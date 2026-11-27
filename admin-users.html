@@ -37,7 +37,8 @@
 <div class="dx-tabs" role="tablist"><button type="button" role="tab" aria-selected="true" data-tab="users">👤 權限管理</button><button type="button" role="tab" aria-selected="false" data-tab="security">🔒 休眠與登出</button></div>
 <div id="tabUsers"><p class="text-sm text-slate-400">新增 DX04 授權管理員。新增者需使用相同 Google Email 登入；此處不會建立 Google 密碼或寄送邀請信。</p>
 <div id="access" class="rounded-xl p-4 border border-slate-700 text-sm">正在驗證管理員身分…</div>
-<section id="mainPanel" class="hidden space-y-5"><div id="viewerNote" class="hidden rounded-xl p-3 border border-sky-500/30 bg-sky-500/10 text-sm text-sky-300">👁️ 目前為唯讀檢視權限：可查看管理員名單，無法新增或修改。</div><form id="addForm" class="rounded-xl border border-slate-700 p-4 space-y-3"><h2 class="font-bold">新增管理員</h2><label class="text-sm block">Google 帳號 Email<input class="field mt-1" id="newEmail" type="email" placeholder="name@example.com" required></label><label class="text-sm block">權限等級<select class="field mt-1" id="newRole"><option value="admin">管理員（可編輯）</option><option value="viewer">檢視者（唯讀，可看後台但不能修改）</option></select></label><button class="primary" type="submit">新增管理員</button></form>
+<section id="mainPanel" class="hidden space-y-5"><div id="viewerNote" class="hidden rounded-xl p-3 border border-sky-500/30 bg-sky-500/10 text-sm text-sky-300">👁️ 目前為唯讀檢視權限：可查看管理員名單，無法新增或修改。</div><form id="addForm" class="rounded-xl border border-slate-700 p-4 space-y-3"><h2 class="font-bold">新增管理員</h2><label class="text-sm block">Google 帳號 Email<input class="field mt-1" id="newEmail" type="email" placeholder="name@example.com" required></label>
+        <label class="text-sm block">姓名（選填）<input class="field mt-1" id="newName" type="text" maxlength="100" autocomplete="off" placeholder="可於登入後帶入 Google 姓名"></label><label class="text-sm block">權限等級<select class="field mt-1" id="newRole"><option value="admin">管理員（可編輯）</option><option value="viewer">檢視者（唯讀，可看後台但不能修改）</option></select></label><button class="primary" type="submit">新增管理員</button></form>
 <section class="rounded-xl border border-slate-700 p-4"><div class="flex items-center justify-between gap-3 mb-3"><h2 class="font-bold">管理員名單</h2><span id="usersCount" class="text-xs text-slate-400"></span></div><p id="usersListStatus" role="status" aria-live="polite" class="text-xs text-slate-400 mb-3"></p><div id="usersList" class="space-y-2 text-sm"></div></section>
 </section></div>
 <div id="tabSecurity" class="hidden">
@@ -55,4 +56,4 @@
   </form>
 </div>
 </main>
-<script src="clc-sso.js?v=20261122-swipe"></script><script src="header.js?v=20261124-acct"></script><script src="admin-users.js?v=20261117-mobilesec"></script></body></html>
+<script src="clc-sso.js?v=20261122-swipe"></script><script src="header.js?v=20261124-acct-names"></script><script src="admin-users.js?v=20261126-names"></script></body></html>

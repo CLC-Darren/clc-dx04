@@ -31,6 +31,26 @@ service cloud.firestore {
     }
 
     // ---------- 管理員名單 ----------
+    function validAccountName(data) {
+      return data.keys().hasOnly(['name'])
+        && data.name is string && data.name.size() <= 100;
+    }
+
+    // Editable name is stored independently of the account's permissions.
+    match /admin_user_names/{email} {
+      allow list: if isAdmin() || isViewer();
+      allow get: if isAdmin() || isViewer()
+        || (signedIn() && myEmail() == email && (isAdmin() || isViewer()));
+      allow create: if email == email.lower() && validAccountName(request.resource.data)
+        && (isBootstrapId(email) || existsAfter(/databases/$(database)/documents/admin_users/$(email)))
+        && (isAdmin() || (signedIn() && myEmail() == email && (isAdmin() || isViewer())
+          && request.auth.token.firebase.sign_in_provider == 'google.com'
+          && request.resource.data.name == request.auth.token.get('name', '')
+          && request.resource.data.name.size() > 0));
+      allow update: if isAdmin() && validAccountName(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
     match /admin_users/{email} {
       // 登入時需要讀「自己的」文件來判斷權限；名單列表只有管理員 / 檢視者可讀。
       allow get: if signedIn() && (myEmail() == email || isAdmin() || isViewer());

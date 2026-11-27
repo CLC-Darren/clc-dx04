@@ -26,6 +26,41 @@
     return rows;
   }
 
+  async function createWithName(ref, data) {
+    const name = $('newName').value.trim();
+    if (!name) return ref.set(data);
+    const batch = window.db.batch();
+    batch.set(ref, data);
+    batch.set(window.db.collection('admin_user_names').doc(ref.id), { name });
+    await batch.commit();
+  }
+
+  async function deleteWithName(ref) {
+    if (!accountNames) return ref.delete();
+    const batch = window.db.batch();
+    batch.delete(ref);
+    batch.delete(window.db.collection('admin_user_names').doc(ref.id));
+    await batch.commit();
+  }
+
+  let accountNames = null;
+  async function loadAccountNames() {
+    try {
+      const snap = await window.db.collection('admin_user_names').get();
+      accountNames = new Map(snap.docs.map(doc => [doc.id, doc.data().name]));
+    } catch (err) {
+      accountNames = null;
+      console.warn('無法讀取姓名備註', err);
+    }
+  }
+
+  function nameMarkup(email, editable) {
+    if (!accountNames) return '';
+    const name = accountNames.get(email) || '';
+    return `<div class="text-sm break-words">姓名：${esc(name || '未填寫')}
+      ${editable ? `<button type="button" class="rounded-md border px-2 py-1 text-xs" data-edit-name="${esc(email)}">編輯姓名</button>` : ''}</div>`;
+  }
+
   function showRows(records, loaded) {
     const rows = baseRows(records, loaded);
     const editable = loaded && canEdit;
@@ -35,6 +70,7 @@
       return `<div class="rounded-xl border border-slate-700 p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div class="min-w-0">
           <div class="font-semibold break-all">${esc(u.email)}</div>
+          ${nameMarkup(u.email, editable)}
           <div class="text-xs text-slate-400 mt-1">${u.bootstrap ? '🔒 Superuser · 永久保留（不可刪除、不可降權）' : ((u.role==='viewer'?'檢視者（唯讀）':'管理員')+(active?' · 已啟用':' · 已停用'))}</div>
         </div>
         ${u.bootstrap?'':`<div class="flex flex-wrap items-center gap-2 sm:justify-end"><button type="button" class="rounded-md px-2.5 py-1.5 border border-slate-600 text-xs text-teal-300" data-role="${esc(u.email)}" ${editable?'':'disabled'}>${u.role==='viewer'?'改為管理員':'改為檢視者'}</button><button type="button" class="rounded-md px-2.5 py-1.5 border border-slate-600 text-xs ${active?'text-rose-400':'text-emerald-400'}" data-toggle="${esc(u.email)}" ${editable?'':'disabled'}>${active?'停用':'啟用'}</button><button type="button" class="rounded-md px-2.5 py-1.5 border border-slate-600 text-xs text-rose-400" data-force="${esc(u.email)}" ${editable?'':'disabled'} title="這個帳號在所有裝置上登出">強制登出</button><button type="button" class="rounded-md px-2.5 py-1.5 border border-rose-700/70 text-xs text-rose-400 hover:bg-rose-500/10" data-delete="${esc(u.email)}" ${editable?'':'disabled'} title="永久移除 ${esc(u.email)} 的管理員權限">刪除</button></div>`}
@@ -57,7 +93,7 @@
       busy=true;el.disabled=true;
       $('usersListStatus').textContent=`正在刪除 ${email}…`;
       try {
-        await window.db.collection('admin_users').doc(email).delete();
+        await deleteWithName(window.db.collection('admin_users').doc(email));
         await render();
         $('usersListStatus').textContent=`已刪除 ${email} 的管理員設定。`;
       }catch(e){
@@ -112,6 +148,7 @@
     $('usersListStatus').textContent='正在讀取 Firestore 管理員名單…';
     try {
       const snap=await window.db.collection('admin_users').get();
+      await loadAccountNames();
       const records=new Map(snap.docs.map(d=> {
         const email=d.id.trim().toLowerCase();
         const data = d.data() || {};
@@ -126,6 +163,23 @@
   }
 
   document.addEventListener('DOMContentLoaded',()=>{
+    $('usersList').addEventListener('click', async event => {
+      const button = event.target.closest('[data-edit-name]');
+      if (!button || !accountNames || !canEdit || busy) return;
+      const email = button.dataset.editName;
+      const name = prompt('姓名', accountNames.get(email) || '');
+      if (name === null) return;
+      const value = name.trim();
+      if (value.length > 100) { alert('姓名最多 100 個字元。'); return; }
+      button.disabled = true;
+      try {
+        await window.db.collection('admin_user_names').doc(email).set({ name: value });
+        await render();
+      } catch (err) {
+        alert('姓名儲存失敗：' + err.message);
+        button.disabled = false;
+      }
+    });
     $('addForm').addEventListener('submit',async event=>{
       event.preventDefault();
       if(busy || !canEdit)return;
@@ -139,8 +193,9 @@
         const old=await ref.get();
         if(old.exists){alert('管理員已存在，請在下方名單啟用或調整權限。');return;}
         const newRole=$('newRole').value==='viewer'?'viewer':'admin';
-        await ref.set({role:newRole,active:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+        await createWithName(ref, {role:newRole,active:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
         input.value='';
+        $('newName').value='';
         await render();
         alert('管理員已新增：'+email+'\n對方可使用此 Google 帳號登入。');
       }catch(e){alert('新增失敗：'+e.message+'\n請先在 Firebase Console 發布 firestore.rules。');await render();}
