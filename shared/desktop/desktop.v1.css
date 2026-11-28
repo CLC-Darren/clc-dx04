@@ -11,6 +11,7 @@
 .dk-root .dk-app a, .dk-root .dk-app img { -webkit-user-drag:none; -webkit-touch-callout:none; }
 .dk-root .dk-card textarea, .dk-root .dk-card input, .dk-root .dk-card [contenteditable] { -webkit-user-select:text; user-select:text; }
 .dk-root .grid-stack-item.ui-draggable-dragging > .grid-stack-item-content { cursor:grabbing; opacity:.9; }
+#lfApps .dk-app.ui-draggable-dragging > .grid-stack-item-content { background:transparent; box-shadow:none; opacity:1; }
 .dk-root > .grid-stack-placeholder > .placeholder-content { border:2px dashed var(--border, rgba(127,127,127,.4)); border-radius:18px; background:transparent; }
 /* 搜尋：不符合的變淡 */
 .dk-searching .dk-dim { opacity:.15; pointer-events:none; transition:opacity .15s; }
