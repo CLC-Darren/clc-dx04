@@ -40,7 +40,7 @@ dialog.dk-confirm {
   --dk-dialog-primary:var(--pine, #007e8a);
   --dk-dialog-danger:var(--danger, #b5483d);
   box-sizing:border-box; width:min(92vw, 400px); max-height:calc(100dvh - 24px);
-  overflow:auto; overscroll-behavior:contain; padding:0; border:0; border-radius:20px;
+  overflow:auto; overscroll-behavior:contain; margin:auto; padding:0; border:0; border-radius:20px;
   background:var(--dk-dialog-surface); color:var(--dk-dialog-text); text-align:left;
 }
 .dark dialog.dk-confirm {
